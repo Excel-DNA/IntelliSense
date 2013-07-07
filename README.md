@@ -28,9 +28,11 @@ public static double AddThem(
 }
 ```
 we get both the function description
+
 ![Function Description](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/FunctionDescription.PNG)
 
-and argument help
+and when selecting the function, we get argument help
+
 ![Argument Help](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/ArgumentHelp.PNG)
 
 Future direction
@@ -41,8 +43,8 @@ The intention is that the Excel-DNA IntelliSense helper could be used both to ad
 
 Support and participation
 -------------------------
-"We accept pull requests" ;-)
-Please log bugs and feature suggestions on the GitHub 'Issues' page.
+"We accept pull requests" ;-) Please log bugs and feature suggestions on the GitHub 'Issues' page.
+
 For general comments or discussion, use the Excel-DNA forum at https://groups.google.com/forum/#!forum/exceldna .
 
 License
