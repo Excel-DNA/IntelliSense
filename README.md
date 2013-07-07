@@ -43,6 +43,8 @@ The intention is that the Excel-DNA IntelliSense helper could be used both to ad
 
 Support and participation
 -------------------------
+The current solution is built with Visual Studio 2012.
+
 "We accept pull requests" ;-) Please log bugs and feature suggestions on the GitHub 'Issues' page.
 
 For general comments or discussion, use the Excel-DNA forum at https://groups.google.com/forum/#!forum/exceldna .
@@ -53,6 +55,8 @@ This project is published under the standard MIT license.
 
 
   Govert van Drimmelen
+  
   govert@icon.co.za
+  
   8 July 2013
   
