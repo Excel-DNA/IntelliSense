@@ -28,10 +28,10 @@ public static double AddThem(
 }
 ```
 we get both the function description
-https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/FunctionDescription.png
+![Function Description](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/FunctionDescription.PNG)
 
 and argument help
-https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/ArgumentHelp.png
+![Argument Help](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/ArgumentHelp.PNG)
 
 Future direction
 ----------------
