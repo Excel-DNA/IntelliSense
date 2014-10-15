@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
-using System.Windows.Automation.Text;
 using Point = System.Drawing.Point;
 
 namespace ExcelDna.IntelliSense
@@ -16,6 +15,7 @@ namespace ExcelDna.IntelliSense
         public IntPtr FormulaBarWindow { get; private set; }
         public IntPtr InCellEditWindow { get; private set; }
         public IntPtr PopupListWindow { get; private set; }
+        public IntPtr PopupListList { get; private set; }
 
         public event EventHandler FormulaBarWindowChanged = delegate { };
         public event EventHandler FormulaBarFocused = delegate { };
@@ -23,6 +23,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler InCellEditFocused = delegate { };
         public event EventHandler MainWindowChanged = delegate { };
         public event EventHandler PopupListWindowChanged = delegate { };   // Might start off with nothing. Changes at most once.
+        public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.
 
         public WindowWatcher()
         {
@@ -34,9 +35,19 @@ namespace ExcelDna.IntelliSense
                 WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS);
         }
 
-        public void Initialize()
+        public void TryInitialize()
         {
-            AutomationElement focused = AutomationElement.FocusedElement;
+
+            AutomationElement focused;
+            try 
+            {
+                focused = AutomationElement.FocusedElement;
+            }
+            catch (ArgumentException aex)
+            {
+                Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
+                return;
+            }
             AutomationElement current = focused;
 
             TreeWalker treeWalker = TreeWalker.ControlViewWalker;
@@ -52,7 +63,7 @@ namespace ExcelDna.IntelliSense
         void WindowStateChange(IntPtr hWinEventHook, WinEventHook.WinEvent eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
             // This runs on the main application thread.
-            // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
+            Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
             switch (Win32Helper.GetClassName(hWnd))
             {
                 case _classMain:
@@ -181,17 +192,16 @@ namespace ExcelDna.IntelliSense
     {
         AutomationElement _formulaBar;
         AutomationElement _inCellEdit;
-        TextPattern _activeTextPattern;
 
         public event EventHandler StateChanged = delegate { };
 
         public bool IsEditingFormula { get; set; }
-        public string CurrentFormula { get; set; }
-        public string CurrentPrefix { get; set; }
+//        public string CurrentFormula { get; set; } // Easy to get, but we don't need it
+        public string CurrentPrefix { get; set; }    // Null if not editing
         // We don't really care whether it is the formula bar or in-cell, 
         // we just need to get the right window handle 
         public Rect EditWindowBounds { get; set; }
-        public System.Drawing.Point CaretPosition { get; set; }
+        public Point CaretPosition { get; set; }
 
         public FormulaEditWatcher(WindowWatcher windowWatcher)
         {
@@ -266,7 +276,6 @@ namespace ExcelDna.IntelliSense
 
         void FocusChanged(object sender, EventArgs e)
         {
-            _activeTextPattern = null;
             UpdateEditState();
             UpdateFormula();
         }
@@ -274,15 +283,25 @@ namespace ExcelDna.IntelliSense
         void UpdateEditState()
         {
             // TODO: This is not right yet - the list box might have the focus...
-
-            if (_formulaBar != null && _formulaBar.Equals(AutomationElement.FocusedElement))
+            AutomationElement focused;
+            try
+            {
+                focused = AutomationElement.FocusedElement;
+            }
+            catch (ArgumentException aex)
+            {
+                Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
+                // Not sure why I get this - sometimes with startup screen
+                return;
+            }
+            if (_formulaBar != null && _formulaBar.Equals(focused))
             {
                 EditWindowBounds = (Rect)_formulaBar.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
                 IntPtr hwnd = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
                 var pt = Win32Helper.GetClientCursorPos(hwnd);
-                CaretPosition = new System.Drawing.Point(pt.X, pt.Y);
+                CaretPosition = new Point(pt.X, pt.Y);
             }
-            else if (_inCellEdit != null && _inCellEdit.Equals(AutomationElement.FocusedElement))
+            else if (_inCellEdit != null && _inCellEdit.Equals(focused))
             {
                 EditWindowBounds = (Rect)_inCellEdit.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
                 IntPtr hwnd = (IntPtr)(int)_inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
@@ -291,7 +310,7 @@ namespace ExcelDna.IntelliSense
             }
             else
             {
-                CurrentFormula = null;
+                // CurrentFormula = null;
                 CurrentPrefix = null;
                 Debug.Print("Don't have a focused text box to update.");
             }
@@ -303,86 +322,16 @@ namespace ExcelDna.IntelliSense
             StateChanged(this, EventArgs.Empty);
         }
 
-        void UpdateActivePattern()
-        {
-            if (_formulaBar != null && _formulaBar.Equals(AutomationElement.FocusedElement))
-            {
-                Debug.Print("FormulaBar has focus - ClassName: " + _formulaBar.GetCurrentPropertyValue(AutomationElement.ClassNameProperty));
-                var supportsText = (bool)_formulaBar.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
-                if (!supportsText)
-                {
-                    Debug.Print("No support for TextPattern in FormulaBar!?");
-                    return;
-                }
-                _activeTextPattern = _formulaBar.GetCurrentPattern(TextPattern.Pattern) as TextPattern;
-            }
-            else if (_inCellEdit != null /* && _inCellEdit.Equals(AutomationElement.FocusedElement)*/)
-            {
-
-                Debug.Print("InCell has focus - ClassName: " + _inCellEdit.GetCurrentPropertyValue(AutomationElement.ClassNameProperty));
-                Debug.Print("Checking InCellEdit text pattern availability property on thread {0}", Thread.CurrentThread.ManagedThreadId);
-
-                var supportsText = (bool)_inCellEdit.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
-                if (!supportsText)
-                {
-                    // Attempt to refresh InCell Automation Element. It is half-baked.
-                    IntPtr hwndInCell = (IntPtr)(int)_inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                    Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
-                    _inCellEdit = AutomationElement.FromHandle(hwndInCell);
-                    supportsText = (bool)_inCellEdit.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
-                }
-
-                if (!supportsText)
-                {
-                    Debug.Print("Could not fix InCellEdit yet... Abandoning update");
-                    return;
-                }
-                _activeTextPattern = _inCellEdit.GetCurrentPattern(TextPattern.Pattern) as TextPattern;
-            }
-            else
-            {
-                Debug.Print("Don't have a focused text box to update.");
-                return;
-            }
-
-        }
-
         void UpdateFormula()
         {
-            UpdateActivePattern();
-            if (_activeTextPattern == null) return;
-            try
-            {
-                TextPatternRange fullRange = _activeTextPattern.DocumentRange;
-                CurrentFormula = fullRange.GetText(-1); // Get all text
-
-                TextPatternRange[] selections = _activeTextPattern.GetSelection();
-                if (selections.Length == 1)
-                {
-                    TextPatternRange curSel = selections[0];
-                    TextPatternRange selClone = curSel.Clone();
-                    selClone.MoveEndpointByRange(TextPatternRangeEndpoint.Start, fullRange, TextPatternRangeEndpoint.Start);
-                    CurrentPrefix = selClone.GetText(-1);
-
-                    Debug.Print("Formula: {0}, Prefix: {1}", CurrentFormula, CurrentPrefix);
-                    StateChanged(this, EventArgs.Empty);
-                    // Other bits in Win7 api:
-                    //    // UIA_CaretPositionAttributeId
-                    //    // UIA_SelectionActiveEndAttributeId
-                    //    // UIA_IsActiveAttributeId
-                }
-            }
-            catch (ElementNotEnabledException)
-            {
-                Debug.Print("Element not enabled!?");
-                StateChanged(this, EventArgs.Empty);
-            }
+//            CurrentFormula = "";
+            CurrentPrefix = XlCall.GetFormulaEditPrefix();
+            StateChanged(this, EventArgs.Empty);
         }
 
         public void Dispose()
         {
             Debug.Print("Disposing FormulaEditWatcher");
-            _activeTextPattern = null;
             if (_formulaBar != null)
             {
                 Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
@@ -424,17 +373,22 @@ namespace ExcelDna.IntelliSense
         // TODO: This should be exposed as an event and popup resize should be elsewhere
         private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
         {
+            Debug.WriteLine(">>> PopupList structure changed - " + e.StructureChangeType.ToString());
             // CONSIDER: Others too?
             if (e.StructureChangeType == StructureChangeType.ChildAdded)
             {
                 var functionList = sender as AutomationElement;
+
                 var listRect = (Rect)functionList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
 
                 var listElement = functionList.FindFirst(TreeScope.Children, Condition.TrueCondition);
                 if (listElement != null)
                 {
                     _popupListList = listElement;
-                    // TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
+
+                    // TODO: Move this code!
+                    TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
+                    TestMoveWindow(functionList, 0,0);
 
                     var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
                     Automation.AddAutomationEventHandler(

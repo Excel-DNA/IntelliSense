@@ -61,6 +61,7 @@
     <Compile Include="Watchers.cs" />
     <Compile Include="Win32Helper.cs" />
     <Compile Include="WinEvents.cs" />
+    <Compile Include="XlCall.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="ExcelDna.IntelliSense.dna">

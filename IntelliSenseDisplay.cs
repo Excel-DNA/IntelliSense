@@ -26,10 +26,11 @@ namespace ExcelDna.IntelliSense
     {
         static IntelliSenseDisplay _current;
         SynchronizationContext _syncContextMain;
-        SynchronizationContext _syncContextAuto;
+        SynchronizationContext _syncContextAuto;    // On Automation thread.
+        
+        // NOTE: Add for separate UI Automation Thread
         Thread _threadAuto;
         
-        // readonly Control _view;
         readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap;
 
         WindowWatcher _windowWatcher;
@@ -50,13 +51,12 @@ namespace ExcelDna.IntelliSense
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
             
-            // TODO: sort out what to do with style.
-            // _view = view;
-
             // NOTE: Add for separate UI Automation Thread
-            //_threadAuto = new Thread(RunUIAutomation);
-            //_threadAuto.Start();
-            RunUIAutomation();
+            _threadAuto = new Thread(RunUIAutomation);
+            _threadAuto.Start();
+
+            // NOTE: For running UI Automation Thread on main Excel thread
+            //RunUIAutomation();
         }
 
         public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
@@ -68,8 +68,8 @@ namespace ExcelDna.IntelliSense
         void RunUIAutomation()
         {
             // NOTE: Add for separate UI Automation Thread
-            //_syncContextAuto = new WindowsFormsSynchronizationContext();
-            _syncContextAuto = _syncContextMain;
+            _syncContextAuto = new WindowsFormsSynchronizationContext();
+            //_syncContextAuto = _syncContextMain;
 
             _windowWatcher = new WindowWatcher();
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher);
@@ -80,7 +80,6 @@ namespace ExcelDna.IntelliSense
                 {
                     Debug.Print("### Thread calling MainWindowChanged event: " + Thread.CurrentThread.ManagedThreadId);
                     _syncContextMain.Post(delegate { MainWindowChanged(); }, null);
-                    //_view.Invoke((Action)MainWindowChanged);
                     // MainWindowChanged();
                 };
 
@@ -88,21 +87,19 @@ namespace ExcelDna.IntelliSense
                 delegate
                 {
                     _syncContextMain.Post(delegate { PopupListSelectedItemChanged(); }, null);
-                    //_view.Invoke((Action)PopupListSelectedItemChanged);
                     // PopupListSelectedItemChanged();
                 };
             _formulaEditWatcher.StateChanged +=
                 delegate
                 {
                     _syncContextMain.Post(delegate { FormulaEditStateChanged(); }, null);
-                    //_view.Invoke((Action)FormulaEditStateChanged);
                     // FormulaEditStateChanged();
             
                 };
 
-            _windowWatcher.Initialize();
+            _windowWatcher.TryInitialize();
             // NOTE: Add for separate UI Automation Thread
-            // Application.Run();
+             Application.Run();
         }
 
         void MainWindowChanged()
@@ -164,10 +161,11 @@ namespace ExcelDna.IntelliSense
         }
 
         // TODO: Need better formula parsing story here
+        // Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
         void FormulaEditStateChanged()
         {
             // Check for watcher already disposed 
-            // CONSDIER: How to manage threading with disposal...?
+            // CONSIDER: How to manage threading with disposal...?
             if (_formulaEditWatcher == null) return;
             Debug.Print("^^^ FormulaEditStateChanged. CurrentPrefix: " + _formulaEditWatcher.CurrentPrefix);
             if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
@@ -271,15 +269,23 @@ namespace ExcelDna.IntelliSense
             Debug.Print("Shutdown!");
             if (_current != null)
             {
-                _current.Dispose();
+                try
+                {
+                    _current.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print("!!! Error during Shutdown: " + ex);
+                }
+                
                 _current = null;
             }
         }
 
         public void Dispose()
         {
-            // _current._syncContextAuto.Send(delegate
-            //    {
+            _current._syncContextAuto.Send(delegate
+                {
                     if (_windowWatcher != null)
                     {
                         _windowWatcher.Dispose();
@@ -295,7 +301,7 @@ namespace ExcelDna.IntelliSense
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
-            //    }, null);
+                }, null);
 
             _syncContextMain.Send(delegate
                 {
@@ -312,8 +318,8 @@ namespace ExcelDna.IntelliSense
                 }, null);
 
             // NOTE: Add for separate UI Automation Thread
-            // _threadAuto.Abort();
-            // _threadAuto = null;
+            _threadAuto.Abort();
+            _threadAuto = null;
             _syncContextAuto = null;
             _syncContextMain = null;
         }
