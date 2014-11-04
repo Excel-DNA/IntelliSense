@@ -215,7 +215,6 @@ namespace ExcelDna.IntelliSense
                         }});
         }
 
-        // TODO: Revisit this to fix up edge cases
         FormattedText GetFunctionIntelliSense(IntelliSenseFunctionInfo functionInfo, int currentArgIndex)
         {
             var nameLine = new TextLine { new TextRun { Text = functionInfo.FunctionName + "(" } };
@@ -224,15 +223,30 @@ namespace ExcelDna.IntelliSense
                 var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.ArgumentName).ToArray();
                 if (argNames.Length >= 1)
                 {
-                    nameLine.Add(new TextRun { Text = string.Join(", ", argNames) + ", " });
+                    nameLine.Add(new TextRun { Text = string.Join(", ", argNames) });
                 }
 
-                nameLine.Add(new TextRun { Text = functionInfo.ArgumentList[currentArgIndex].ArgumentName, Style = System.Drawing.FontStyle.Bold });
-                
-                argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.ArgumentName).ToArray();
-                if (argNames.Length >= 1)
+                if (functionInfo.ArgumentList.Count > currentArgIndex)
                 {
-                    nameLine.Add(new TextRun { Text = ", " + string.Join(", ", argNames) });
+                    if (argNames.Length >= 1)
+                    {
+                        nameLine.Add(new TextRun
+                        {
+                            Text = ", "
+                        });
+                    }
+
+                    nameLine.Add(new TextRun
+                    {
+                        Text = functionInfo.ArgumentList[currentArgIndex].ArgumentName,
+                        Style = System.Drawing.FontStyle.Bold
+                    });
+
+                    argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.ArgumentName).ToArray();
+                    if (argNames.Length >= 1)
+                    {
+                        nameLine.Add(new TextRun {Text = ", " + string.Join(", ", argNames)});
+                    }
                 }
             }
             nameLine.Add(new TextRun { Text = ")" });
@@ -240,7 +254,7 @@ namespace ExcelDna.IntelliSense
             var descriptionLines = GetFunctionDescription(functionInfo);
             
             var formattedText = new FormattedText { nameLine, descriptionLines };
-            if (functionInfo.ArgumentList.Count > 0)
+            if (functionInfo.ArgumentList.Count > currentArgIndex)
             {
                 formattedText.Add(GetArgumentDescription(functionInfo.ArgumentList[currentArgIndex]));
             }
