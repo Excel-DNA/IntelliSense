@@ -33,7 +33,9 @@ namespace TestAddIn
         IntelliSenseDisplay _id;
         public void AutoOpen()
         {
-            _id = new IntelliSenseDisplay();
+            //_id = new IntelliSenseDisplay();
+            _id = CrossAppDomainSingleton.GetOrCreate();
+            
             _shutdownHelper = new ShutdownHelper();
             ExcelComAddInHelper.LoadComAddIn(_shutdownHelper);
 
