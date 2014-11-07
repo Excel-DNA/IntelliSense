@@ -8,8 +8,10 @@ using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
+    [Serializable]
     class IntelliSenseFunctionInfo
     {
+        [Serializable]
         public class ArgumentInfo
         {
             public string ArgumentName;
@@ -22,7 +24,7 @@ namespace ExcelDna.IntelliSense
 
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
-    class IntelliSenseDisplay : IDisposable
+    class IntelliSenseDisplay : MarshalByRefObject, IDisposable
     {
         static IntelliSenseDisplay _current;
         SynchronizationContext _syncContextMain;
