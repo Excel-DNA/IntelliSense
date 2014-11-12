@@ -20,6 +20,7 @@ namespace ExcelDna.IntelliSense
         public string FunctionName;
         public string Description;
         public List<ArgumentInfo> ArgumentList;
+        public string XllPath;
     }
 
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
@@ -43,6 +44,8 @@ namespace ExcelDna.IntelliSense
         ToolTipForm _descriptionToolTip;
         ToolTipForm _argumentsToolTip;
         
+        private readonly List<string> _addInReferences;
+        
         public IntelliSenseDisplay()
         {
             Debug.Print("### Thread creating IntelliSenseDisplay: " + Thread.CurrentThread.ManagedThreadId);
@@ -52,6 +55,8 @@ namespace ExcelDna.IntelliSense
             // TODO: Need a separate thread for UI Automation Client - event subscriptions should not be on main UI thread.
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
+            
+            _addInReferences = new List<string>();
             
             // NOTE: Add for separate UI Automation Thread
             _threadAuto = new Thread(RunUIAutomation);
@@ -296,6 +301,29 @@ namespace ExcelDna.IntelliSense
                 
                 _current = null;
             }
+        }
+        
+        public void AddReference(string xllName)
+        {
+            _addInReferences.Add(xllName);
+        }
+
+        public void RemoveReference(string xllName)
+        {
+            List<string> functionsToRemove =
+                _functionInfoMap.Where(p => p.Value.XllPath == xllName).Select(p => p.Key).ToList();
+
+            foreach (string func in functionsToRemove)
+            {
+                _functionInfoMap.Remove(func);
+            }
+
+            _addInReferences.Remove(xllName);
+        }
+
+        public bool IsUsed()
+        {
+            return _addInReferences.Count > 0;
         }
 
         public void Dispose()
