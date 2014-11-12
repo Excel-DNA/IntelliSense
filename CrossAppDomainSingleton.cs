@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace ExcelDna.IntelliSense
@@ -7,21 +8,30 @@ namespace ExcelDna.IntelliSense
     {
         private const string AppDomainName = "ExcelDNASingletonAppDomain";
 
-        private IntelliSenseDisplay intelliSenseDisplay;
+        private static CrossAppDomainSingleton _instance;
+
+        private IntelliSenseDisplay _intelliSenseDisplay;
         
         // Note : it might be useful in the future to know what xll created the IntelliSenseDisplay instance
         // Not used yet.
-        private string intelliSenseDisplayDomain;
+        private string _intelliSenseDisplayDomain;
 
         public IntelliSenseDisplay IntelliSenseDisplay
         {
-            get { return intelliSenseDisplay; }
+            get { return _intelliSenseDisplay; }
         }
 
         public void SetIntelliSenseDisplay(IntelliSenseDisplay intelliSense, string appDomainName)
         {
-            intelliSenseDisplay = intelliSense;
-            intelliSenseDisplayDomain = appDomainName;
+            _intelliSenseDisplay = intelliSense;
+            _intelliSenseDisplayDomain = appDomainName;
+        }
+
+        public void Reset()
+        {
+            IntelliSenseDisplay.Shutdown();
+            _intelliSenseDisplay = null;
+            _intelliSenseDisplayDomain = null;
         }
 
         private static AppDomain GetAppDomain(string friendlyName)
@@ -68,31 +78,44 @@ namespace ExcelDna.IntelliSense
 
             AppDomain appDomain = GetAppDomain(AppDomainName);
 
+            var xllName = Win32Helper.GetXllName();
+
             if (appDomain == null)
             {
                 AppDomainSetup domaininfo = new AppDomainSetup();
-                domaininfo.ApplicationBase = Environment.CurrentDirectory;
-
+                domaininfo.ApplicationBase = Path.GetDirectoryName(xllName);
                 appDomain = AppDomain.CreateDomain(AppDomainName, AppDomain.CurrentDomain.Evidence, domaininfo);
             }
 
-            CrossAppDomainSingleton instance = (CrossAppDomainSingleton)appDomain.GetData(type.FullName);
+            _instance = (CrossAppDomainSingleton)appDomain.GetData(type.FullName);
 
-            if (instance == null)
+            if (_instance == null)
             {
-                instance = (CrossAppDomainSingleton)appDomain.CreateInstanceAndUnwrap(type.Assembly.FullName, type.FullName);
-                appDomain.SetData(type.FullName, instance);
+                _instance = (CrossAppDomainSingleton)appDomain.CreateInstanceAndUnwrap(type.Assembly.FullName, type.FullName);
+                appDomain.SetData(type.FullName, _instance);
             }
 
-            IntelliSenseDisplay intelliSense = instance.IntelliSenseDisplay;
+            IntelliSenseDisplay intelliSense = _instance.IntelliSenseDisplay;
 
             if (intelliSense == null)
             {
                 intelliSense = new IntelliSenseDisplay();
-                instance.SetIntelliSenseDisplay(intelliSense, AppDomain.CurrentDomain.FriendlyName);
+                _instance.SetIntelliSenseDisplay(intelliSense, AppDomain.CurrentDomain.FriendlyName);
             }
 
+            intelliSense.AddReference(xllName);
+
             return intelliSense;
+        }
+
+        public static void RemoveReference()
+        {
+            _instance.IntelliSenseDisplay.RemoveReference(Win32Helper.GetXllName());
+
+            if (!_instance.IntelliSenseDisplay.IsUsed())
+            {
+                _instance.Reset();
+            }
         }
     }
 }
