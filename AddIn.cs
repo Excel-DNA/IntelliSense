@@ -110,7 +110,7 @@ namespace TestAddIn
 
     //    public override void OnDisconnection(ExcelDna.Integration.Extensibility.ext_DisconnectMode RemoveMode, ref System.Array custom)
     //    {
-            IntelliSenseDisplay.Shutdown();
+    //        IntelliSenseDisplay.Shutdown();
     //    }
     //}
 
