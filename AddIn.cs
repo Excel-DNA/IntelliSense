@@ -29,23 +29,21 @@ namespace TestAddIn
 
     public class AddIn : IExcelAddIn
     {
-        ShutdownHelper _shutdownHelper;
+        //ShutdownHelper _shutdownHelper;
         IntelliSenseDisplay _id;
         public void AutoOpen()
         {
-            //_id = new IntelliSenseDisplay();
             _id = CrossAppDomainSingleton.GetOrCreate();
             
-            _shutdownHelper = new ShutdownHelper();
-            ExcelComAddInHelper.LoadComAddIn(_shutdownHelper);
+            //_shutdownHelper = new ShutdownHelper();
+            //ExcelComAddInHelper.LoadComAddIn(_shutdownHelper);
 
             RegisterIntellisense();
         }
 
         public void AutoClose()
         {
-            IntelliSenseDisplay.Shutdown();
-            _id.Dispose();
+            CrossAppDomainSingleton.RemoveReference();
         }
 
         void RegisterIntellisense()
@@ -80,6 +78,8 @@ namespace TestAddIn
 
         IntelliSenseFunctionInfo GetFunctionInfo(List<string> regInfo)
         {
+            var xllName = Win32Helper.GetXllName();
+            
             // name, category, helpTopic, argumentNames, [description], [argumentDescription_1] ... [argumentDescription_n]
             var funcName = regInfo[0];
             var funcDesc = regInfo.Count >= 5 ? regInfo[4] : (funcName + " function");
@@ -93,24 +93,25 @@ namespace TestAddIn
                         {
                             ArgumentName = argName,
                             Description = regInfo.Count >= 6 + i ? regInfo[5+i] : ""
-                        }))
+                        })),
+                XllPath = xllName
             };
             return funcInfo;
         }
     }
 
-    [ComVisible(true)]
-    public class ShutdownHelper : ExcelComAddIn
-    {
-        public override void OnConnection(object Application, ExcelDna.Integration.Extensibility.ext_ConnectMode ConnectMode, object AddInInst, ref System.Array custom)
-        {
-            Debug.Print("ShutdownHelper loaded.");
-        }
+    //[ComVisible(true)]
+    //public class ShutdownHelper : ExcelComAddIn
+    //{
+    //    public override void OnConnection(object Application, ExcelDna.Integration.Extensibility.ext_ConnectMode ConnectMode, object AddInInst, ref System.Array custom)
+    //    {
+    //        Debug.Print("ShutdownHelper loaded.");
+    //    }
 
-        public override void OnDisconnection(ExcelDna.Integration.Extensibility.ext_DisconnectMode RemoveMode, ref System.Array custom)
-        {
+    //    public override void OnDisconnection(ExcelDna.Integration.Extensibility.ext_DisconnectMode RemoveMode, ref System.Array custom)
+    //    {
             IntelliSenseDisplay.Shutdown();
-        }
-    }
+    //    }
+    //}
 
 }
