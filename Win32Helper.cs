@@ -87,10 +87,14 @@ namespace ExcelDna.IntelliSense
 
         static StringBuilder _buffer = new StringBuilder(65000);
 
+        public static string GetXllName()
+        {
+            return (string)typeof(DnaLibrary).GetProperty("XllPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).GetValue(null, null);
+        }
+
         public static IntPtr GetXllModuleHandle()
         {
-            var xllName = (string)typeof(DnaLibrary).GetProperty("XllPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).GetValue(null, null);
-            return GetModuleHandle(xllName);
+            return GetModuleHandle(GetXllName());
         }
 
         public static uint GetExcelProcessId()
