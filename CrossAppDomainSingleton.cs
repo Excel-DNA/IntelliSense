@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace ExcelDna.IntelliSense
 {
-    class CrossAppDomainSingleton : MarshalByRefObject
+    static class CrossAppDomainSingleton
     {
         private const string AppDomainName = "ExcelDNASingletonAppDomain";
 
