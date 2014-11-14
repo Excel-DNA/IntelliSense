@@ -79,7 +79,7 @@ namespace ExcelDna.IntelliSense
 
             if (!_intelliSenseDisplay.IsUsed())
             {
-                _intelliSenseDisplay.Shutdown();
+                IntelliSenseDisplay.Shutdown();
                 _intelliSenseDisplay = null;
             }
         }
