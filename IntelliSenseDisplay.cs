@@ -59,11 +59,17 @@ namespace ExcelDna.IntelliSense
             _addInReferences = new List<string>();
             
             // NOTE: Add for separate UI Automation Thread
-            _threadAuto = new Thread(RunUIAutomation);
-            _threadAuto.Start();
+            //_threadAuto = new Thread(RunUIAutomation);
+            //_threadAuto.Start();
 
             // NOTE: For running UI Automation Thread on main Excel thread
             //RunUIAutomation();
+        }
+        
+        public void SetXllOwner(string xllPath)
+        {
+            _threadAuto = new Thread(() => RunUIAutomation(xllPath));
+            _threadAuto.Start();
         }
 
         public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
@@ -72,41 +78,42 @@ namespace ExcelDna.IntelliSense
             _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
         }
 
-        void RunUIAutomation()
+        void RunUIAutomation(string xllPath)
         {
             // NOTE: Add for separate UI Automation Thread
             _syncContextAuto = new WindowsFormsSynchronizationContext();
             //_syncContextAuto = _syncContextMain;
 
-            _windowWatcher = new WindowWatcher();
+            _windowWatcher = new WindowWatcher(xllPath);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher);
             _popupListWatcher = new PopupListWatcher(_windowWatcher);
 
-            _windowWatcher.MainWindowChanged +=
-                delegate
-                {
-                    Debug.Print("### Thread calling MainWindowChanged event: " + Thread.CurrentThread.ManagedThreadId);
-                    _syncContextMain.Post(delegate { MainWindowChanged(); }, null);
-                    // MainWindowChanged();
-                };
-
-            _popupListWatcher.SelectedItemChanged +=
-                delegate
-                {
-                    _syncContextMain.Post(delegate { PopupListSelectedItemChanged(); }, null);
-                    // PopupListSelectedItemChanged();
-                };
-            _formulaEditWatcher.StateChanged +=
-                delegate
-                {
-                    _syncContextMain.Post(delegate { FormulaEditStateChanged(); }, null);
-                    // FormulaEditStateChanged();
-            
-                };
+            _windowWatcher.MainWindowChanged += OnMainWindowChanged;
+            _popupListWatcher.SelectedItemChanged += OnSelectedItemChanged;
+            _formulaEditWatcher.StateChanged += OnStateChanged;
 
             _windowWatcher.TryInitialize();
             // NOTE: Add for separate UI Automation Thread
              Application.Run();
+        }
+
+        private void OnMainWindowChanged(object sender, EventArgs args)
+        {
+            Debug.Print("### Thread calling MainWindowChanged event: " + Thread.CurrentThread.ManagedThreadId);
+            _syncContextMain.Post(delegate { MainWindowChanged(); }, null);
+            // MainWindowChanged();
+        }
+
+        private void OnSelectedItemChanged(object sender, EventArgs args)
+        {
+            _syncContextMain.Post(delegate { PopupListSelectedItemChanged(); }, null);
+            // PopupListSelectedItemChanged();
+        }
+
+        private void OnStateChanged(object sender, EventArgs args)
+        {
+            _syncContextMain.Post(delegate { FormulaEditStateChanged(); }, null);
+            // FormulaEditStateChanged();
         }
 
         void MainWindowChanged()
@@ -332,16 +339,19 @@ namespace ExcelDna.IntelliSense
                 {
                     if (_windowWatcher != null)
                     {
+                        _windowWatcher.MainWindowChanged -= OnMainWindowChanged;
                         _windowWatcher.Dispose();
                         _windowWatcher = null;
                     }
                     if (_formulaEditWatcher != null)
                     {
+                        _formulaEditWatcher.StateChanged -= OnStateChanged;
                         _formulaEditWatcher.Dispose();
                         _formulaEditWatcher = null;
                     }
                     if (_popupListWatcher != null)
                     {
+                        _popupListWatcher.SelectedItemChanged -= OnSelectedItemChanged;
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
