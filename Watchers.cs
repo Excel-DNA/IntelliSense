@@ -25,14 +25,14 @@ namespace ExcelDna.IntelliSense
         public event EventHandler PopupListWindowChanged = delegate { };   // Might start off with nothing. Changes at most once.
         public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.
 
-        public WindowWatcher()
+        public WindowWatcher(string xllName)
         {
             Debug.Print("### WindowWatcher created on thread: " + Thread.CurrentThread.ManagedThreadId);
 
             // Using WinEvents instead of Automation so that we can watch top-level changes, but only from the right process.
 
             _windowStateChangeHook = new WinEventHook(WindowStateChange,
-                WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS);
+                WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS, xllName);
         }
 
         public void TryInitialize()
