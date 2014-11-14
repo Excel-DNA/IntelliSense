@@ -60,18 +60,21 @@ namespace ExcelDna.IntelliSense
         readonly WinEventDelegate _procDelegate;
         readonly IntPtr _hWinEventHook;
 
-        public WinEventHook(WinEventDelegate handler, WinEvent eventMin, WinEvent eventMax)
+        public WinEventHook(WinEventDelegate handler, WinEvent eventMin, WinEvent eventMax, string xllPath)
         {
-            var xllModuleHandle = Win32Helper.GetXllModuleHandle();
+            // Note : could we use another handle than one of an xll ? 
+            // Thus we could avoid carrying the xll path.
+            // The events are still hooked after the xll has been unloaded.
+            var xllModuleHandle = Win32Helper.GetModuleHandle(xllPath);
             var excelProcessId = Win32Helper.GetExcelProcessId();
             _procDelegate = handler;
             _hWinEventHook = SetWinEventHook(eventMin, eventMax, xllModuleHandle, handler, excelProcessId, 0, SetWinEventHookFlags.WINEVENT_INCONTEXT);
         }
 
-        public WinEventHook(WinEventDelegate handler, WinEvent eventId)
-            : this(handler, eventId, eventId)
-        {
-        }
+        //public WinEventHook(WinEventDelegate handler, WinEvent eventId)
+        //    : this(handler, eventId, eventId)
+        //{
+        //}
 
         public void Stop()
         {
