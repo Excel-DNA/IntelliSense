@@ -6,6 +6,7 @@ namespace ExcelDna.IntelliSense
 {
     static class CrossAppDomainSingleton
     {
+        private const string SingletonName = "ExcelDNASingleton";
         private const string AppDomainName = "ExcelDNASingletonAppDomain";
 
         private static IntelliSenseDisplay _intelliSenseDisplay;
@@ -60,12 +61,14 @@ namespace ExcelDna.IntelliSense
                 appDomain = AppDomain.CreateDomain(AppDomainName, AppDomain.CurrentDomain.Evidence, domaininfo);
             }
 
-            _intelliSenseDisplay = (IntelliSenseDisplay)appDomain.GetData(type.FullName);
+            _intelliSenseDisplay = (IntelliSenseDisplay)appDomain.GetData(SingletonName);
 
             if (_intelliSenseDisplay == null)
             {
                 _intelliSenseDisplay = (IntelliSenseDisplay)appDomain.CreateInstanceAndUnwrap(type.Assembly.FullName, type.FullName);
                 _intelliSenseDisplay.SetXllOwner(Win32Helper.GetXllName());
+                
+                appDomain.SetData(SingletonName, _intelliSenseDisplay);
             }
 
             _intelliSenseDisplay.AddReference(xllName);
