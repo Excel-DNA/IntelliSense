@@ -89,7 +89,7 @@ namespace ExcelDna.IntelliSense
 
         public static string GetXllName()
         {
-            return (string)typeof(DnaLibrary).GetProperty("XllPath", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).GetValue(null, null);
+            return ExcelDnaUtil.XllPath;
         }
 
         public static IntPtr GetXllModuleHandle()
