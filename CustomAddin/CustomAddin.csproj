@@ -52,6 +52,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ExcelDna.IntelliSense.csproj">
+      <Project>{e0a7432f-3f7e-4e71-80bb-8263637f9686}</Project>
+      <Name>ExcelDna.IntelliSense</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy $(ProjectDir)..\ExcelDna.IntelliSense.xll $(TargetDir)ExcelDna.CustomAddin.xll</PostBuildEvent>
