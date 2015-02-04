@@ -55,6 +55,7 @@
     <Compile Include="CrossAppDomainSingleton.cs" />
     <Compile Include="FormattedText.cs" />
     <Compile Include="IntelliSenseDisplay.cs" />
+    <Compile Include="IntellisenseHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ToolTipForm.cs">
       <SubType>Form</SubType>
