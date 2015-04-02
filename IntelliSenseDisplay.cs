@@ -51,7 +51,7 @@ namespace ExcelDna.IntelliSense
             Debug.Print("### Thread creating IntelliSenseDisplay: " + Thread.CurrentThread.ManagedThreadId);
 
             _current = this;
-            _functionInfoMap = new Dictionary<string, IntelliSenseFunctionInfo>();
+            _functionInfoMap = new Dictionary<string, IntelliSenseFunctionInfo>(StringComparer.OrdinalIgnoreCase);
             // TODO: Need a separate thread for UI Automation Client - event subscriptions should not be on main UI thread.
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
