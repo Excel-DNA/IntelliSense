@@ -9,6 +9,7 @@ namespace ExcelDna.IntelliSense
         private const string SingletonName = "ExcelDNASingleton";
         private const string AppDomainName = "ExcelDNASingletonAppDomain";
 
+        private static AppDomain _intelliSenseAppDomain;
         private static IntelliSenseDisplay _intelliSenseDisplay;
       
         private static AppDomain GetAppDomain(string friendlyName)
@@ -50,25 +51,25 @@ namespace ExcelDna.IntelliSense
         {
             Type type = typeof(IntelliSenseDisplay);
 
-            AppDomain appDomain = GetAppDomain(AppDomainName);
+            _intelliSenseAppDomain = GetAppDomain(AppDomainName);
 
             var xllName = Win32Helper.GetXllName();
 
-            if (appDomain == null)
+            if (_intelliSenseAppDomain == null)
             {
                 AppDomainSetup domaininfo = new AppDomainSetup();
                 domaininfo.ApplicationBase = Path.GetDirectoryName(xllName);
-                appDomain = AppDomain.CreateDomain(AppDomainName, AppDomain.CurrentDomain.Evidence, domaininfo);
+                _intelliSenseAppDomain = AppDomain.CreateDomain(AppDomainName, AppDomain.CurrentDomain.Evidence, domaininfo);
             }
 
-            _intelliSenseDisplay = (IntelliSenseDisplay)appDomain.GetData(SingletonName);
+            _intelliSenseDisplay = (IntelliSenseDisplay)_intelliSenseAppDomain.GetData(SingletonName);
 
             if (_intelliSenseDisplay == null)
             {
-                _intelliSenseDisplay = (IntelliSenseDisplay)appDomain.CreateInstanceAndUnwrap(type.Assembly.FullName, type.FullName);
+                _intelliSenseDisplay = (IntelliSenseDisplay)_intelliSenseAppDomain.CreateInstanceAndUnwrap(type.Assembly.FullName, type.FullName);
                 _intelliSenseDisplay.SetXllOwner(Win32Helper.GetXllName());
-                
-                appDomain.SetData(SingletonName, _intelliSenseDisplay);
+
+                _intelliSenseAppDomain.SetData(SingletonName, _intelliSenseDisplay);
             }
 
             _intelliSenseDisplay.AddReference(xllName);
@@ -82,7 +83,8 @@ namespace ExcelDna.IntelliSense
 
             if (!_intelliSenseDisplay.IsUsed())
             {
-                IntelliSenseDisplay.Shutdown();
+                _intelliSenseDisplay.Shutdown();
+                _intelliSenseAppDomain.SetData(SingletonName, null);
                 _intelliSenseDisplay = null;
             }
         }
