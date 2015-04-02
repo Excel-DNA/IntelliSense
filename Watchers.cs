@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
@@ -203,69 +203,78 @@ namespace ExcelDna.IntelliSense
         public Rect EditWindowBounds { get; set; }
         public Point CaretPosition { get; set; }
 
-        public FormulaEditWatcher(WindowWatcher windowWatcher)
+        private DispatcherThread _dispatcherThread;
+
+        public FormulaEditWatcher(WindowWatcher windowWatcher, DispatcherThread dispatcher)
         {
             windowWatcher.FormulaBarWindowChanged += delegate { WatchFormulaBar(windowWatcher.FormulaBarWindow); };
             windowWatcher.InCellEditWindowChanged += delegate { WatchInCellEdit(windowWatcher.InCellEditWindow); };
             windowWatcher.InCellEditFocused += FocusChanged;
             windowWatcher.FormulaBarFocused += FocusChanged;
+            _dispatcherThread = dispatcher;
         }
 
         void WatchFormulaBar(IntPtr hWnd)
         {
-            Debug.Print("Will be watching Formula Bar: " + hWnd);
-            if (_formulaBar != null)
-            {
-                IntPtr hwndFormulaBar = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                if (hwndFormulaBar == hWnd)
+            _dispatcherThread.Invoke(() =>
                 {
-                    // Window is fine - might be a text update
-                    Debug.Print("Doing Update for FormulaBar");
+                    Debug.Print("Will be watching Formula Bar: " + hWnd);
+                    if (_formulaBar != null)
+                    {
+                        IntPtr hwndFormulaBar = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                        if (hwndFormulaBar == hWnd)
+                        {
+                            // Window is fine - might be a text update
+                            Debug.Print("Doing Update for FormulaBar");
 
+                            UpdateEditState();
+                            UpdateFormula();
+                            return;
+                        }
+                        // TODO: Clean up
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
+                        _formulaBar = null;
+                    }
+                    _formulaBar = AutomationElement.FromHandle(hWnd);
                     UpdateEditState();
-                    UpdateFormula();
-                    return;
-                }
-                // TODO: Clean up
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
-                _formulaBar = null;
-            }
-            _formulaBar = AutomationElement.FromHandle(hWnd);
-            UpdateEditState();
 
-            // CONSIDER: What when the formula resizes?
-            Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TreeScope.Element, TextChanged);
+                    // CONSIDER: What when the formula resizes?
+                    Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TreeScope.Element, TextChanged);
+                });
         }
-
+             
         void WatchInCellEdit(IntPtr hWnd)
         {
-            if (_inCellEdit != null)
-            {
-                // TODO: This is not a safe call if it has been destroyed
-                object objInCellHandle = _inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                if (objInCellHandle != null && hWnd == (IntPtr)(int)objInCellHandle)
+            _dispatcherThread.Invoke(() =>
                 {
-                    // Window is fine - might be a text update
-                    Debug.Print("Doing Update for InCellEdit");
+                    if (_inCellEdit != null)
+                    {
+                        // TODO: This is not a safe call if it has been destroyed
+                        object objInCellHandle = _inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                        if (objInCellHandle != null && hWnd == (IntPtr)(int)objInCellHandle)
+                        {
+                            // Window is fine - might be a text update
+                            Debug.Print("Doing Update for InCellEdit");
+                            UpdateEditState();
+                            UpdateFormula();
+                            return;
+                        }
+
+                        // Change is upon us,
+                        // out with the old...
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                        _inCellEdit = null;
+                    }
+
+                    if (hWnd != IntPtr.Zero)
+                    {
+                        _inCellEdit = AutomationElement.FromHandle(hWnd);
+                        UpdateEditState();
+                        // CONSIDER: Can the incell box resize?
+                        Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);
+                    }
                     UpdateEditState();
-                    UpdateFormula();
-                    return;
-                }
-
-                // Change is upon us,
-                // out with the old...
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
-                _inCellEdit = null;
-            }
-
-            if (hWnd != IntPtr.Zero)
-            {
-                _inCellEdit = AutomationElement.FromHandle(hWnd);
-                UpdateEditState();
-                // CONSIDER: Can the incell box resize?
-                Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);
-            }
-            UpdateEditState();
+                });
         }
 
         void TextChanged(object sender, AutomationEventArgs e)
@@ -282,66 +291,75 @@ namespace ExcelDna.IntelliSense
 
         void UpdateEditState()
         {
-            // TODO: This is not right yet - the list box might have the focus...
-            AutomationElement focused;
-            try
-            {
-                focused = AutomationElement.FocusedElement;
-            }
-            catch (ArgumentException aex)
-            {
-                Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
-                // Not sure why I get this - sometimes with startup screen
-                return;
-            }
-            if (_formulaBar != null && _formulaBar.Equals(focused))
-            {
-                EditWindowBounds = (Rect)_formulaBar.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-                IntPtr hwnd = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                var pt = Win32Helper.GetClientCursorPos(hwnd);
-                CaretPosition = new Point(pt.X, pt.Y);
-            }
-            else if (_inCellEdit != null && _inCellEdit.Equals(focused))
-            {
-                EditWindowBounds = (Rect)_inCellEdit.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-                IntPtr hwnd = (IntPtr)(int)_inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                var pt = Win32Helper.GetClientCursorPos(hwnd);
-                CaretPosition = new Point(pt.X, pt.Y);
-            }
-            else
-            {
-                // CurrentFormula = null;
-                CurrentPrefix = null;
-                Debug.Print("Don't have a focused text box to update.");
-            }
+            _dispatcherThread.Invoke(() =>
+                {
+                    // TODO: This is not right yet - the list box might have the focus...
+                    AutomationElement focused;
+                    try
+                    {
+                        focused = AutomationElement.FocusedElement;
+                    }
+                    catch (ArgumentException aex)
+                    {
+                        Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
+                        // Not sure why I get this - sometimes with startup screen
+                        return;
+                    }
+                    if (_formulaBar != null && _formulaBar.Equals(focused))
+                    {
+                        EditWindowBounds = (Rect)_formulaBar.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                        IntPtr hwnd = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                        var pt = Win32Helper.GetClientCursorPos(hwnd);
+                        CaretPosition = new Point(pt.X, pt.Y);
+                    }
+                    else if (_inCellEdit != null && _inCellEdit.Equals(focused))
+                    {
+                        EditWindowBounds = (Rect)_inCellEdit.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                        IntPtr hwnd = (IntPtr)(int)_inCellEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                        var pt = Win32Helper.GetClientCursorPos(hwnd);
+                        CaretPosition = new Point(pt.X, pt.Y);
+                    }
+                    else
+                    {
+                        // CurrentFormula = null;
+                        CurrentPrefix = null;
+                        Debug.Print("Don't have a focused text box to update.");
+                    }
 
-            // As long as we have an InCellEdit, we are editing the formula...
-            IsEditingFormula = (_inCellEdit != null);
+                    // As long as we have an InCellEdit, we are editing the formula...
+                    IsEditingFormula = (_inCellEdit != null);
 
-            // TODO: Smarter notification...?
-            StateChanged(this, EventArgs.Empty);
+                    // TODO: Smarter notification...?
+                    StateChanged(this, EventArgs.Empty);
+                });
         }
 
         void UpdateFormula()
         {
-//            CurrentFormula = "";
-            CurrentPrefix = XlCall.GetFormulaEditPrefix();
-            StateChanged(this, EventArgs.Empty);
+            _dispatcherThread.Invoke(() =>
+                {
+                    //            CurrentFormula = "";
+                    CurrentPrefix = XlCall.GetFormulaEditPrefix();
+                    StateChanged(this, EventArgs.Empty);
+                });
         }
 
         public void Dispose()
         {
-            Debug.Print("Disposing FormulaEditWatcher");
-            if (_formulaBar != null)
-            {
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
-                _formulaBar = null;
-            }
-            if (_inCellEdit != null)
-            {
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
-                _inCellEdit = null;
-            }
+            _dispatcherThread.Invoke(() =>
+                {
+                    Debug.Print("Disposing FormulaEditWatcher");
+                    if (_formulaBar != null)
+                    {
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
+                        _formulaBar = null;
+                    }
+                    if (_inCellEdit != null)
+                    {
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                        _inCellEdit = null;
+                    }
+                });
         }
     }
 
@@ -462,7 +480,6 @@ namespace ExcelDna.IntelliSense
                     _popupListList = null;
                 }
             }
-
         }
     }
 }
