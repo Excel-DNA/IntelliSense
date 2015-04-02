@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Threading;
 using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
@@ -23,16 +24,43 @@ namespace ExcelDna.IntelliSense
         public string XllPath;
     }
 
+    class DispatcherThread
+    {
+        private static Thread _dispatcherThread;
+
+        public DispatcherThread()
+        {
+            _dispatcherThread = new Thread(Dispatcher.Run);
+            _dispatcherThread.Start();
+        }
+
+        private Dispatcher Dispatcher
+        {
+            get { return Dispatcher.FromThread(_dispatcherThread); }
+        }
+
+        public void Invoke(Action action)
+        {
+            Dispatcher.Invoke(action);
+        }
+
+        public void Shutdown()
+        {
+            Dispatcher.InvokeShutdown();
+        }
+    }
+
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
     class IntelliSenseDisplay : MarshalByRefObject, IDisposable
     {
-        static IntelliSenseDisplay _current;
+        IntelliSenseDisplay _current;
         SynchronizationContext _syncContextMain;
         SynchronizationContext _syncContextAuto;    // On Automation thread.
         
         // NOTE: Add for separate UI Automation Thread
         Thread _threadAuto;
+        DispatcherThread _dispatcher;
         
         readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap;
 
@@ -55,15 +83,9 @@ namespace ExcelDna.IntelliSense
             // TODO: Need a separate thread for UI Automation Client - event subscriptions should not be on main UI thread.
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
-            
-            _addInReferences = new List<string>();
-            
-            // NOTE: Add for separate UI Automation Thread
-            //_threadAuto = new Thread(RunUIAutomation);
-            //_threadAuto.Start();
+            _dispatcher = new DispatcherThread();
 
-            // NOTE: For running UI Automation Thread on main Excel thread
-            //RunUIAutomation();
+            _addInReferences = new List<string>();
         }
         
         public void SetXllOwner(string xllPath)
@@ -85,7 +107,7 @@ namespace ExcelDna.IntelliSense
             //_syncContextAuto = _syncContextMain;
 
             _windowWatcher = new WindowWatcher(xllPath);
-            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher);
+            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _dispatcher);
             _popupListWatcher = new PopupListWatcher(_windowWatcher);
 
             _windowWatcher.MainWindowChanged += OnMainWindowChanged;
@@ -292,7 +314,7 @@ namespace ExcelDna.IntelliSense
                 };
         }
 
-        public static void Shutdown()
+        public void Shutdown()
         {
             Debug.Print("Shutdown!");
             if (_current != null)
@@ -335,6 +357,8 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            _dispatcher.Shutdown();
+
             _current._syncContextAuto.Send(delegate
                 {
                     if (_windowWatcher != null)
