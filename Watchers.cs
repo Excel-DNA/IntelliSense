@@ -186,14 +186,31 @@ namespace ExcelDna.IntelliSense
         }
     }
 
+    enum StateChangeTypeEnum
+    {
+        Undefined,
+        Move
+    }
+
+    class StateChangeEventArgs : EventArgs
+    {
+        public StateChangeTypeEnum StateChangeType { get; private set; }
+
+        public StateChangeEventArgs(StateChangeTypeEnum? stateChangeType = null)
+        {
+            StateChangeType = stateChangeType ?? StateChangeTypeEnum.Undefined;
+        }
+    }
+
     // We want to know whether to show the function entry help
     // For now we ignore whether another ToolTip is being shown, and just use the formula edit state.
     class FormulaEditWatcher : IDisposable
     {
         AutomationElement _formulaBar;
         AutomationElement _inCellEdit;
+        AutomationElement _mainWindow;
 
-        public event EventHandler StateChanged = delegate { };
+        public event EventHandler<StateChangeEventArgs> StateChanged = delegate { };
 
         public bool IsEditingFormula { get; set; }
 //        public string CurrentFormula { get; set; } // Easy to get, but we don't need it
@@ -203,20 +220,40 @@ namespace ExcelDna.IntelliSense
         public Rect EditWindowBounds { get; set; }
         public Point CaretPosition { get; set; }
 
-        private DispatcherThread _dispatcherThread;
+        private SynchronizationContext _syncContext;
 
-        public FormulaEditWatcher(WindowWatcher windowWatcher, DispatcherThread dispatcher)
+        public FormulaEditWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContext)
         {
             windowWatcher.FormulaBarWindowChanged += delegate { WatchFormulaBar(windowWatcher.FormulaBarWindow); };
             windowWatcher.InCellEditWindowChanged += delegate { WatchInCellEdit(windowWatcher.InCellEditWindow); };
             windowWatcher.InCellEditFocused += FocusChanged;
             windowWatcher.FormulaBarFocused += FocusChanged;
-            _dispatcherThread = dispatcher;
+            windowWatcher.MainWindowChanged += SubscribeBoundingRectangleProperty;
+            _syncContext = syncContext;
+        }
+
+        private void SubscribeBoundingRectangleProperty(object sender, EventArgs args)
+        {
+            _syncContext.Post(delegate 
+            {
+                    if (_mainWindow != null)
+                    {
+                        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                    }
+
+                    WindowWatcher windowWatcher = (WindowWatcher)sender;
+
+                    if (windowWatcher.MainWindow != IntPtr.Zero)
+                    {
+                        _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
+                        Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
+                    }
+                }, null);
         }
 
         void WatchFormulaBar(IntPtr hWnd)
         {
-            _dispatcherThread.Invoke(() =>
+            _syncContext.Post(delegate 
                 {
                     Debug.Print("Will be watching Formula Bar: " + hWnd);
                     if (_formulaBar != null)
@@ -240,13 +277,13 @@ namespace ExcelDna.IntelliSense
 
                     // CONSIDER: What when the formula resizes?
                     Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TreeScope.Element, TextChanged);
-                });
+                }, null);
         }
              
         void WatchInCellEdit(IntPtr hWnd)
         {
-            _dispatcherThread.Invoke(() =>
-                {
+            _syncContext.Post(delegate 
+                {            
                     if (_inCellEdit != null)
                     {
                         // TODO: This is not a safe call if it has been destroyed
@@ -262,7 +299,8 @@ namespace ExcelDna.IntelliSense
 
                         // Change is upon us,
                         // out with the old...
-                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);                    
+                                              
                         _inCellEdit = null;
                     }
 
@@ -271,10 +309,10 @@ namespace ExcelDna.IntelliSense
                         _inCellEdit = AutomationElement.FromHandle(hWnd);
                         UpdateEditState();
                         // CONSIDER: Can the incell box resize?
-                        Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);
+                        Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);                       
                     }
                     UpdateEditState();
-                });
+                }, null);
         }
 
         void TextChanged(object sender, AutomationEventArgs e)
@@ -283,15 +321,23 @@ namespace ExcelDna.IntelliSense
             UpdateFormula();
         }
 
+        void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
+        {
+            _syncContext.Post(delegate 
+                {
+                    UpdateEditState(true);
+                }, null);
+        }
+
         void FocusChanged(object sender, EventArgs e)
         {
             UpdateEditState();
             UpdateFormula();
         }
 
-        void UpdateEditState()
+        void UpdateEditState(bool moveOnly = false)
         {
-            _dispatcherThread.Invoke(() =>
+            _syncContext.Post(delegate 
                 {
                     // TODO: This is not right yet - the list box might have the focus...
                     AutomationElement focused;
@@ -330,23 +376,23 @@ namespace ExcelDna.IntelliSense
                     IsEditingFormula = (_inCellEdit != null);
 
                     // TODO: Smarter notification...?
-                    StateChanged(this, EventArgs.Empty);
-                });
+                    StateChanged(this, new StateChangeEventArgs(moveOnly ? StateChangeTypeEnum.Move : StateChangeTypeEnum.Undefined));
+                }, null);
         }
 
         void UpdateFormula()
         {
-            _dispatcherThread.Invoke(() =>
+            _syncContext.Post(delegate 
                 {
                     //            CurrentFormula = "";
                     CurrentPrefix = XlCall.GetFormulaEditPrefix();
-                    StateChanged(this, EventArgs.Empty);
-                });
+                    StateChanged(this, new StateChangeEventArgs());
+                }, null);
         }
 
         public void Dispose()
         {
-            _dispatcherThread.Invoke(() =>
+            _syncContext.Post(delegate 
                 {
                     Debug.Print("Disposing FormulaEditWatcher");
                     if (_formulaBar != null)
@@ -359,7 +405,12 @@ namespace ExcelDna.IntelliSense
                         Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
                         _inCellEdit = null;
                     }
-                });
+                    if (_mainWindow != null)
+                    {
+                        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                        _mainWindow = null;
+                    }
+                }, null);
         }
     }
 
@@ -369,6 +420,7 @@ namespace ExcelDna.IntelliSense
     {
         AutomationElement _popupList;
         AutomationElement _popupListList;
+        AutomationElement _mainWindow;
 
         // NOTE: Event may be raised on a strange thread... (via Automation)
         public event EventHandler SelectedItemChanged = delegate { };
@@ -376,41 +428,54 @@ namespace ExcelDna.IntelliSense
         public string SelectedItemText { get; set; }
         public Rect SelectedItemBounds { get; set; }
 
-        public PopupListWatcher(WindowWatcher windowWatcher)
+        private SynchronizationContext _syncContext;
+
+        public PopupListWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContext)
         {
+            _syncContext = syncContext;
             windowWatcher.PopupListWindowChanged += delegate { WatchPopupList(windowWatcher.PopupListWindow); };
+            windowWatcher.MainWindowChanged += SubscribeBoundingRectangleProperty;
         }
 
         void WatchPopupList(IntPtr hWnd)
         {
-            _popupList = AutomationElement.FromHandle(hWnd);
-            Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
-            // Automation.AddAutomationEventHandler(AutomationElement.v .AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
+            _syncContext.Post(delegate
+            {
+                _popupList = AutomationElement.FromHandle(hWnd);
+                Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
+                // Automation.AddAutomationEventHandler(AutomationElement.v .AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
+            }
+            , null);
         }
 
-        // TODO: This should be exposed as an event and popup resize should be elsewhere
-        private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
+        private void SubscribeBoundingRectangleProperty(object sender, EventArgs args)
         {
-            Debug.WriteLine(">>> PopupList structure changed - " + e.StructureChangeType.ToString());
-            // CONSIDER: Others too?
-            if (e.StructureChangeType == StructureChangeType.ChildAdded)
+            _syncContext.Post(delegate
             {
-                var functionList = sender as AutomationElement;
-
-                var listRect = (Rect)functionList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-
-                var listElement = functionList.FindFirst(TreeScope.Children, Condition.TrueCondition);
-                if (listElement != null)
+                if (_mainWindow != null)
                 {
-                    _popupListList = listElement;
+                    Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                }
 
-                    // TODO: Move this code!
-                    TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
-                    TestMoveWindow(functionList, 0,0);
+                WindowWatcher windowWatcher = (WindowWatcher)sender;
 
-                    var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
+                if (windowWatcher.MainWindow != IntPtr.Zero)
+                {
+                    _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
+                    Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
+                }
+            }, null);
+        }
+
+        void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
+        {
+            _syncContext.Post(delegate
+            {
+                if (_popupListList != null)
+                {
+                    var selPat = _popupListList.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
                     Automation.AddAutomationEventHandler(
-                        SelectionItemPattern.ElementSelectedEvent, listElement, TreeScope.Children, PopupListElementSelectedHandler);
+                        SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Children, PopupListElementSelectedHandler);
 
                     // Update the current selection, if any
                     var curSel = selPat.Current.GetSelection();
@@ -426,22 +491,66 @@ namespace ExcelDna.IntelliSense
                         }
                     }
                 }
-                else
-                {
-                    Debug.WriteLine("ERROR!!! Structure changed but no children anymore.");
-                }
-            }
-            else if (e.StructureChangeType == StructureChangeType.ChildRemoved)
+            }, null);
+        }
+
+        // TODO: This should be exposed as an event and popup resize should be elsewhere
+        private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
+        {
+            _syncContext.Post(delegate
             {
-                if (_popupListList != null)
+                Debug.WriteLine(">>> PopupList structure changed - " + e.StructureChangeType.ToString());
+                // CONSIDER: Others too?
+                if (e.StructureChangeType == StructureChangeType.ChildAdded)
                 {
-                    Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
-                    _popupListList = null;
+                    var functionList = sender as AutomationElement;
+
+                    var listRect = (Rect)functionList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+
+                    var listElement = functionList.FindFirst(TreeScope.Children, Condition.TrueCondition);
+                    if (listElement != null)
+                    {
+                        _popupListList = listElement;
+
+                        // TODO: Move this code!
+                        TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
+                        TestMoveWindow(functionList, 0, 0);
+
+                        var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
+                        Automation.AddAutomationEventHandler(
+                            SelectionItemPattern.ElementSelectedEvent, listElement, TreeScope.Children, PopupListElementSelectedHandler);
+
+                        // Update the current selection, if any
+                        var curSel = selPat.Current.GetSelection();
+                        if (curSel.Length > 0)
+                        {
+                            try
+                            {
+                                UpdateSelectedItem(curSel[0]);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.Print("Error during UpdateSelected! " + ex);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine("ERROR!!! Structure changed but no children anymore.");
+                    }
                 }
-                SelectedItemText = String.Empty;
-                SelectedItemBounds = Rect.Empty;
-                SelectedItemChanged(this, EventArgs.Empty);
-            }
+                else if (e.StructureChangeType == StructureChangeType.ChildRemoved)
+                {
+                    if (_popupListList != null)
+                    {
+                        Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
+                        _popupListList = null;
+                    }
+                    SelectedItemText = String.Empty;
+                    SelectedItemBounds = Rect.Empty;
+                    SelectedItemChanged(this, EventArgs.Empty);
+                }
+            }, null);
         }
 
         private void TestMoveWindow(AutomationElement listWindow, int xOffset, int yOffset)
@@ -462,24 +571,30 @@ namespace ExcelDna.IntelliSense
 
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
-            Debug.Print("### Thread receiving PopupListElementSelectedHandler: " + Thread.CurrentThread.ManagedThreadId);
-            UpdateSelectedItem(sender as AutomationElement);
+            _syncContext.Post(delegate
+            {
+                Debug.Print("### Thread receiving PopupListElementSelectedHandler: " + Thread.CurrentThread.ManagedThreadId);
+                UpdateSelectedItem(sender as AutomationElement);
+            }, null);
         }
 
         public void Dispose()
         {
-            Debug.Print("Disposing PopupListWatcher");
-            if (_popupList != null)
+            _syncContext.Post(delegate
             {
-                Automation.RemoveStructureChangedEventHandler(_popupList, PopupListStructureChangedHandler);
-                _popupList = null;
-
-                if (_popupListList != null)
+                Debug.Print("Disposing PopupListWatcher");
+                if (_popupList != null)
                 {
-                    Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
-                    _popupListList = null;
+                    Automation.RemoveStructureChangedEventHandler(_popupList, PopupListStructureChangedHandler);
+                    _popupList = null;
+
+                    if (_popupListList != null)
+                    {
+                        Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
+                        _popupListList = null;
+                    }
                 }
-            }
+            }, null);
         }
     }
 }

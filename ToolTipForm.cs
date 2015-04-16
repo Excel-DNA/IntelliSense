@@ -51,6 +51,13 @@ namespace ExcelDna.IntelliSense
             Top = top;
         }
 
+        public void MoveToolTip(int left, int top)
+        {
+            Invalidate();
+            Left = left;
+            Top = top;
+        }
+
         public IntPtr OwnerHandle
         {
             get

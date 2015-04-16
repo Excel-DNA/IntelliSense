@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows.Threading;
 using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
@@ -24,32 +23,6 @@ namespace ExcelDna.IntelliSense
         public string XllPath;
     }
 
-    class DispatcherThread
-    {
-        private static Thread _dispatcherThread;
-
-        public DispatcherThread()
-        {
-            _dispatcherThread = new Thread(Dispatcher.Run);
-            _dispatcherThread.Start();
-        }
-
-        private Dispatcher Dispatcher
-        {
-            get { return Dispatcher.FromThread(_dispatcherThread); }
-        }
-
-        public void Invoke(Action action)
-        {
-            Dispatcher.Invoke(action);
-        }
-
-        public void Shutdown()
-        {
-            Dispatcher.InvokeShutdown();
-        }
-    }
-
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
     class IntelliSenseDisplay : MarshalByRefObject, IDisposable
@@ -60,7 +33,6 @@ namespace ExcelDna.IntelliSense
         
         // NOTE: Add for separate UI Automation Thread
         Thread _threadAuto;
-        DispatcherThread _dispatcher;
         
         readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap;
 
@@ -83,7 +55,6 @@ namespace ExcelDna.IntelliSense
             // TODO: Need a separate thread for UI Automation Client - event subscriptions should not be on main UI thread.
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
-            _dispatcher = new DispatcherThread();
 
             _addInReferences = new List<string>();
         }
@@ -107,8 +78,8 @@ namespace ExcelDna.IntelliSense
             //_syncContextAuto = _syncContextMain;
 
             _windowWatcher = new WindowWatcher(xllPath);
-            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _dispatcher);
-            _popupListWatcher = new PopupListWatcher(_windowWatcher);
+            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
+            _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
 
             _windowWatcher.MainWindowChanged += OnMainWindowChanged;
             _popupListWatcher.SelectedItemChanged += OnSelectedItemChanged;
@@ -132,9 +103,9 @@ namespace ExcelDna.IntelliSense
             // PopupListSelectedItemChanged();
         }
 
-        private void OnStateChanged(object sender, EventArgs args)
+        private void OnStateChanged(object sender, StateChangeEventArgs args)
         {
-            _syncContextMain.Post(delegate { FormulaEditStateChanged(); }, null);
+            _syncContextMain.Post(delegate { FormulaEditStateChanged(args.StateChangeType); }, null);
             // FormulaEditStateChanged();
         }
 
@@ -198,11 +169,19 @@ namespace ExcelDna.IntelliSense
 
         // TODO: Need better formula parsing story here
         // Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
-        void FormulaEditStateChanged()
+        void FormulaEditStateChanged(StateChangeTypeEnum stateChangeType)
         {
             // Check for watcher already disposed 
             // CONSIDER: How to manage threading with disposal...?
             if (_formulaEditWatcher == null) return;
+
+            if (stateChangeType == StateChangeTypeEnum.Move && _argumentsToolTip != null)
+            {
+                _argumentsToolTip.MoveToolTip(
+                    (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
+                return;
+            }
+
             Debug.Print("^^^ FormulaEditStateChanged. CurrentPrefix: " + _formulaEditWatcher.CurrentPrefix);
             if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
             {
@@ -234,7 +213,6 @@ namespace ExcelDna.IntelliSense
             // All other paths, we just clear the box
             if (_argumentsToolTip != null)
                 _argumentsToolTip.Hide();
-            
         }
 
         IEnumerable<TextLine> GetFunctionDescription(IntelliSenseFunctionInfo functionInfo)
@@ -357,8 +335,6 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            _dispatcher.Shutdown();
-
             _current._syncContextAuto.Send(delegate
                 {
                     if (_windowWatcher != null)
