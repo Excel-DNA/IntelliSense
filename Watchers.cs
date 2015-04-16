@@ -392,8 +392,8 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            _syncContext.Post(delegate 
-                {
+            //_syncContext.Post(delegate 
+            //    {
                     Debug.Print("Disposing FormulaEditWatcher");
                     if (_formulaBar != null)
                     {
@@ -410,7 +410,7 @@ namespace ExcelDna.IntelliSense
                         Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
                         _mainWindow = null;
                     }
-                }, null);
+                //}, null);
         }
     }
 
@@ -580,8 +580,8 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            _syncContext.Post(delegate
-            {
+            //_syncContext.Post(delegate
+            //{
                 Debug.Print("Disposing PopupListWatcher");
                 if (_popupList != null)
                 {
@@ -594,7 +594,7 @@ namespace ExcelDna.IntelliSense
                         _popupListList = null;
                     }
                 }
-            }, null);
+            //}, null);
         }
     }
 }
