@@ -1,15 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{E0A7432F-3F7E-4E71-80BB-8263637F9686}</ProjectGuid>
+    <ProjectGuid>{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ExcelDna.IntelliSense</RootNamespace>
-    <AssemblyName>ExcelDna.IntelliSense</AssemblyName>
+    <RootNamespace>ExcelDna.IntelliSense.Host</RootNamespace>
+    <AssemblyName>ExcelDna.IntelliSense.Host</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -32,65 +31,46 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ExcelDna.Integration, Version=0.30.4397.31046, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\ExcelDna.Integration.dll</HintPath>
+    <Reference Include="ExcelDna.Integration">
+      <HintPath>..\packages\Excel-DNA.Lib.0.32.0\lib\ExcelDna.Integration.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="UIAutomationClient" />
-    <Reference Include="UIAutomationTypes" />
-    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AddIn.cs" />
-    <Compile Include="CrossAppDomainSingleton.cs" />
-    <Compile Include="FormattedText.cs" />
-    <Compile Include="IntelliSenseDisplay.cs" />
-    <Compile Include="IntellisenseHelper.cs" />
+    <Compile Include="MyFunctions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ToolTipForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Watchers.cs" />
-    <Compile Include="Win32Helper.cs" />
-    <Compile Include="WinEvents.cs" />
-    <Compile Include="XlCall.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="ExcelDna.IntelliSense.dna">
+    <ProjectReference Include="..\ExcelDna.IntelliSense\ExcelDna.IntelliSense.csproj">
+      <Project>{e0a7432f-3f7e-4e71-80bb-8263637f9686}</Project>
+      <Name>ExcelDna.IntelliSense</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="ExcelDna.IntelliSense.Host-AddIn.dna">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="ExcelDna.IntelliSense.xll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="License.txt" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="ToolTipForm.resx">
-      <DependentUpon>ToolTipForm.cs</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <COMReference Include="mscoree">
-      <Guid>{5477469E-83B1-11D2-8B49-00A0C9B7C9C4}</Guid>
-      <VersionMajor>2</VersionMajor>
-      <VersionMinor>4</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy $(ProjectDir)..\ExcelDna.IntelliSense.xll $(TargetDir)ExcelDna.CustomAddin.xll
+xcopy "C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDna.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.xll*" /C /Y
+xcopy "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna*" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna*" /C /Y
+xcopy "C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDna64.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.xll*" /C /Y
+"C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna" /Y
+"C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna" /Y</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

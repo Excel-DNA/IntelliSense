@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>ExcelDna.IntelliSense</id>
+        <version>0.33.0-alpha1</version>
+        <title>Excel-DNA IntelliSense Server</title>
+        <authors>Excel-DNA Contributors</authors>
+        <owners>Excel-DNA Contributors</owners>
+        <projectUrl>http://excel-dna.net</projectUrl>
+        <iconUrl>http://docs.excel-dna.net/NuGetIcon.png</iconUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>Excel-DNA IntelliSense is an extension library for Excel-DNA that provides on-sheet IntelliSense in Excel.</description>
+        <summary>Excel-DNA IntelliSense is an extension library for Excel-DNA that provides on-sheet IntelliSense in Excel.</summary>
+        <tags>excel exceldna udf excel-dna</tags>
+            <dependencies>
+      <dependency id="Excel-DNA.Lib" version="[0.32.0,0.33)" />
+    </dependencies>
+    </metadata>
+    <files>
+        <file src="..\....\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
+    </files>
+</package>

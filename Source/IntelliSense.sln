@@ -1,9 +1,10 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense", "ExcelDna.IntelliSense.csproj", "{E0A7432F-3F7E-4E71-80BB-8263637F9686}"
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30602.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense", "ExcelDna.IntelliSense\ExcelDna.IntelliSense.csproj", "{E0A7432F-3F7E-4E71-80BB-8263637F9686}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomAddin", "CustomAddin\CustomAddin.csproj", "{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense.Host", "ExcelDna.IntelliSense.Host\ExcelDna.IntelliSense.Host.csproj", "{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

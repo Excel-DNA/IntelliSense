@@ -1,0 +1,3 @@
+<DnaLibrary Name="Excel-DNA IntelliSense Host" RuntimeVersion="v4.0">
+  <ExternalLibrary Path="ExcelDna.IntelliSense.Host.dll" />
+</DnaLibrary>

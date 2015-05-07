@@ -8,9 +8,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("Excel-DNA IntelliSense")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Govert van Drimmelen")]
+[assembly: AssemblyCompany("Excel-DNA")]
 [assembly: AssemblyProduct("Excel-DNA IntelliSense")]
-[assembly: AssemblyCopyright("Copyright © Govert van Drimmelen 2013")]
+[assembly: AssemblyCopyright("Copyright © Excel-DNA Contributors 2013-2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

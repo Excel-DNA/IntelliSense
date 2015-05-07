@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("CustomAddin")]
+[assembly: AssemblyTitle("Excel-DNA IntelliSense Host")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("CustomAddin")]
-[assembly: AssemblyCopyright("Copyright ©  2015")]
+[assembly: AssemblyCompany("Excel-DNA")]
+[assembly: AssemblyProduct("Excel-DNA IntelliSense")]
+[assembly: AssemblyCopyright("Copyright ©  Excel-DNA Contributors 2013-2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
