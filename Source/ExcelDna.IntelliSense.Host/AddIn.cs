@@ -11,15 +11,14 @@ namespace TestAddIn
 {
     public class AddIn : IExcelAddIn
     {
-        private IntellisenseHelper _intellisense;
         public void AutoOpen()
         {
-            _intellisense = new IntellisenseHelper();
+            IntelliSenseServer.Register();
         }
 
         public void AutoClose()
         {
-            _intellisense.Dispose();
+            // CONSIDER: Do we implement an explicit call here, or is the AppDomain Unload event good enough
         }
     }
 }

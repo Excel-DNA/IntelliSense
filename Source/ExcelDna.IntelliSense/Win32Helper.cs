@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using ExcelDna.Integration;
@@ -7,29 +8,6 @@ namespace ExcelDna.IntelliSense
 {
     static class Win32Helper
     {
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT
-        {
-            public int X;
-            public int Y;
-
-            public POINT(int x, int y)
-            {
-                this.X = x;
-                this.Y = y;
-            }
-
-            public static implicit operator System.Drawing.Point(POINT p)
-            {
-                return new System.Drawing.Point(p.X, p.Y);
-            }
-
-            public static implicit operator POINT(System.Drawing.Point p)
-            {
-                return new POINT(p.X, p.Y);
-            }
-        }
-
         enum WM : uint
         {
             GETTEXT = 0x000D,
@@ -62,15 +40,14 @@ namespace ExcelDna.IntelliSense
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetCursorPos(out POINT lpPoint);
-        // Or use System.Drawing.Point (Forms only)
+        static extern bool GetCursorPos(out Point lpPoint);
 
         [DllImport("user32.dll")]
-        static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+        static extern bool ScreenToClient(IntPtr hWnd, ref Point lpPoint);
 
-        public static POINT GetClientCursorPos(IntPtr hWnd)
+        public static Point GetClientCursorPos(IntPtr hWnd)
         {
-            POINT pt;
+            Point pt;
             bool ok = GetCursorPos(out pt);
             bool ok2 = ScreenToClient(hWnd, ref pt);
             return pt;

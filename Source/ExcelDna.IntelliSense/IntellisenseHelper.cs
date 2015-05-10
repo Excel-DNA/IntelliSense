@@ -4,13 +4,15 @@ using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
-    public class IntellisenseHelper : IDisposable
+    // TODO: This is to be replaced by the Provider / Server info retrieval mechanism
+    public class IntelliSenseHelper : IDisposable
     {
         private readonly IntelliSenseDisplay _id;
 
-        public IntellisenseHelper()
+        public IntelliSenseHelper()
         {
-            _id = CrossAppDomainSingleton.GetOrCreate();
+            _id = new IntelliSenseDisplay();
+            _id.SetXllOwner(ExcelDnaUtil.XllPath);
             RegisterIntellisense();
         }
 
@@ -51,7 +53,7 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            CrossAppDomainSingleton.RemoveReference();
+            _id.Dispose();
         }
     }
 }
