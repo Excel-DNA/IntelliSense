@@ -28,13 +28,14 @@ namespace ExcelDna.IntelliSense
     // The Active Server also registers a macro with Excel under a well-know name (not the server-specific GUID), 
     // which passes through to a specific provider.
     // This is so that an add-in can tell (some provider in) the active server to update
-    // E.g. Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "VBA") , ActiveWorkbook.Name)
-    //      Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "XLL") , ExcelDnaUtil.XllPath)
-    //      Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "XML") , @"C:\Temp\MyInfo.xml")
+    // E.g. Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "VBA") , ActiveWorkbook.Name)
+    //      Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "XLL") , ExcelDnaUtil.XllPath)
+    //      Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "XML") , @"C:\Temp\MyInfo.xml")
+    //      XlCall.Excel(XlCall.xlcRun, "ExcelDna.IntelliSense.Refresh")
     // NB: This can't be the only way a provider knows what to load, because we don't want to do a hand-over 
     //     when a new Server becomes Active (there might not have been a server loaded at the start).
     // So we want the provider to always be able to scan to get the info.
-    //     The Update call just allows a re-scan in a macro context (and of course would fail if no Server is Active)
+    //     The Refresh call just allows a re-scan in a macro context (and of course would fail if no Server is Active)
 
     // Now:
     // When a Server becomes active it lets all the providers scan.
@@ -358,6 +359,9 @@ namespace ExcelDna.IntelliSense
         // e.g. 1.2.*, which would be matched with regex 1\.2(\.\d+)*
         static bool IsVersionMatch(string version, string versionPattern)
         {
+            if (string.IsNullOrEmpty(versionPattern))
+                return false;
+
             var regexParts = new List<string>();
             var parts = versionPattern.Split(',');
             foreach (var part in parts)
