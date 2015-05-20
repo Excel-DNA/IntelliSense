@@ -12,9 +12,48 @@ using ExcelDna.Integration;
 namespace ExcelDna.IntelliSense
 {
     // This class implements the registration and activation of this add-in as an IntelliSense Server.
+    // Among different add-ins that are loaded into an Excel process, at most one IntelliSenseServer can be Active.
+    // This should always be the IntelliSenseServer with the greatest version among those registered.
+    // At the moment the bookkeeping for registration and activation is done with environment variables. 
+    // This prevents cross-AppDomain calls, which are problematic because assemblies are then loaded into multiple AppDomains, and
+    // since the mechanism is intended to cater for different assembly versions, this is a problem. Also, we don't control
+    // the CLR hosting configuration, so can't always set the MultiDomain flag on setup. COM mechanisms could work, but are complicated.
+    // Another approach would be to use a hidden Excel function that the Active server provides, and have all server register with the active server.
+    // When a new server should become active, it then tells the active server, and somehow gets all the other registrations...
+    
+    // Registered Servers also register a macro with Excel through which control calls are to be made.
+    // This is against a unique GUID-based name for every registered server, so that the Activate call can be made on an inactive server.
+    // (To be called in a macro context only, e.g. from AutoOpen.)
+
+    // The Active Server also registers a macro with Excel under a well-know name (not the server-specific GUID), 
+    // which passes through to a specific provider.
+    // This is so that an add-in can tell (some provider in) the active server to update
+    // E.g. Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "VBA") , ActiveWorkbook.Name)
+    //      Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "XLL") , ExcelDnaUtil.XllPath)
+    //      Application.Run("ExcelDna.IntelliSense.Update", ' NOT WITH: "XML") , @"C:\Temp\MyInfo.xml")
+    // NB: This can't be the only way a provider knows what to load, because we don't want to do a hand-over 
+    //     when a new Server becomes Active (there might not have been a server loaded at the start).
+    // So we want the provider to always be able to scan to get the info.
+    //     The Update call just allows a re-scan in a macro context (and of course would fail if no Server is Active)
+
+    // Now:
+    // When a Server becomes active it lets all the providers scan.
+    // When a new add-in is then loaded, it calls the ExcelDna.IntelliSense.Update macro to force a re-scan.
+    // When an add-in dynamically registers some more UDFs, it can call Update to force a rescan.
+    // So there is no way to say "listen to this .xml file".
+    // So the add-in should provide a discoverable way that a provider can call it to say "what files must I listen to?". 
+
+    // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string _version = "0.0.1";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "0.0.1";  // TODO: Define and manage this somewhere else
+
+        // NOTE: Do not change these constants in custom versions. 
+        //       They are part of the co-operative saftey mechanism allowing different add-ins providing IntelliSense to work together safely.
+        const string DisabledVersionsMachineKeyName = @"HKEY_LOCAL_MACHINE\Software\ExcelDna\IntelliSense";
+        const string DisabledVersionsUserKeyName = @"HKEY_CURRENT_USER\Software\ExcelDna\IntelliSense";
+        const string DisabledVersionsValueName = "DisabledVersions";
+        const string DisabledVersionsVariable = "EXCELDNA_INTELLISENSE_DISABLEDVERSIONS";
 
         const string ServersVariable      = "EXCELDNA_INTELLISENSE_SERVERS";
         const string ActiveServerVariable = "EXCELDNA_INTELLISENSE_ACTIVE_SERVER";
@@ -22,9 +61,10 @@ namespace ExcelDna.IntelliSense
         const string ControlMessageActivate = "ACTIVATE";
         const string ControlMessageDeactivate = "DEACTIVATE";
 
-        // A transient ID to identify this IntelliSense server - we could have used the ExcelDnaUtil.XllGuid one too,
-        // but it wasn't public in Excel-DNA v 0.32
         // Info for registration
+        // _serverId is a transient ID to identify this IntelliSense server - we could have used the ExcelDnaUtil.XllGuid one too,
+        // but it wasn't public in Excel-DNA v 0.32
+        // The advantage of the XllGuid one is that it would be a stable ID across runs.
         static string _xllPath = ExcelDnaUtil.XllPath;
         static Guid _serverId = Guid.NewGuid();   
 
@@ -32,7 +72,7 @@ namespace ExcelDna.IntelliSense
         static bool _isActive = false;
         static IntelliSenseHelper _helper = null;
 
-        // Called directly (not via reflection) from AutoOpen.
+        // Called directly from AutoOpen.
         public static void Register()
         {
             if (IsDisabled())
@@ -47,7 +87,7 @@ namespace ExcelDna.IntelliSense
             {
                 shouldActivate = true;
             }
-            else if (RegistrationInfo.CompareVersions(_version, activeInfo.Version) > 0)
+            else if (RegistrationInfo.CompareVersions(ServerVersion, activeInfo.Version) > 0)
             {
                 // Check version 
                 // We're newer - deactivate the active server and activate ourselves.
@@ -64,6 +104,10 @@ namespace ExcelDna.IntelliSense
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
         }
 
+        // DomainUnload runs when AutoClose() would run on the add-in.
+        // I.e when the add-in is explicitly unloaded via code or the add-ins dialog, or when the add-in is re-loaded 
+        // (reload via File->Open is equivalent to unload, then load).
+        // We don't expect DomainUnload to run when Excel is shutting down.
         static void CurrentDomain_DomainUnload(object sender, EventArgs e)
         {
             UnpublishRegistration();
@@ -79,7 +123,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Called internally from the Register() call, or via reflection from another server.
+        // Called internally from the Register() call, or via the control function from another server.
         internal static bool Activate()
         {
             try
@@ -99,7 +143,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Called internally from the AppDomain_DomainUnload event handler, and via reflection from another server when that server figures out that it must become the active server.
+        // Called internally from the AppDomain_DomainUnload event handler, and via the control function from another server when that server figures out that it must become the active server.
         internal static bool Deactivate()
         {
             try
@@ -118,13 +162,20 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // NOTE: Please do not remove this safety mechanism in custom versions.
+        //       The IntelliSense mechanism is co-operative between independent add-ins.
+        //       Allowing a safe disable options is important to support future versions, and protect against problematic bugs.
+        // Checks whether this IntelliSense Server version is completely disabled
         static bool IsDisabled()
         {
-            // TODO: Check where this version is disabled, by checking the reigstry and environement variables
-            // var machineDisabled = Registry.GetValue()
-            // var userDisabled = Registry.GetValue()
-            // var environmentDisabled = Environment.GetEnvironmentVariable(...)
-            return false;
+            var machineDisabled = Registry.GetValue(DisabledVersionsMachineKeyName, DisabledVersionsValueName, null) as string;
+            var userDisabled = Registry.GetValue(DisabledVersionsUserKeyName, DisabledVersionsValueName, null) as string;
+            var environmentDisabled = Environment.GetEnvironmentVariable(DisabledVersionsVariable) as string;
+
+            var thisVersion = ServerVersion;
+            return IsVersionMatch(thisVersion, machineDisabled) ||
+                   IsVersionMatch(thisVersion, userDisabled) ||
+                   IsVersionMatch(thisVersion, environmentDisabled);
         }
 
         // Attempts to activate the server described by registrationInfo
@@ -163,7 +214,7 @@ namespace ExcelDna.IntelliSense
 
         #region Registration
         
-        // NOTE: We have to be really careful about compatibility here...
+        // NOTE: We have to be really careful about compatibility across versions here...
         class RegistrationInfo : IComparable<RegistrationInfo>
         {
             public string XllPath;
@@ -275,7 +326,7 @@ namespace ExcelDna.IntelliSense
                 { 
                     XllPath = ExcelDnaUtil.XllPath,
                     ServerId = _serverId,
-                    Version = _version 
+                    Version = ServerVersion 
                 };
                 return ri.ToRegistrationString();
             }
@@ -373,9 +424,10 @@ namespace ExcelDna.IntelliSense
             ExcelIntegration.RegisterMethods(new List<MethodInfo> { method }, 
                                              new List<object> { new ExcelCommandAttribute { Name = name } }, 
                                              new List<List<object>> { new List<object> { null } });
-            // No Unregistration - that will happen when we are unloaded.
+            // No Unregistration - that will happen automatically (and is only needed) when we are unloaded.
         }
 
+        // NOTE: The name here is used by Reflection above (when registering the method with Excel)
         public static object IntelliSenseServerControl(object control)
         {
             if (control is string && (string)control == ControlMessageActivate)
