@@ -468,6 +468,7 @@ namespace ExcelDna.IntelliSense
 
                 if (windowWatcher.MainWindow != IntPtr.Zero)
                 {
+                    // TODO: I've seen an error here that 'the element is not available'.
                     _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
                     Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
                 }
@@ -550,7 +551,7 @@ namespace ExcelDna.IntelliSense
                 {
                     if (_popupListList != null)
                     {
-                        Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
+                        Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
                         _popupListList = null;
                     }
                     SelectedItemText = String.Empty;
@@ -597,7 +598,7 @@ namespace ExcelDna.IntelliSense
 
                     if (_popupListList != null)
                     {
-                        Automation.RemoveStructureChangedEventHandler(_popupListList, PopupListElementSelectedHandler);
+                        Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
                         _popupListList = null;
                     }
                 }
