@@ -12,11 +12,12 @@ using ExcelDna.Integration;
 namespace ExcelDna.IntelliSense
 {
     // This class implements the registration and activation of this add-in as an IntelliSense Server.
+    //
     // Among different add-ins that are loaded into an Excel process, at most one IntelliSenseServer can be Active.
-    // This should always be the IntelliSenseServer with the greatest version among those registered.
-    // At the moment the bookkeeping for registration and activation is done with environment variables. 
+    // This should always be the IntelliSenseServer with the greatest version number among those registered.
+    // At the moment the bookkeeping for registration and activation in the process is done with environment variables. 
     // This prevents cross-AppDomain calls, which are problematic because assemblies are then loaded into multiple AppDomains, and
-    // since the mechanism is intended to cater for different assembly versions, this is a problem. Also, we don't control
+    // since the mechanism is intended to cater for different assembly versions, this would be a problem. Also, we don't control
     // the CLR hosting configuration, so can't always set the MultiDomain flag on setup. COM mechanisms could work, but are complicated.
     // Another approach would be to use a hidden Excel function that the Active server provides, and have all server register with the active server.
     // When a new server should become active, it then tells the active server, and somehow gets all the other registrations...
@@ -39,7 +40,7 @@ namespace ExcelDna.IntelliSense
 
     // Now:
     // When a Server becomes active it lets all the providers scan.
-    // When a new add-in is then loaded, it calls the ExcelDna.IntelliSense.Update macro to force a re-scan.
+    // When a new add-in is then loaded, it calls the ExcelDna.IntelliSense.Refresh macro to force a re-scan.
     // When an add-in dynamically registers some more UDFs, it can call Update to force a rescan.
     // So there is no way to say "listen to this .xml file".
     // So the add-in should provide a discoverable way that a provider can call it to say "what files must I listen to?". 
@@ -50,7 +51,7 @@ namespace ExcelDna.IntelliSense
         const string ServerVersion = "0.0.1";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
-        //       They are part of the co-operative saftey mechanism allowing different add-ins providing IntelliSense to work together safely.
+        //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
         const string DisabledVersionsMachineKeyName = @"HKEY_LOCAL_MACHINE\Software\ExcelDna\IntelliSense";
         const string DisabledVersionsUserKeyName = @"HKEY_CURRENT_USER\Software\ExcelDna\IntelliSense";
         const string DisabledVersionsValueName = "DisabledVersions";
@@ -281,7 +282,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // NOTE: We assume this will always run on the main thread in the process, so we have no synchronization.
-        //       Max length for en environment variable is 32,767 characters.
+        //       Max length for an environment variable is 32,767 characters.
         static void PublishRegistration()
         {
             var oldServers = Environment.GetEnvironmentVariable(ServersVariable);

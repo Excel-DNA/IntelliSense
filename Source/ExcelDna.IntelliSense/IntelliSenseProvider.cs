@@ -8,12 +8,13 @@ using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
-    // An IntelliSenseProvider provides IntelliSense info to the server.
+    // An IntelliSenseProvider is a part of an IntelliSenseServer that provides IntelliSense info to the server.
     // The providers are built in to the ExcelDna.IntelliSense assembly - there are complications in making this a part that can be extended 
-    // by a specific add-in (server activation, cross AppDomain loading etc.). Higher versions of the ExcelDna.IntelliSenseServer are expected to increase the number of providers
+    // by a specific add-in (server activation, cross AppDomain loading etc.).
+    // Higher versions of the ExcelDna.IntelliSenseServer are expected to increase the number of providers
     // and/or the scope of some provider (e.g. add support for enums).
 
-    // The server, upon activation and at other times (when?) will call the provider to get the IntelliSense info.
+    // The server, upon activation and at other times (when? when ExcelDna.IntelliSense.Refresh is called ?) will call the provider to get the IntelliSense info.
     // Maybe the provider can also raise an Invalidate event, to prod the server into reloading the IntelliSense info for that provider.
     // E.g. the XmlProvider might read from a file, and put a FileWatcher on the file so that whenever the file changes, 
     // the server calls back to get the updated info.
@@ -23,14 +24,15 @@ namespace ExcelDna.IntelliSense
     // The Refresh calls are always in a macro context, from the main Excel thread and should be as fast as possible.
     // The GetXXXInfo calls can be made from any thread, should be thread-safe and not call back to Excel.
     // Invalidate can be raised, but the Refresh call might come a lot later...?
-    // We expect the server to hook some Excel events to provide the entry points...
 
-    // Consider interaction with Application.MacroOptions.
+    // We expect the server to hook some Excel events to provide the entry points... (not sure what this means anymore...?)
+
+    // Consider interaction with Application.MacroOptions. (or not?)
 
     interface IIntelliSenseProvider
     {
-        void Refresh(); // Executed in a macro context
-        IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos(); // Called from any thread - no Excel access
+        void Refresh(); // Executed in a macro context, on the main Excel thread
+        IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos(); // Called from a worker thread - no Excel or COM access (probably an MTA thread involved in the UI Automation)
     }
 
     // Provides IntelliSense info for all Excel-DNA based .xll add-ins, using the built-in RegistrationInfo helper function.
@@ -91,7 +93,7 @@ namespace ExcelDna.IntelliSense
 
                 for (int i = 0; i < regInfo.GetLength(0); i++)
                 {
-                    if (regInfo[i, 0] is ExcelDna.Integration.ExcelEmpty)
+                    if (regInfo[i, 0] is ExcelEmpty)
                     {
                         string functionName = regInfo[i, 3] as string;
                         string description = regInfo[i, 9] as string;
@@ -114,7 +116,7 @@ namespace ExcelDna.IntelliSense
                             FunctionName = functionName,
                             Description = description,
                             ArgumentList = argumentInfos,
-                            XllPath = this._xllPath
+                            XllPath = _xllPath
                         };
                     }
                 }

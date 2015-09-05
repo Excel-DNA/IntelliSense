@@ -7,6 +7,13 @@ using Point = System.Drawing.Point;
 
 namespace ExcelDna.IntelliSense
 {
+    // NOTE: Really need to understand the two approaches to using UI Automation (BCL classes vs. COM wrapper)
+    //       My understanding from this post : https://social.msdn.microsoft.com/Forums/en-US/69cf1072-d57f-4aa1-a8ea-ea8a9a5da70a/using-uiautomation-via-com-interopuiautomationclientdll-causes-windows-explorer-to-crash?forum=windowsaccessibilityandautomation
+    //       is that we might prefer to use the UIAComWrapper.
+    //       On the other hand, "Even without UiaComWrapper, you can always use UI Automation in .NET through COM Interop -- just add a reference to the UIAutomationCore.dll library for your project. "
+    //       I think this is a sample of the new UI Automation 3.0 COM API: http://blogs.msdn.com/b/winuiautomation/archive/2012/03/06/windows-7-ui-automation-client-api-c-sample-e-mail-reader-version-1-0.aspx
+    //       Really need to understand threading guidance from here: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
+
     class WindowWatcher : IDisposable
     {
         WinEventHook _windowStateChangeHook;
