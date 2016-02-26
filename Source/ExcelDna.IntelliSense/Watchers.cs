@@ -23,7 +23,9 @@ namespace ExcelDna.IntelliSense
         public IntPtr InCellEditWindow { get; private set; }
         public IntPtr PopupListWindow { get; private set; }
         public IntPtr PopupListList { get; private set; }
+        public IntPtr SelectDataSourceWindow { get; private set; }
 
+        // CONSIDER: The WindowWatcher might rather raise all events on the UIAutomation thread.
         public event EventHandler FormulaBarWindowChanged = delegate { };
         public event EventHandler FormulaBarFocused = delegate { };
         public event EventHandler InCellEditWindowChanged = delegate { };
@@ -31,6 +33,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler MainWindowChanged = delegate { };
         public event EventHandler PopupListWindowChanged = delegate { };   // Might start off with nothing. Changes at most once.
         public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.
+        public event EventHandler SelectDataSourceWindowChanged = delegate { };   // Might start off with nothing. Changes at most once.
 
         public WindowWatcher(string xllName)
         {
@@ -44,9 +47,10 @@ namespace ExcelDna.IntelliSense
 
         public void TryInitialize()
         {
+            Debug.Print("### WindowWatcher TryInitialize on thread: " + Thread.CurrentThread.ManagedThreadId);
 
             AutomationElement focused;
-            try 
+            try
             {
                 focused = AutomationElement.FocusedElement;
             }
@@ -70,6 +74,7 @@ namespace ExcelDna.IntelliSense
         void WindowStateChange(IntPtr hWinEventHook, WinEventHook.WinEvent eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
             // This runs on the main application thread.
+            // We have to get off this thread very quickly.
             Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
             switch (Win32Helper.GetClassName(hWnd))
             {
@@ -130,6 +135,10 @@ namespace ExcelDna.IntelliSense
                         FormulaBarFocused(this, EventArgs.Empty);
                     }
                     break;
+                case _classSelectSeriesData:
+                    Debug.Print("SelectSeriesData Window update: " + hWnd.ToString("X") + ", EventType: " + eventType + ", idChild: " + idChild);
+
+                    break;
                 default:
                     //InCellEditWindowChanged(this, EventArgs.Empty);
                     break;
@@ -182,6 +191,7 @@ namespace ExcelDna.IntelliSense
         const string _classFormulaBar = "EXCEL<";
         const string _classInCellEdit = "EXCEL6";
         const string _classPopupList = "__XLACOOUTER";
+        const string _classSelectSeriesData = "NUIDialog";
 
         public void Dispose()
         {
@@ -220,7 +230,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<StateChangeEventArgs> StateChanged = delegate { };
 
         public bool IsEditingFormula { get; set; }
-//        public string CurrentFormula { get; set; } // Easy to get, but we don't need it
+        //        public string CurrentFormula { get; set; } // Easy to get, but we don't need it
         public string CurrentPrefix { get; set; }    // Null if not editing
         // We don't really care whether it is the formula bar or in-cell, 
         // we just need to get the right window handle 
@@ -241,26 +251,28 @@ namespace ExcelDna.IntelliSense
 
         private void SubscribeBoundingRectangleProperty(object sender, EventArgs args)
         {
-            _syncContext.Post(delegate 
+            _syncContext.Post(delegate
             {
-                    if (_mainWindow != null)
-                    {
-                        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
-                    }
+                if (_mainWindow != null)
+                {
+                    Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                }
 
-                    WindowWatcher windowWatcher = (WindowWatcher)sender;
+                WindowWatcher windowWatcher = (WindowWatcher)sender;
 
-                    if (windowWatcher.MainWindow != IntPtr.Zero)
-                    {
-                        _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
-                        Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
-                    }
-                }, null);
+                if (windowWatcher.MainWindow != IntPtr.Zero)
+                {
+                    // TODO: I see "Element not found" errors here...
+                    //       There are different top-level windows in Excl 2013.
+                    // _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
+                    // Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
+                }
+            }, null);
         }
 
         void WatchFormulaBar(IntPtr hWnd)
         {
-            _syncContext.Post(delegate 
+            _syncContext.Post(delegate
                 {
                     Debug.Print("Will be watching Formula Bar: " + hWnd);
                     if (_formulaBar != null)
@@ -286,11 +298,11 @@ namespace ExcelDna.IntelliSense
                     Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TreeScope.Element, TextChanged);
                 }, null);
         }
-             
+
         void WatchInCellEdit(IntPtr hWnd)
         {
-            _syncContext.Post(delegate 
-                {            
+            _syncContext.Post(delegate
+                {
                     if (_inCellEdit != null)
                     {
                         // TODO: This is not a safe call if it has been destroyed
@@ -306,8 +318,8 @@ namespace ExcelDna.IntelliSense
 
                         // Change is upon us,
                         // out with the old...
-                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);                    
-                                              
+                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+
                         _inCellEdit = null;
                     }
 
@@ -316,7 +328,7 @@ namespace ExcelDna.IntelliSense
                         _inCellEdit = AutomationElement.FromHandle(hWnd);
                         UpdateEditState();
                         // CONSIDER: Can the incell box resize?
-                        Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);                       
+                        Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);
                     }
                     UpdateEditState();
                 }, null);
@@ -330,7 +342,7 @@ namespace ExcelDna.IntelliSense
 
         void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
-            _syncContext.Post(delegate 
+            _syncContext.Post(delegate
                 {
                     UpdateEditState(true);
                 }, null);
@@ -344,7 +356,7 @@ namespace ExcelDna.IntelliSense
 
         void UpdateEditState(bool moveOnly = false)
         {
-            _syncContext.Post(delegate 
+            _syncContext.Post(delegate
                 {
                     // TODO: This is not right yet - the list box might have the focus...
                     AutomationElement focused;
@@ -389,7 +401,7 @@ namespace ExcelDna.IntelliSense
 
         void UpdateFormula()
         {
-            _syncContext.Post(delegate 
+            _syncContext.Post(delegate
                 {
                     //            CurrentFormula = "";
                     CurrentPrefix = XlCall.GetFormulaEditPrefix();
@@ -401,23 +413,23 @@ namespace ExcelDna.IntelliSense
         {
             //_syncContext.Post(delegate 
             //    {
-                    Debug.Print("Disposing FormulaEditWatcher");
-                    if (_formulaBar != null)
-                    {
-                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
-                        _formulaBar = null;
-                    }
-                    if (_inCellEdit != null)
-                    {
-                        Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
-                        _inCellEdit = null;
-                    }
-                    if (_mainWindow != null)
-                    {
-                        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
-                        _mainWindow = null;
-                    }
-                //}, null);
+            Debug.Print("Disposing FormulaEditWatcher");
+            if (_formulaBar != null)
+            {
+                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
+                _formulaBar = null;
+            }
+            if (_inCellEdit != null)
+            {
+                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                _inCellEdit = null;
+            }
+            if (_mainWindow != null)
+            {
+                Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                _mainWindow = null;
+            }
+            //}, null);
         }
     }
 
@@ -451,8 +463,7 @@ namespace ExcelDna.IntelliSense
                 _popupList = AutomationElement.FromHandle(hWnd);
                 Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
                 // Automation.AddAutomationEventHandler(AutomationElement.v .AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
-            }
-            , null);
+            } , null);
         }
 
         private void SubscribeBoundingRectangleProperty(object sender, EventArgs args)
@@ -590,19 +601,35 @@ namespace ExcelDna.IntelliSense
         {
             //_syncContext.Post(delegate
             //{
-                Debug.Print("Disposing PopupListWatcher");
-                if (_popupList != null)
-                {
-                    Automation.RemoveStructureChangedEventHandler(_popupList, PopupListStructureChangedHandler);
-                    _popupList = null;
+            Debug.Print("Disposing PopupListWatcher");
+            if (_popupList != null)
+            {
+                Automation.RemoveStructureChangedEventHandler(_popupList, PopupListStructureChangedHandler);
+                _popupList = null;
 
-                    if (_popupListList != null)
-                    {
-                        Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
-                        _popupListList = null;
-                    }
+                if (_popupListList != null)
+                {
+                    Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
+                    _popupListList = null;
                 }
+            }
             //}, null);
+        }
+    }
+
+    class SelectDataSourceWatcher : IDisposable
+    {
+        private SynchronizationContext _syncContext;
+
+        public SelectDataSourceWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContext)
+        {
+            _syncContext = syncContext;
+            
+        }
+
+        public void Dispose()
+        {
+
         }
     }
 }

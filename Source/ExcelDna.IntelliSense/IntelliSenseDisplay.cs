@@ -20,7 +20,7 @@ namespace ExcelDna.IntelliSense
         public string FunctionName;
         public string Description;
         public List<ArgumentInfo> ArgumentList;
-        public string XllPath;
+        public string SourcePath; // XllPath for .xll, Workbook Name for Workbook
     }
 
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
@@ -39,6 +39,7 @@ namespace ExcelDna.IntelliSense
         WindowWatcher _windowWatcher;
         FormulaEditWatcher _formulaEditWatcher;
         PopupListWatcher _popupListWatcher;
+        SelectDataSourceWatcher _selectDataSourceWatcher;
 
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
@@ -62,6 +63,7 @@ namespace ExcelDna.IntelliSense
         public void SetXllOwner(string xllPath)
         {
             _threadAuto = new Thread(() => RunUIAutomation(xllPath));
+            _threadAuto.SetApartmentState(ApartmentState.MTA);
             _threadAuto.Start();
         }
 
@@ -80,6 +82,7 @@ namespace ExcelDna.IntelliSense
             _windowWatcher = new WindowWatcher(xllPath);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
             _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
+            _selectDataSourceWatcher = new SelectDataSourceWatcher(_windowWatcher, _syncContextAuto);
 
             _windowWatcher.MainWindowChanged += OnMainWindowChanged;
             _popupListWatcher.SelectedItemChanged += OnSelectedItemChanged;
@@ -318,7 +321,7 @@ namespace ExcelDna.IntelliSense
         public void RemoveReference(string xllName)
         {
             List<string> functionsToRemove =
-                _functionInfoMap.Where(p => p.Value.XllPath == xllName).Select(p => p.Key).ToList();
+                _functionInfoMap.Where(p => p.Value.SourcePath == xllName).Select(p => p.Key).ToList();
 
             foreach (string func in functionsToRemove)
             {

@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Remoting;
-using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using ExcelDna.Integration;
@@ -16,12 +14,13 @@ namespace ExcelDna.IntelliSense
     // Among different add-ins that are loaded into an Excel process, at most one IntelliSenseServer can be Active.
     // This should always be the IntelliSenseServer with the greatest version number among those registered.
     // At the moment the bookkeeping for registration and activation in the process is done with environment variables. 
+    // (An attractive alternative is the hidden Excel name space: http://www.cpearson.com/excel/hidden.htm )
     // This prevents cross-AppDomain calls, which are problematic because assemblies are then loaded into multiple AppDomains, and
     // since the mechanism is intended to cater for different assembly versions, this would be a problem. Also, we don't control
     // the CLR hosting configuration, so can't always set the MultiDomain flag on setup. COM mechanisms could work, but are complicated.
     // Another approach would be to use a hidden Excel function that the Active server provides, and have all server register with the active server.
     // When a new server should become active, it then tells the active server, and somehow gets all the other registrations...
-    
+
     // Registered Servers also register a macro with Excel through which control calls are to be made.
     // This is against a unique GUID-based name for every registered server, so that the Activate call can be made on an inactive server.
     // (To be called in a macro context only, e.g. from AutoOpen.)

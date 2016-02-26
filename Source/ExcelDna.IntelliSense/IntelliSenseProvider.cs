@@ -3,19 +3,21 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
-    // An IntelliSenseProvider is a part of an IntelliSenseServer that provides IntelliSense info to the server.
-    // The providers are built in to the ExcelDna.IntelliSense assembly - there are complications in making this a part that can be extended 
+    // An IntelliSenseProvider is the part of an IntelliSenseServer that provides the IntelliSense info gathered from add-ins to the server.
+    // These providers are built in to the ExcelDna.IntelliSense assembly - there are complications in making this a part that can be extended 
     // by a specific add-in (server activation, cross AppDomain loading etc.).
+    //
     // Higher versions of the ExcelDna.IntelliSenseServer are expected to increase the number of providers
     // and/or the scope of some provider (e.g. add support for enums).
+    // No provision is made at the moment for user-created providers or an external provider API.
 
     // The server, upon activation and at other times (when? when ExcelDna.IntelliSense.Refresh is called ?) will call the provider to get the IntelliSense info.
-    // Maybe the provider can also raise an Invalidate event, to prod the server into reloading the IntelliSense info for that provider.
+    // Maybe the provider can also raise an Invalidate event, to prod the server into reloading the IntelliSense info for that provider
+    // (a bit like the ribbon Invalidate works).
     // E.g. the XmlProvider might read from a file, and put a FileWatcher on the file so that whenever the file changes, 
     // the server calls back to get the updated info.
 
@@ -116,7 +118,7 @@ namespace ExcelDna.IntelliSense
                             FunctionName = functionName,
                             Description = description,
                             ArgumentList = argumentInfos,
-                            XllPath = _xllPath
+                            SourcePath = _xllPath
                         };
                     }
                 }
@@ -163,15 +165,130 @@ namespace ExcelDna.IntelliSense
         }
     }
 
-    // VBA might be easy, since the functions are scoped to the Workbook or add-in, and so might have the right name?
-    //         Excel4v(xlcRun, &xlRes, 1, TempStr(" myVBAAddin.xla!myFunc"));
+    // For VBA code, (either in a regular workbook that is open, or in an add-in)
+    // we allow the IntelliSense info to be put into a worksheet (possibly hidden or very hidden)
+    // In the Workbook that contains the VBA.
+    // Initially we won't scope the IntelliSense to the Workbook where the UDFs are defined, 
+    // but we should consider that.
 
-    class VbaIntelliSenseProvider
+    class WorkbookIntelliSenseProvider : IIntelliSenseProvider
     {
+        const string intelliSenseWorksheetName = "_IntelliSense_FunctionInfo_";
+        class WorkbookRegistrationInfo
+        {
+            readonly string _name;
+            DateTime _lastUpdate;               // Version indicator to enumerate from scratch
+            object[,] _regInfo = null;          // Default value
+
+            public WorkbookRegistrationInfo(string name)
+            {
+                _name = name;
+            }
+
+            // Called in a macro context
+            public void Refresh()
+            {
+                dynamic app = ExcelDnaUtil.Application;
+                var wb = app.Workbooks[_name];
+
+                try
+                {
+                    var ws = wb.Sheets[intelliSenseWorksheetName];
+                    var info = ws.UsedRange.Value;
+                    _regInfo = info as object[,];
+                }
+                catch (Exception ex)
+                {
+                    // We expect this if there is no sheet.
+                    // Another approach would be xlSheetNm
+                    Debug.Print("WorkbookIntelliSenseProvider.Refresh Error : " + ex.Message);
+                    _regInfo = null;
+                }
+                _lastUpdate = DateTime.Now;
+            }
+
+            // Not in macro context - don't call Excel, could be any thread.
+            public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
+            {
+                // to avoid worries about locking and this being updated from another thread, we take a copy of _regInfo
+                var regInfo = _regInfo;
+                /*
+                    result[0, 0] = XlAddIn.PathXll;
+                    result[0, 1] = registrationInfoVersion;
+                 */
+
+                if (regInfo == null)
+                    yield break;
+
+                // regInfo is 1-based: object[1..x, 1..y].
+                for (int i = 1; i <= regInfo.GetLength(0); i++)
+                {
+                    string functionName = regInfo[i, 1] as string;
+                    string description = regInfo[i, 2] as string;
+
+                    List<IntelliSenseFunctionInfo.ArgumentInfo> argumentInfos = new List<IntelliSenseFunctionInfo.ArgumentInfo>();
+                    for (int j = 3; j <= regInfo.GetLength(1) - 1; j += 2)
+                    {
+                        var arg = regInfo[i, j] as string;
+                        var argDesc = regInfo[i, j + 1] as string;
+                        if (!string.IsNullOrEmpty(arg))
+                        {
+                            argumentInfos.Add(new IntelliSenseFunctionInfo.ArgumentInfo
+                            {
+                                ArgumentName = arg,
+                                Description = argDesc
+                            });
+                        }
+                    }
+
+                    yield return new IntelliSenseFunctionInfo
+                    {
+                        FunctionName = functionName,
+                        Description = description,
+                        ArgumentList = argumentInfos,
+                        SourcePath = _name
+                    };
+                }
+            }
+        }
+
+        Dictionary<string, WorkbookRegistrationInfo> _workbookRegistrationInfos = new Dictionary<string, WorkbookRegistrationInfo>();
+
+        public void Refresh()
+        {
+            foreach (var name in GetLoadedWorkbookNames())
+            {
+                WorkbookRegistrationInfo regInfo;
+                if (!_workbookRegistrationInfos.TryGetValue(name, out regInfo))
+                {
+                    regInfo = new WorkbookRegistrationInfo(name);
+                    _workbookRegistrationInfos[name] = regInfo;
+                }
+                regInfo.Refresh();
+            }
+        }
+
+        public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
+        {
+            return _workbookRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos());
+        }
+
+        // Called in macro context
+        // Might be implemented by tracking Application events
+        // Remember this changes when a workbook is saved, and can refer to the wrong workbook as they are closed / opened
+        IEnumerable<string> GetLoadedWorkbookNames()
+        {
+            // TODO: Implement properly...
+            dynamic app = ExcelDnaUtil.Application;
+            foreach (var wb in app.Workbooks)
+            {
+                yield return wb.Name; 
+            }
+        }
     }
 
     // The idea is that other add-in tools like XLW or XLL+ could provide IntelliSense info with an xml file.
-    // CONSIDER: How to find these files - can't jsut be relative to the IntelliSense add-in. 
+    // CONSIDER: How to find these files - can't just be relative to the IntelliSense add-in. 
     //           (Maybe next to the foreign .xll file (.xllinfo)?)
     class XmlIntelliSenseProvider
     {
