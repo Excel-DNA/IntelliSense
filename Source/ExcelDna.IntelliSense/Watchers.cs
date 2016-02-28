@@ -75,8 +75,10 @@ namespace ExcelDna.IntelliSense
         {
             // This runs on the main application thread.
             // We have to get off this thread very quickly.
+            var className = Win32Helper.GetClassName(hWnd);
+            Logger.WinEvents.Verbose($"{eventType} - hWnd: {hWnd:X} ({className}) - IDs: {idObject} / {idChild} - Thread: {dwEventThread}");
             Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
-            switch (Win32Helper.GetClassName(hWnd))
+            switch (className)
             {
                 case _classMain:
                     //if (eventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS ||
@@ -226,7 +228,7 @@ namespace ExcelDna.IntelliSense
         AutomationElement _formulaBar;
         AutomationElement _inCellEdit;
         AutomationElement _mainWindow;
-
+         
         public event EventHandler<StateChangeEventArgs> StateChanged = delegate { };
 
         public bool IsEditingFormula { get; set; }
@@ -479,7 +481,7 @@ namespace ExcelDna.IntelliSense
 
                 if (windowWatcher.MainWindow != IntPtr.Zero)
                 {
-                    // TODO: I've seen an error here that 'the element is not available'.
+                    // TODO: I've seen an (ElementNotAvailableException) error here that 'the element is not available'.
                     _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
                     Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
                 }

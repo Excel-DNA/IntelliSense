@@ -129,6 +129,7 @@ namespace ExcelDna.IntelliSense
 
         public void Refresh()
         {
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
             foreach (var xllPath in GetLoadedXllPaths())
             {
                 XllRegistrationInfo regInfo;
@@ -256,6 +257,7 @@ namespace ExcelDna.IntelliSense
 
         public void Refresh()
         {
+            Logger.Provider.Info("WorkbookIntelliSenseProvider.Refresh");
             foreach (var name in GetLoadedWorkbookNames())
             {
                 WorkbookRegistrationInfo regInfo;

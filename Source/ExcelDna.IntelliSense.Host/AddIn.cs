@@ -14,6 +14,7 @@ namespace TestAddIn
         public void AutoOpen()
         {
             IntelliSenseServer.Register();
+            ExcelDna.Logging.LogDisplay.Show();
         }
 
         public void AutoClose()

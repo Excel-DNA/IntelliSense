@@ -31,8 +31,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ExcelDna.Integration">
-      <HintPath>..\packages\Excel-DNA.Lib.0.32.0\lib\ExcelDna.Integration.dll</HintPath>
+    <Reference Include="ExcelDna.Integration, Version=0.33.5730.40390, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\ExcelDna.Integration.0.33.9\lib\ExcelDna.Integration.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -60,16 +60,19 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="ExcelDna.IntelliSense.Host-AddIn.xll.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy $(ProjectDir)..\ExcelDna.IntelliSense.xll $(TargetDir)ExcelDna.CustomAddin.xll
-xcopy "C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDna.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.xll*" /C /Y
+xcopy "$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDna.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.xll*" /C /Y
 xcopy "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna*" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna*" /C /Y
-xcopy "C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDna64.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.xll*" /C /Y
-"C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna" /Y
-"C:\Work\Excel-DNA\IntelliSense\Source\packages\Excel-DNA.0.32.0\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna" /Y</PostBuildEvent>
+xcopy "$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDna64.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.xll*" /C /Y
+"$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna" /Y
+"$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna" /Y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

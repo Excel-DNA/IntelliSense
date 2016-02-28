@@ -33,7 +33,7 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, [Out] StringBuilder lParam);
 
-        // TODO: Not for 64-bit
+        // TODO: Not for 64-bit ...?
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern int SendMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
 

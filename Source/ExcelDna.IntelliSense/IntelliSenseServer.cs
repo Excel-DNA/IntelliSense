@@ -79,6 +79,7 @@ namespace ExcelDna.IntelliSense
             if (IsDisabled())
                 return;
 
+            TraceLogger.Initialize();
             RegisterControlFunction();
             PublishRegistration();
 
