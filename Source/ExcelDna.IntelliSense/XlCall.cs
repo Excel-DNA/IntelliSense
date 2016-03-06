@@ -30,6 +30,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Returns null if not in edit mode
+        // TODO: What do we know about the threading constraints on this call?
         public static string GetFormulaEditPrefix()
         {
             var fmlaInfo = new FmlaInfo();

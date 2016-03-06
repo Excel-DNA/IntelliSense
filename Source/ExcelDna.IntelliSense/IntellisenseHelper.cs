@@ -12,10 +12,10 @@ namespace ExcelDna.IntelliSense
         private readonly IIntelliSenseProvider _workbookProvider = new WorkbookIntelliSenseProvider();
         // TODO: Others
 
+
         public IntelliSenseHelper()
         {
             _id = new IntelliSenseDisplay();
-            _id.SetXllOwner(ExcelDnaUtil.XllPath);
             RegisterIntellisense();
         }
 

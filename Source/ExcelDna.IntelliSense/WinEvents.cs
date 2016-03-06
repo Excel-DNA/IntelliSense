@@ -1,12 +1,35 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace ExcelDna.IntelliSense
 {
-    class WinEventHook
+    // This class sets up a WinEventHook for the main Excel process - watching for a range or event types specified.
+    // Events received (on the main Excel thread) are posted onto the Automation thread (via syncContextAuto)
+    class WinEventHook : IDisposable
     {
+        public class WinEventArgs : EventArgs
+        {
+            public WinEvent EventType;
+            public IntPtr WindowHandle;
+            public int ObjectId;
+            public int ChildId;
+            public uint EventThreadId;
+            public uint EventTimeMs;
 
-        internal delegate void WinEventDelegate(
+            public WinEventArgs(WinEvent eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+            {
+                EventType = eventType;
+                WindowHandle = hWnd;
+                ObjectId = idObject;
+                ChildId = idChild;
+                EventThreadId = dwEventThread;
+                EventTimeMs = dwmsEventTime;
+            }
+        }
+
+        delegate void WinEventDelegate(
               IntPtr hWinEventHook, WinEventHook.WinEvent eventType,
               IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
@@ -19,7 +42,7 @@ namespace ExcelDna.IntelliSense
         static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
         [Flags]
-        internal enum SetWinEventHookFlags : uint
+        enum SetWinEventHookFlags : uint
         {
             WINEVENT_INCONTEXT = 4,
             WINEVENT_OUTOFCONTEXT = 0,
@@ -27,7 +50,7 @@ namespace ExcelDna.IntelliSense
             WINEVENT_SKIPOWNTHREAD = 1
         }
 
-        internal enum WinEvent : uint
+        public enum WinEvent : uint
         {
             EVENT_OBJECT_CREATE = 0x8000, // hwnd ID idChild is created item
             EVENT_OBJECT_DESTROY = 0x8001, // hwnd ID idChild is destroyed item
@@ -55,42 +78,78 @@ namespace ExcelDna.IntelliSense
             EVENT_OBJECT_END = 0x80FF,
             EVENT_AIA_START = 0xA000,
             EVENT_AIA_END = 0xAFFF,
-       }
+        }
 
-        readonly WinEventDelegate _procDelegate;    // So that it does not get GC'ed ...?
+        public event EventHandler<WinEventArgs> WinEventReceived;
+
         readonly IntPtr _hWinEventHook;
-        readonly string _xllPath;
+        readonly SynchronizationContext _syncContextAuto;
+        readonly WinEventDelegate _handleWinEventDelegate;  // Ensures delegate that we pass to SetWinEventHook is not GC'd
 
-        public WinEventHook(WinEventDelegate handler, WinEvent eventMin, WinEvent eventMax, string xllPath)
+        public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto)
         {
-            // Note : could we use another handle than one of an xll ? 
-            // Thus we could avoid carrying the xll path.
-            // The events are still hooked after the xll has been unloaded.
-            _procDelegate = handler;
-            _xllPath = xllPath;
-            var xllModuleHandle = Win32Helper.GetModuleHandle(_xllPath);
+            if (syncContextAuto == null)
+                throw new ArgumentNullException(nameof(syncContextAuto));
+            _syncContextAuto = syncContextAuto;
+            var xllModuleHandle = Win32Helper.GetXllModuleHandle();
             var excelProcessId = Win32Helper.GetExcelProcessId();
-            _hWinEventHook = SetWinEventHook(eventMin, eventMax, xllModuleHandle, handler, excelProcessId, 0, SetWinEventHookFlags.WINEVENT_INCONTEXT);
-            Logger.WinEvents.Info($"SetWinEventHook for {_xllPath}");
+            _handleWinEventDelegate = HandleWinEvent;
+            _hWinEventHook = SetWinEventHook(eventMin, eventMax, xllModuleHandle, _handleWinEventDelegate, excelProcessId, 0, SetWinEventHookFlags.WINEVENT_INCONTEXT);
+            if (_hWinEventHook == IntPtr.Zero)
+            {
+                Logger.WinEvents.Error("SetWinEventHook failed");
+                throw new Win32Exception("SetWinEventHook failed");
+            }
+            Logger.WinEvents.Info($"SetWinEventHook success");
         }
 
-        //public WinEventHook(WinEventDelegate handler, WinEvent eventId)
-        //    : this(handler, eventId, eventId)
-        //{
-        //}
-
-        public void Stop()
+        // This runs on the Excel main thread - get off quickly
+        void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd, 
+                        int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            Logger.WinEvents.Info($"UnhookWinEvent for {_xllPath}");
-            UnhookWinEvent(_hWinEventHook);
+            // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
+            _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, idObject, idChild, dwEventThread, dwmsEventTime));
         }
 
-        // Usage Example for EVENT_OBJECT_CREATE (http://msdn.microsoft.com/en-us/library/windows/desktop/dd318066%28v=vs.85%29.aspx)
-        // var _objectCreateHook = new EventHook(OnObjectCreate, EventHook.EVENT_OBJECT_CREATE);
-        // ...
-        // static void OnObjectCreate(IntPtr hWinEventHook, uint eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime) {
-        //    if (!Win32.GetClassName(hWnd).StartsWith("ClassICareAbout"))
-        //        return;
-        // Note - in Console program, doesn't fire if you have a Console.ReadLine active, so use a Form
+        void OnWinEventReceived(object winEventArgsObj)
+        {
+            var winEventArgs = (WinEventArgs)winEventArgsObj;
+            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
+            WinEventReceived?.Invoke(this, winEventArgs);
+        }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // To detect redundant calls
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects).
+                }
+
+                Logger.WinEvents.Info($"UnhookWinEvent");
+                UnhookWinEvent(_hWinEventHook);
+
+                disposedValue = true;
+            }
+        }
+
+         ~WinEventHook()
+        {
+           // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+           Dispose(false);
+         }
+
+        // This code added to correctly implement the disposable pattern.
+        public void Dispose()
+        {
+            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 }

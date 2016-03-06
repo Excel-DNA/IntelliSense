@@ -27,101 +27,81 @@ namespace ExcelDna.IntelliSense
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
     class IntelliSenseDisplay : MarshalByRefObject, IDisposable
     {
-        IntelliSenseDisplay _current;
-        SynchronizationContext _syncContextMain;
-        SynchronizationContext _syncContextAuto;    // On Automation thread.
-        
-        // NOTE: Add for separate UI Automation Thread
-        Thread _threadAuto;
-        
-        readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap;
+        SynchronizationContext _syncContextMain;                // Running on the main Excel thread (not a 'macro' context, though)
+        SingleThreadSynchronizationContext _syncContextAuto;    // Running on the Automation thread.
+
+        readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap =
+            new Dictionary<string, IntelliSenseFunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
 
         WindowWatcher _windowWatcher;
         FormulaEditWatcher _formulaEditWatcher;
         PopupListWatcher _popupListWatcher;
-        SelectDataSourceWatcher _selectDataSourceWatcher;
+        //SelectDataSourceWatcher _selectDataSourceWatcher;
 
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
         ToolTipForm _argumentsToolTip;
         
-        private readonly List<string> _addInReferences;
-        
         public IntelliSenseDisplay()
         {
-            Debug.Print("### Thread creating IntelliSenseDisplay: " + Thread.CurrentThread.ManagedThreadId);
-
-            _current = this;
-            _functionInfoMap = new Dictionary<string, IntelliSenseFunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
-            // TODO: Need a separate thread for UI Automation Client - event subscriptions should not be on main UI thread.
+            // We expect this to be running in a macro context on the main Excel thread (ManagedThreadId = 1).
+            Debug.Print($"### Thread creating IntelliSenseDisplay: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
 
             _syncContextMain = new WindowsFormsSynchronizationContext();
 
-            _addInReferences = new List<string>();
-        }
-        
-        public void SetXllOwner(string xllPath)
-        {
-            _threadAuto = new Thread(() => RunUIAutomation(xllPath));
-            _threadAuto.SetApartmentState(ApartmentState.MTA);
-            _threadAuto.Start();
+            // Make a separate thread and set to MTA, according to: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692%28v=vs.85%29.aspx
+            var threadAuto = new Thread(RunUIAutomation);
+            threadAuto.SetApartmentState(ApartmentState.MTA);
+            threadAuto.Start();
         }
 
-        public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
+        // This runs on the new thread we've created to do all the Automation stuff (_threadAuto)
+        // It returns only after when the SyncContext.Complete() has been called (from the IntelliSenseDisplay.Dispose() below)
+        void RunUIAutomation()
         {
-            // TODO : Dictionary from KeyLookup
-            _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
-        }
+            _syncContextAuto = new SingleThreadSynchronizationContext();
 
-        void RunUIAutomation(string xllPath)
-        {
-            // NOTE: Add for separate UI Automation Thread
-            _syncContextAuto = new WindowsFormsSynchronizationContext();
-            //_syncContextAuto = _syncContextMain;
-
-            _windowWatcher = new WindowWatcher(xllPath);
+            _windowWatcher = new WindowWatcher(_syncContextAuto);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
             _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
-            _selectDataSourceWatcher = new SelectDataSourceWatcher(_windowWatcher, _syncContextAuto);
+            // _selectDataSourceWatcher = new SelectDataSourceWatcher(_windowWatcher, _syncContextAuto);
 
-            _windowWatcher.MainWindowChanged += OnMainWindowChanged;
-            _popupListWatcher.SelectedItemChanged += OnSelectedItemChanged;
-            _formulaEditWatcher.StateChanged += OnStateChanged;
+            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
+            _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
+            _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
 
             _windowWatcher.TryInitialize();
-            // NOTE: Add for separate UI Automation Thread
-             Application.Run();
+
+            _syncContextAuto.RunOnCurrentThread();
         }
 
-        private void OnMainWindowChanged(object sender, EventArgs args)
+        // Runs on the auto thread
+        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         {
-            Debug.Print("### Thread calling MainWindowChanged event: " + Thread.CurrentThread.ManagedThreadId);
-            _syncContextMain.Post(delegate { MainWindowChanged(); }, null);
-            // MainWindowChanged();
+            _syncContextMain.Post(MainWindowChanged, null);
         }
 
-        private void OnSelectedItemChanged(object sender, EventArgs args)
+        // Runs on the auto thread
+        void _popupListWatcher_SelectedItemChanged(object sender, EventArgs args)
         {
-            _syncContextMain.Post(delegate { PopupListSelectedItemChanged(); }, null);
-            // PopupListSelectedItemChanged();
+            _syncContextMain.Post(PopupListSelectedItemChanged, null);
         }
 
-        private void OnStateChanged(object sender, StateChangeEventArgs args)
+        // Runs on the auto thread
+        void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
         {
-            _syncContextMain.Post(delegate { FormulaEditStateChanged(args.StateChangeType); }, null);
-            // FormulaEditStateChanged();
+            _syncContextMain.Post(FormulaEditStateChanged, args.StateChangeType);
         }
 
-        void MainWindowChanged()
+        // Runs on the main thread
+        void MainWindowChanged(object _unused_)
         {
             // TODO: This is to guard against shutdown, but we should not have a race here 
             //       - shutdown should be on the main thread, as is this event handler.
             if (_windowWatcher == null) return;
 
-
             // TODO: !!! Reset / re-parent ToolTipWindows
-            Debug.Print("MainWindow Change - " + _windowWatcher.MainWindow.ToString("X"));
-            Debug.Print("### Thread calling MainWindowChanged method: " + Thread.CurrentThread.ManagedThreadId);
+            Debug.Print($"IntelliSenseDisplay - MainWindowChanged - New window - {_windowWatcher.MainWindow:X}, Thread {Thread.CurrentThread.ManagedThreadId}");
 
             // _descriptionToolTip.SetOwner(e.Handle); // Not Parent, of course!
             if (_descriptionToolTip != null)
@@ -143,8 +123,11 @@ namespace ExcelDna.IntelliSense
             // _descriptionToolTip = new ToolTipWindow("", _windowWatcher.MainWindow);
         }
 
-        void PopupListSelectedItemChanged()
+        // Runs on the main thread
+        void PopupListSelectedItemChanged(object _unused_)
         {
+            Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {_popupListWatcher?.SelectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+
             if (_popupListWatcher == null) return;
             string functionName = _popupListWatcher.SelectedItemText;
 
@@ -158,8 +141,9 @@ namespace ExcelDna.IntelliSense
                 }
                 // It's ours!
                 _descriptionToolTip.ShowToolTip(
-                    new FormattedText { GetFunctionDescription(functionInfo) }, 
-                    (int)_popupListWatcher.SelectedItemBounds.Right + 25, (int)_popupListWatcher.SelectedItemBounds.Top);
+                    text: new FormattedText { GetFunctionDescription(functionInfo) }, 
+                    left: (int)_popupListWatcher.SelectedItemBounds.Right + 25,
+                    top:  (int)_popupListWatcher.SelectedItemBounds.Top);
             }
             else
             {
@@ -170,22 +154,24 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Runs on the main thread
         // TODO: Need better formula parsing story here
         // Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
-        void FormulaEditStateChanged(StateChangeTypeEnum stateChangeType)
+        void FormulaEditStateChanged(object stateChangeTypeObj)
         {
+            var stateChangeType = (FormulaEditWatcher.StateChangeType)stateChangeTypeObj;
             // Check for watcher already disposed 
             // CONSIDER: How to manage threading with disposal...?
             if (_formulaEditWatcher == null) return;
 
-            if (stateChangeType == StateChangeTypeEnum.Move && _argumentsToolTip != null)
+            if (stateChangeType == FormulaEditWatcher.StateChangeType.Move && _argumentsToolTip != null)
             {
                 _argumentsToolTip.MoveToolTip(
                     (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
                 return;
             }
 
-            Debug.Print("^^^ FormulaEditStateChanged. CurrentPrefix: " + _formulaEditWatcher.CurrentPrefix);
+            Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {_formulaEditWatcher.CurrentPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
             if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
             {
                 string prefix = _formulaEditWatcher.CurrentPrefix;
@@ -218,6 +204,7 @@ namespace ExcelDna.IntelliSense
                 _argumentsToolTip.Hide();
         }
 
+        // TODO: Probably not a good place for LINQ !?
         IEnumerable<TextLine> GetFunctionDescription(IntelliSenseFunctionInfo functionInfo)
         {
             return 
@@ -295,66 +282,46 @@ namespace ExcelDna.IntelliSense
                 };
         }
 
-        public void Shutdown()
-        {
-            Debug.Print("Shutdown!");
-            if (_current != null)
-            {
-                try
-                {
-                    _current.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    Debug.Print("!!! Error during Shutdown: " + ex);
-                }
+        //public void Shutdown()
+        //{
+        //    Debug.Print("Shutdown!");
+        //    if (_current != null)
+        //    {
+        //        try
+        //        {
+        //            _current.Dispose();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Debug.Print("!!! Error during Shutdown: " + ex);
+        //        }
                 
-                _current = null;
-            }
-        }
-        
-        public void AddReference(string xllName)
-        {
-            _addInReferences.Add(xllName);
-        }
-
-        public void RemoveReference(string xllName)
-        {
-            List<string> functionsToRemove =
-                _functionInfoMap.Where(p => p.Value.SourcePath == xllName).Select(p => p.Key).ToList();
-
-            foreach (string func in functionsToRemove)
-            {
-                _functionInfoMap.Remove(func);
-            }
-
-            _addInReferences.Remove(xllName);
-        }
-
-        public bool IsUsed()
-        {
-            return _addInReferences.Count > 0;
-        }
+        //        _current = null;
+        //    }
+        //}
 
         public void Dispose()
         {
-            _current._syncContextAuto.Send(delegate
+            if (_syncContextAuto == null)
+                return;
+
+            _syncContextAuto.Send(delegate
                 {
                     if (_windowWatcher != null)
                     {
-                        _windowWatcher.MainWindowChanged -= OnMainWindowChanged;
+                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
                         _windowWatcher.Dispose();
                         _windowWatcher = null;
                     }
                     if (_formulaEditWatcher != null)
                     {
-                        _formulaEditWatcher.StateChanged -= OnStateChanged;
+                        _formulaEditWatcher.StateChanged -= _formulaEditWatcher_StateChanged;
                         _formulaEditWatcher.Dispose();
                         _formulaEditWatcher = null;
                     }
                     if (_popupListWatcher != null)
                     {
-                        _popupListWatcher.SelectedItemChanged -= OnSelectedItemChanged;
+                        _popupListWatcher.SelectedItemChanged -= _popupListWatcher_SelectedItemChanged;
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
@@ -374,11 +341,18 @@ namespace ExcelDna.IntelliSense
                     }
                 }, null);
 
-            // NOTE: Add for separate UI Automation Thread
-            _threadAuto.Abort();
-            _threadAuto = null;
+            _syncContextAuto.Complete();
+            // CONSIDER: Maybe wait for the _syncContextAuto to finish...?
             _syncContextAuto = null;
+
             _syncContextMain = null;
         }
+
+        public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
+        {
+            // TODO : Dictionary from KeyLookup
+            _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
+        }
+        // TODO: How to UnregisterFunctionInfo ...?
     }
 }

@@ -64,6 +64,7 @@
     <Compile Include="IntelliSenseServer.cs" />
     <Compile Include="Logging.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SingleThreadSynchronizationContext.cs" />
     <Compile Include="ToolTipForm.cs">
       <SubType>Form</SubType>
     </Compile>

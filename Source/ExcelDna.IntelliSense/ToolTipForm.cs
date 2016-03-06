@@ -87,13 +87,12 @@ namespace ExcelDna.IntelliSense
         private const int WS_EX_NOACTIVATE = 0x08000000;
         protected override CreateParams CreateParams
         {
-            
             get
             {
-            CreateParams baseParams = base.CreateParams;
-            baseParams.ClassStyle |= CS_DROPSHADOW;
-            baseParams.ExStyle |= ( WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW );
-            return baseParams;
+                CreateParams baseParams = base.CreateParams;
+                baseParams.ClassStyle |= CS_DROPSHADOW;
+                baseParams.ExStyle |= ( WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW );
+                return baseParams;
             }
         }
 
