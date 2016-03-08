@@ -37,7 +37,16 @@ namespace ExcelDna.IntelliSense
         public void RunOnCurrentThread()
         {
             foreach (var workItem in m_queue.GetConsumingEnumerable())
-                workItem.Key(workItem.Value);
+            {
+                try
+                {
+                    workItem.Key(workItem.Value);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print($"### Unhandled exception on Automation thread - {ex.Message}");
+                }
+            }
 
             Debug.Print("SingleThreadSynchronizationContext Complete!");
         }

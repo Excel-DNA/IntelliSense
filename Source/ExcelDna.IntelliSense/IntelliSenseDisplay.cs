@@ -61,11 +61,13 @@ namespace ExcelDna.IntelliSense
         {
             _syncContextAuto = new SingleThreadSynchronizationContext();
 
+            // Create and hook together the various watchers
             _windowWatcher = new WindowWatcher(_syncContextAuto);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
             _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
             // _selectDataSourceWatcher = new SelectDataSourceWatcher(_windowWatcher, _syncContextAuto);
 
+            // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
             _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
             _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
             _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
@@ -75,30 +77,36 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto.RunOnCurrentThread();
         }
 
-        // Runs on the auto thread
+        #region Receive watcher events, and post to main thread
+        // Runs on our automation thread
         void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         {
+            Logger.Display.Verbose("! MainWindowChanged");
             _syncContextMain.Post(MainWindowChanged, null);
         }
 
-        // Runs on the auto thread
+        // Runs on our automation thread
         void _popupListWatcher_SelectedItemChanged(object sender, EventArgs args)
         {
+            Logger.Display.Verbose("! PopupList SelectedItemChanged");
             _syncContextMain.Post(PopupListSelectedItemChanged, null);
         }
 
-        // Runs on the auto thread
+        // Runs on our automation thread
         void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
         {
+            Logger.Display.Verbose($"! FormulaEdit StateChanged ({args.StateChangeType})");
             _syncContextMain.Post(FormulaEditStateChanged, args.StateChangeType);
         }
+        #endregion
 
         // Runs on the main thread
         void MainWindowChanged(object _unused_)
         {
             // TODO: This is to guard against shutdown, but we should not have a race here 
             //       - shutdown should be on the main thread, as is this event handler.
-            if (_windowWatcher == null) return;
+            if (_windowWatcher == null)
+                return;
 
             // TODO: !!! Reset / re-parent ToolTipWindows
             Debug.Print($"IntelliSenseDisplay - MainWindowChanged - New window - {_windowWatcher.MainWindow:X}, Thread {Thread.CurrentThread.ManagedThreadId}");
@@ -128,7 +136,8 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {_popupListWatcher?.SelectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
 
-            if (_popupListWatcher == null) return;
+            if (_popupListWatcher == null)
+                return;
             string functionName = _popupListWatcher.SelectedItemText;
 
             IntelliSenseFunctionInfo functionInfo;
@@ -162,7 +171,8 @@ namespace ExcelDna.IntelliSense
             var stateChangeType = (FormulaEditWatcher.StateChangeType)stateChangeTypeObj;
             // Check for watcher already disposed 
             // CONSIDER: How to manage threading with disposal...?
-            if (_formulaEditWatcher == null) return;
+            if (_formulaEditWatcher == null)
+                return;
 
             if (stateChangeType == FormulaEditWatcher.StateChangeType.Move && _argumentsToolTip != null)
             {
@@ -305,7 +315,8 @@ namespace ExcelDna.IntelliSense
             if (_syncContextAuto == null)
                 return;
 
-            _syncContextAuto.Send(delegate
+            // Send is not supported on _syncContextAuto
+            _syncContextAuto.Post(delegate
                 {
                     if (_windowWatcher != null)
                     {
@@ -325,6 +336,8 @@ namespace ExcelDna.IntelliSense
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
+                    _syncContextAuto.Complete();
+                    _syncContextAuto = null;
                 }, null);
 
             _syncContextMain.Send(delegate
@@ -340,10 +353,6 @@ namespace ExcelDna.IntelliSense
                         _argumentsToolTip = null;
                     }
                 }, null);
-
-            _syncContextAuto.Complete();
-            // CONSIDER: Maybe wait for the _syncContextAuto to finish...?
-            _syncContextAuto = null;
 
             _syncContextMain = null;
         }

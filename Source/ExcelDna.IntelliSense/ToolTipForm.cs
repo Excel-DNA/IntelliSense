@@ -14,13 +14,13 @@ namespace ExcelDna.IntelliSense
         private Label label;
         Win32Window _owner;
 
-        public ToolTipForm(IntPtr hwndParent)
+        public ToolTipForm(IntPtr hwndOwner)
         {
             InitializeComponent();
-            _owner = new Win32Window(hwndParent);
+            _owner = new Win32Window(hwndOwner);
             // _owner = new NativeWindow();
             // _owner.AssignHandle(hwndParent); (...with ReleaseHandle in Dispose)
-            Debug.Print("Created ToolTipForm with parent " + hwndParent + " Owner Handle: " + (_owner == null ? "<NULL> " : _owner.Handle.ToString()) );
+            Debug.Print($"Created ToolTipForm with owner {hwndOwner}");
         }
 
         public void ShowToolTip()
@@ -89,6 +89,7 @@ namespace ExcelDna.IntelliSense
         {
             get
             {
+                // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
                 CreateParams baseParams = base.CreateParams;
                 baseParams.ClassStyle |= CS_DROPSHADOW;
                 baseParams.ExStyle |= ( WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW );
@@ -128,7 +129,8 @@ namespace ExcelDna.IntelliSense
                             // TODO: Empty strings are a problem....
                             var text = run.Text == "" ? " " : run.Text;
 
-                            DrawString(e.Graphics, SystemBrushes.WindowText, ref layoutRect, out textSize, format, text, font);
+                            // TODO: Find the color SystemBrushes.ControlDarkDark
+                            DrawString(e.Graphics, SystemBrushes.WindowFrame, ref layoutRect, out textSize, format, text, font);
                             totalWidth += textSize.Width;
                             lineHeight = Math.Max(lineHeight, textSize.Height);
                         }
