@@ -55,10 +55,11 @@ namespace ExcelDna.IntelliSense
     enum IntelliSenseTraceEventId
     {
         Initialization = 1,
-        Provider = 2,
+        Monitor = 2,
         WinEvents = 3,
         WindowWatcher = 4,
-        Display = 5
+        Provider = 5,
+        Display = 6,
     }
 
     // TraceLogger manages the IntelliSenseTraceSource that we use for logging.
@@ -214,5 +215,6 @@ namespace ExcelDna.IntelliSense
         static internal Logger WinEvents { get; } = new Logger(IntelliSenseTraceEventId.WinEvents);
         static internal Logger WindowWatcher { get; } = new Logger(IntelliSenseTraceEventId.WindowWatcher);
         static internal Logger Display { get; } = new Logger(IntelliSenseTraceEventId.Display);
+        static internal Logger Monitor { get; } = new Logger(IntelliSenseTraceEventId.Monitor);
     }
 }

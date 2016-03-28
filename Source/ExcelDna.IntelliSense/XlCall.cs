@@ -36,10 +36,9 @@ namespace ExcelDna.IntelliSense
             var fmlaInfo = new FmlaInfo();
             var result = LPenHelper(xlGetFmlaInfo, ref fmlaInfo);
             if (result != 0)
-            {
                 throw new InvalidOperationException("LPenHelper failed. Result: " + result);
-            }
-            if (fmlaInfo.wPointMode == xlModeReady) return null; 
+            if (fmlaInfo.wPointMode == xlModeReady)
+                return null; 
             
             Debug.Print("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
                 fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);

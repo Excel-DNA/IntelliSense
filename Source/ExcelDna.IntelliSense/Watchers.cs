@@ -21,12 +21,26 @@ namespace ExcelDna.IntelliSense
     {
         WinEventHook _windowStateChangeHook;
 
+        public class WindowChangedEventArgs : EventArgs
+        {
+            public enum ChangeType
+            {
+                Create = 1,
+                Destroy = 2,
+                Show = 3,
+                Hide = 4
+            }
+
+            public ChangeType Type;
+        }
+
         public IntPtr MainWindow { get; private set; }
         public IntPtr FormulaBarWindow { get; private set; }
         public IntPtr InCellEditWindow { get; private set; }
         public IntPtr PopupListWindow { get; private set; }
-        public IntPtr PopupListList { get; private set; }
+        // public IntPtr PopupListList { get; private set; }
         public IntPtr SelectDataSourceWindow { get; private set; }
+        public bool IsSelectDataSourceWindowVisible { get; private set; }
 
         // NOTE: The WindowWatcher raises all events on our Automation thread (via syncContextAuto passed into the constructor).
         public event EventHandler MainWindowChanged;
@@ -34,9 +48,9 @@ namespace ExcelDna.IntelliSense
         public event EventHandler FormulaBarFocused;
         public event EventHandler InCellEditWindowChanged;
         public event EventHandler InCellEditFocused;
-        public event EventHandler PopupListWindowChanged;   // Might start off with nothing. Changes at most once.?????
+        public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;   // Might start off with nothing. Changes at most once.?????
         // public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.??????
-        // public event EventHandler SelectDataSourceWindowChanged = delegate { };   // Might start off with nothing. Changes at most once.???????
+        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
         {
@@ -61,16 +75,16 @@ namespace ExcelDna.IntelliSense
             }
             catch (ArgumentException aex)
             {
-                Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
+                Debug.Print($"!!! ERROR: Failed to get Focused Element: {aex}");
                 return;
             }
 
             // Start at the focued control, search ancestors until we find the main window
             AutomationElement current = focused;
             TreeWalker treeWalker = TreeWalker.ControlViewWalker;
-            while ((string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty) != _classMain)
+            while ((string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty) != _mainWindowClass)
             {
-                Debug.Print("Current Class = " + (string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty));
+                Debug.Print($"Current Class = {current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty)}");
                 current = treeWalker.GetParent(current);
                 if (current == null)
                 {
@@ -89,7 +103,7 @@ namespace ExcelDna.IntelliSense
             var className = Win32Helper.GetClassName(e.WindowHandle);
             switch (className)
             {
-                case _classMain:
+                case _mainWindowClass:
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE || 
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
@@ -97,25 +111,34 @@ namespace ExcelDna.IntelliSense
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_REORDER ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
                     {
-                        Debug.Print("MainWindow update: " + e.WindowHandle.ToString("X") + ", EventType: " + e.EventType);
+                        Debug.Print($"MainWindow update: {e.WindowHandle:X}, EventType: {e.EventType}");
                         UpdateMainWindow(e.WindowHandle);
                     }
                     break;
-                case _classPopupList:
-                    if (PopupListWindow == IntPtr.Zero &&
-                        (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
-                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW))   // SHOW also since we might be installed later...
+                case _popupListClass:
+                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
+                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)   // SHOW also since we might be installed later...
                     {
+                        Debug.Assert(PopupListWindow == IntPtr.Zero || e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW, "Unexpected new PopupList window...????");
                         PopupListWindow = e.WindowHandle;
-                        PopupListWindowChanged?.Invoke(this, EventArgs.Empty);
+                        PopupListWindowChanged?.Invoke(this, 
+                            new WindowChangedEventArgs { Type = 
+                                (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE) ? 
+                                    WindowChangedEventArgs.ChangeType.Create : 
+                                    WindowChangedEventArgs.ChangeType.Show });
                     }
-                    else
+                    else if (PopupListWindow != IntPtr.Zero && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_HIDE)
                     {
-                        Debug.Assert(PopupListWindow == e.WindowHandle);
+                        PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Hide });
+                    }
+                    else if (PopupListWindow != IntPtr.Zero && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY)
+                    {
+                        Debug.Fail("Unexpected DESTROY of PopupListWindow");
+                        PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Destroy });
                     }
                     break;
-                case _classInCellEdit:
-                    Debug.Print("InCell Window update: " + e.WindowHandle.ToString("X") + ", EventType: " + e.EventType + ", idChild: " + e.ChildId);
+                case _inCellEditClass:
+                    Debug.Print($"InCell Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                          e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW) // SHOW also since we might be installed later...
                     {
@@ -132,8 +155,8 @@ namespace ExcelDna.IntelliSense
                         InCellEditFocused?.Invoke(this, EventArgs.Empty);
                     }
                     break;
-                case _classFormulaBar:
-                    Debug.Print("FormulaBar Window update: " + e.WindowHandle.ToString("X") + ", EventType: " + e.EventType + ", idChild: " + e.ChildId);
+                case _formulaBarClass:
+                    Debug.Print($"FormulaBar Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                          e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
                     {
@@ -145,9 +168,36 @@ namespace ExcelDna.IntelliSense
                         FormulaBarFocused?.Invoke(this, EventArgs.Empty);
                     }
                     break;
-                case _classSelectSeriesData:
-                    Debug.Print("SelectSeriesData Window update: " + e.WindowHandle.ToString("X") + ", EventType: " + e.EventType + ", idChild: " + e.ChildId);
-
+                case _selectDataSourceClass:
+                    Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
+                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE)
+                    {
+                        // Get the name of this window - maybe ours or some other NUIDialog
+                        var windowTitle = Win32Helper.GetText(e.WindowHandle);
+                        if (windowTitle.Equals(_selectDataSourceTitle, StringComparison.OrdinalIgnoreCase))
+                        {
+                            SelectDataSourceWindow = e.WindowHandle;
+                            SelectDataSourceWindowChanged?.Invoke(this, 
+                                new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Create });
+                        }
+                    }
+                    else if (SelectDataSourceWindow == e.WindowHandle && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
+                    {
+                        IsSelectDataSourceWindowVisible = true;
+                        SelectDataSourceWindowChanged?.Invoke(this,
+                                new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Create });
+                    }
+                    else if (SelectDataSourceWindow == e.WindowHandle && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_HIDE)
+                    {
+                        IsSelectDataSourceWindowVisible = false;
+                        SelectDataSourceWindowChanged?.Invoke(this, new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Hide });
+                    }
+                    else if (SelectDataSourceWindow == e.WindowHandle && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY)
+                    {
+                        IsSelectDataSourceWindowVisible = false;
+                        SelectDataSourceWindow = IntPtr.Zero;
+                        SelectDataSourceWindowChanged?.Invoke(this, new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Destroy });
+                    }
                     break;
                 default:
                     //InCellEditWindowChanged(this, EventArgs.Empty);
@@ -155,7 +205,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        private void UpdateMainWindow(IntPtr hWnd)
+        void UpdateMainWindow(IntPtr hWnd)
         {
             if (MainWindow != hWnd)
             {
@@ -177,11 +227,11 @@ namespace ExcelDna.IntelliSense
                 {
                     var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
                     var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
-                    Debug.Print("Child: " + hWndChild + ", Class: " + classChild);
+                    Debug.Print($"Child: {hWndChild}, Class: {classChild}");
                 }
 #endif
                 AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
-                    new PropertyCondition(AutomationElement.ClassNameProperty, _classFormulaBar));
+                    new PropertyCondition(AutomationElement.ClassNameProperty, _formulaBarClass));
                 if (formulaBar != null)
                 {
                     FormulaBarWindow = (IntPtr)(int)formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
@@ -198,11 +248,12 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        const string _classMain = "XLMAIN";
-        const string _classFormulaBar = "EXCEL<";
-        const string _classInCellEdit = "EXCEL6";
-        const string _classPopupList = "__XLACOOUTER";
-        const string _classSelectSeriesData = "NUIDialog";
+        const string _mainWindowClass = "XLMAIN";
+        const string _formulaBarClass = "EXCEL<";
+        const string _inCellEditClass = "EXCEL6";
+        const string _popupListClass = "__XLACOOUTER";
+        const string _selectDataSourceClass = "NUIDialog";
+        const string _selectDataSourceTitle = "Select Data Source";     // TODO: How does localization work?
 
         public void Dispose()
         {
@@ -216,13 +267,14 @@ namespace ExcelDna.IntelliSense
 
     // We want to know whether to show the function entry help
     // For now we ignore whether another ToolTip is being shown, and just use the formula edit state.
-    // CONSIDER: Show we watch the in-cell edit box and the formula edit control separately?
+    // CONSIDER: Should we watch the in-cell edit box and the formula edit control separately?
     class FormulaEditWatcher : IDisposable
     {
         public enum StateChangeType
         {
             Undefined,
-            Move
+            Move,
+            TextChangedOnly
         }
 
         public class StateChangeEventArgs : EventArgs
@@ -289,7 +341,7 @@ namespace ExcelDna.IntelliSense
         void _windowWatcher_FormulaBarWindowChanged(object sender, EventArgs e)
         {
             var hWnd = _windowWatcher.FormulaBarWindow;
-            Debug.Print("Will be watching Formula Bar: " + hWnd);
+            Debug.Print($"Will be watching Formula Bar: {hWnd}");
             if (_formulaBar != null)
             {
                 // TODO: I've seen ElementNotAvailable here...
@@ -352,8 +404,8 @@ namespace ExcelDna.IntelliSense
         void TextChanged(object sender, AutomationEventArgs e)
         {
             Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-            Debug.WriteLine("! Active Text text changed. Is it the Formula Bar? {0}, Is it the In Cell Edit? {1}", sender.Equals(_formulaBar), sender.Equals(_inCellEdit));
-            UpdateFormula();
+            Debug.WriteLine($"! Active Text text changed. Is it the Formula Bar? {sender.Equals(_formulaBar)}, Is it the In Cell Edit? {sender.Equals(_inCellEdit)}");
+            UpdateFormula(textChangedOnly: true);
         }
 
         // What thread does this run on?
@@ -382,7 +434,7 @@ namespace ExcelDna.IntelliSense
                     }
                     catch (ArgumentException aex)
                     {
-                        Debug.Print("!!! ERROR: Failed to get Focused Element: " + aex.ToString());
+                        Debug.Print($"!!! ERROR: Failed to get Focused Element: {aex}");
                         // Not sure why I get this - sometimes with startup screen
                         return;
                     }
@@ -415,15 +467,15 @@ namespace ExcelDna.IntelliSense
                 }, null);
         }
 
-        void UpdateFormula()
+        void UpdateFormula(bool textChangedOnly = false)
         {
             Debug.Print($">>>> FormulaEditWatcher.UpdateFormula on thread {Thread.CurrentThread.ManagedThreadId}");
             //            CurrentFormula = "";
             CurrentPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
-            OnStateChanged(StateChangeEventArgs.Empty);
+            OnStateChanged(textChangedOnly ? new StateChangeEventArgs(StateChangeType.TextChangedOnly) : StateChangeEventArgs.Empty);
         }
 
-        // We ensure that our event is raised on the Automation thread .. (Why - it will get passed on to the main thread...)
+        // We ensure that our event is raised on the Automation thread .. (Eases concurrency issues in handling it, though it will get passed on to the main thread...)
         void OnStateChanged(StateChangeEventArgs stateChangeEventArgs)
         {
             _syncContextAuto.Post(args => StateChanged?.Invoke(this, (StateChangeEventArgs)args), stateChangeEventArgs);
@@ -464,15 +516,17 @@ namespace ExcelDna.IntelliSense
     // We ignore this, and match purely on the text of the selected item.
     class PopupListWatcher : IDisposable
     {
+        AutomationElement _mainWindow;
         AutomationElement _popupList;
         AutomationElement _popupListList;
-        AutomationElement _mainWindow;
+        AutomationElement _selectedItem;
 
         // NOTE: Event will always be raised on our automation thread
-        public event EventHandler SelectedItemChanged;
+        public event EventHandler SelectedItemChanged;  // Either text or location
 
-        public string SelectedItemText { get; set; }
-        public Rect SelectedItemBounds { get; set; }
+        public bool IsVisible{ get; set; } = false;
+        public string SelectedItemText { get; set; } = string.Empty;
+        public Rect SelectedItemBounds { get; set; } = Rect.Empty;
 
         SynchronizationContext _syncContextAuto;
         WindowWatcher _windowWatcher;
@@ -486,15 +540,34 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on our automation thread
-        void _windowWatcher_PopupListWindowChanged(object sender, EventArgs e)
+        void _windowWatcher_PopupListWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs e)
         {
-            // TODO: Confirm that this runs at most once
-            var hWnd = _windowWatcher.PopupListWindow;
-            Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
+            switch (e.Type)
+            {
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
+                    // TODO: Confirm that this runs at most once
+                    var hWnd = _windowWatcher.PopupListWindow;
+                    Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
+                    Debug.Assert(_popupList == null, "PopupList window created more than once ...???");
 
-            _popupList = AutomationElement.FromHandle(hWnd);
-            // We set up the structure changed handler so that we can catch the sub-list creation
-            Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
+                    _popupList = AutomationElement.FromHandle(hWnd);
+                    // We set up the structure changed handler so that we can catch the sub-list creation
+                    Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
+                    // Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListVisibleChangedHandler, AutomationElement.???Visible);
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
+                    Debug.Assert(false, "PopupList window destroyed...???");
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
+                    IsVisible = true;
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
+                    IsVisible = false;
+                    UpdateSelectedItem();
+                    break;
+                default:
+                    break;
+            }
         }
 
         // Runs on our automation thread
@@ -502,7 +575,7 @@ namespace ExcelDna.IntelliSense
         {
             if (_mainWindow != null)
             {
-                Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, MainWindowLocationChanged);
             }
 
             WindowWatcher windowWatcher = (WindowWatcher)sender;
@@ -514,7 +587,7 @@ namespace ExcelDna.IntelliSense
                 try
                 {
                     _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
-                    Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
+                    Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, MainWindowLocationChanged, AutomationElement.BoundingRectangleProperty);
                 }
                 catch (Exception ex)
                 {
@@ -524,10 +597,13 @@ namespace ExcelDna.IntelliSense
         }
 
         // This runs on an automation event handler thread
-        void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
+        void MainWindowLocationChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
-            Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-            UpdateSelectedItem(sender as AutomationElement);
+            if (IsVisible && _selectedItem != null)
+            {
+                Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
+                UpdateSelectedItem();
+            }
 
             //_syncContextAuto.Post(delegate
             //{
@@ -563,7 +639,8 @@ namespace ExcelDna.IntelliSense
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
             Debug.Print($">>>> PopupListWatcher.PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
-            UpdateSelectedItem(sender as AutomationElement);
+            _selectedItem = sender as AutomationElement;
+            UpdateSelectedItem();
         }
 
         // TODO: This should be exposed as an event and popup resize should be elsewhere
@@ -571,7 +648,7 @@ namespace ExcelDna.IntelliSense
         private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
         {
             Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
-            Debug.WriteLine(">>> PopupList structure changed - " + e.StructureChangeType.ToString());
+            Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
             // CONSIDER: Others too?
             if (e.StructureChangeType == StructureChangeType.ChildAdded)
             {
@@ -603,7 +680,8 @@ namespace ExcelDna.IntelliSense
                     {
                         try
                         {
-                            UpdateSelectedItem(curSel[0]);
+                            _selectedItem = curSel[0];
+                            UpdateSelectedItem();
                         }
                         catch (Exception ex)
                         {
@@ -625,8 +703,7 @@ namespace ExcelDna.IntelliSense
                     Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
                     _popupListList = null;
                 }
-                SelectedItemText = String.Empty;
-                SelectedItemBounds = Rect.Empty;
+                _selectedItem = null;
                 OnSelectedItemChanged();
             }
         }
@@ -642,11 +719,19 @@ namespace ExcelDna.IntelliSense
         }
 
         // Can run on our automation thread or on any automation event thread (which is also allowed to read properties)
-        private void UpdateSelectedItem(AutomationElement automationElement)
+        private void UpdateSelectedItem()
         {
-            SelectedItemText = (string)automationElement.GetCurrentPropertyValue(AutomationElement.NameProperty);
-            SelectedItemBounds = (Rect)automationElement.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-            Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
+            if (IsVisible && _selectedItem != null)
+            {
+                SelectedItemText = (string)_selectedItem.GetCurrentPropertyValue(AutomationElement.NameProperty);
+                SelectedItemBounds = (Rect)_selectedItem.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
+            }
+            else
+            {
+                SelectedItemText = String.Empty;
+                SelectedItemBounds = Rect.Empty;
+            }
             OnSelectedItemChanged();
         }
 
@@ -685,17 +770,40 @@ namespace ExcelDna.IntelliSense
 
     //class SelectDataSourceWatcher : IDisposable
     //{
-    //    private SynchronizationContext _syncContext;
+    //    SynchronizationContext _syncContextAuto;
+    //    WindowWatcher _windowWatcher;
 
-    //    public SelectDataSourceWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContext)
+    //    public IntPtr SelectDataSourceWindow { get; private set; }
+    //    public event EventHandler SelectDataSourceWindowChanged;
+    //    public bool IsVisible { get; private set; }
+    //    public event EventHandler IsVisibleChanged;
+
+    //    public SelectDataSourceWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto)
     //    {
-    //        _syncContext = syncContext;
-            
+    //        _syncContextAuto = syncContextAuto;
+    //        _windowWatcher = windowWatcher;
+    //        _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
+    //        //_windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
+    //        //_windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
+    //    }
+
+    //    private void _windowWatcher_SelectDataSourceWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs e)
+    //    {
     //    }
 
     //    public void Dispose()
     //    {
+    //        Debug.Print("Disposing SelectDataSourceWatcher");
+    //        // CONSIDER: Do we need this?
+    //        //_windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
+    //        //_windowWatcher.PopupListWindowChanged -= _windowWatcher_PopupListWindowChanged;
+    //        _windowWatcher.SelectDataSourceWindowChanged -= _windowWatcher_SelectDataSourceWindowChanged;
+    //        _windowWatcher = null;
 
+    //        _syncContextAuto.Post(delegate
+    //        {
+    //            Debug.Print("Disposing SelectDataSourceWatcher - In Automation context");
+    //        }, null);
     //    }
     //}
 }

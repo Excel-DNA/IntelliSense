@@ -68,8 +68,10 @@
     <Compile Include="ToolTipForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UIMonitor.cs" />
     <Compile Include="Watchers.cs" />
     <Compile Include="Win32Helper.cs" />
+    <Compile Include="WindowResizer.cs" />
     <Compile Include="WinEvents.cs" />
     <Compile Include="XlCall.cs" />
   </ItemGroup>

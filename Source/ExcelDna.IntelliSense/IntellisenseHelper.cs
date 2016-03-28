@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Windows.Forms;
 using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
@@ -15,7 +17,10 @@ namespace ExcelDna.IntelliSense
 
         public IntelliSenseHelper()
         {
-            _id = new IntelliSenseDisplay();
+            SynchronizationContext syncContextMain = new WindowsFormsSynchronizationContext();
+            var uiMonitor = new UIMonitor(syncContextMain);
+
+            _id = new IntelliSenseDisplay(syncContextMain, uiMonitor);
             RegisterIntellisense();
         }
 

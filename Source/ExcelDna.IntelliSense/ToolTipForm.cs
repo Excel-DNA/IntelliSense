@@ -12,6 +12,9 @@ namespace ExcelDna.IntelliSense
     {
         FormattedText _text;
         private Label label;
+        private Label label1;
+        private ToolTip toolTip1;
+        private System.ComponentModel.IContainer components;
         Win32Window _owner;
 
         public ToolTipForm(IntPtr hwndOwner)
@@ -171,18 +174,30 @@ namespace ExcelDna.IntelliSense
 
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.label = new System.Windows.Forms.Label();
+            this.label1 = new System.Windows.Forms.Label();
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
             // 
             // label
             // 
             this.label.AutoSize = true;
-            this.label.ForeColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.label.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.label.Location = new System.Drawing.Point(3, 3);
             this.label.Name = "label";
             this.label.Size = new System.Drawing.Size(105, 13);
             this.label.TabIndex = 0;
             this.label.Text = "Some long label text.";
+            // 
+            // label1
+            // 
+            this.label1.BackColor = System.Drawing.Color.CornflowerBlue;
+            this.label1.Location = new System.Drawing.Point(0, 0);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(2, 2);
+            this.label1.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.label1, "IntelliSense by Excel-DNA");
             // 
             // ToolTipForm
             // 
@@ -190,6 +205,7 @@ namespace ExcelDna.IntelliSense
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(114, 20);
             this.ControlBox = false;
+            this.Controls.Add(this.label1);
             this.DoubleBuffered = true;
             this.ForeColor = System.Drawing.Color.DimGray;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;

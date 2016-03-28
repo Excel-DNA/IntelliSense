@@ -25,194 +25,153 @@ namespace ExcelDna.IntelliSense
 
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
-    class IntelliSenseDisplay : MarshalByRefObject, IDisposable
+    class IntelliSenseDisplay : IDisposable
     {
-        SynchronizationContext _syncContextMain;                // Running on the main Excel thread (not a 'macro' context, though)
-        SingleThreadSynchronizationContext _syncContextAuto;    // Running on the Automation thread.
+
+        // SyncContextMain is running on the main Excel thread (not a 'macro' context, though)
+        // Not sure we need this here... (the UIMonitor internally uses it, and raises all events on the main thread).
+        SynchronizationContext _syncContextMain;
+        readonly UIMonitor _uiMonitor;
 
         readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap =
             new Dictionary<string, IntelliSenseFunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
-
-        WindowWatcher _windowWatcher;
-        FormulaEditWatcher _formulaEditWatcher;
-        PopupListWatcher _popupListWatcher;
-        //SelectDataSourceWatcher _selectDataSourceWatcher;
 
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
         ToolTipForm _argumentsToolTip;
         
-        public IntelliSenseDisplay()
+        public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor)
         {
             // We expect this to be running in a macro context on the main Excel thread (ManagedThreadId = 1).
+            #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
             Debug.Print($"### Thread creating IntelliSenseDisplay: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
+            #pragma warning restore CS0618 // Type or member is obsolete
 
-            _syncContextMain = new WindowsFormsSynchronizationContext();
-
-            // Make a separate thread and set to MTA, according to: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692%28v=vs.85%29.aspx
-            var threadAuto = new Thread(RunUIAutomation);
-            threadAuto.SetApartmentState(ApartmentState.MTA);
-            threadAuto.Start();
+            _syncContextMain = syncContextMain;
+            _uiMonitor = uiMonitor;
+            _uiMonitor.StateChanged += _uiMonitor_StateChanged;
         }
 
-        // This runs on the new thread we've created to do all the Automation stuff (_threadAuto)
-        // It returns only after when the SyncContext.Complete() has been called (from the IntelliSenseDisplay.Dispose() below)
-        void RunUIAutomation()
+        private void _uiMonitor_StateChanged(object sender, UIStateUpdate e)
         {
-            _syncContextAuto = new SingleThreadSynchronizationContext();
-
-            // Create and hook together the various watchers
-            _windowWatcher = new WindowWatcher(_syncContextAuto);
-            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
-            _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
-            // _selectDataSourceWatcher = new SelectDataSourceWatcher(_windowWatcher, _syncContextAuto);
-
-            // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
-            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
-            _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
-            _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
-
-            _windowWatcher.TryInitialize();
-
-            _syncContextAuto.RunOnCurrentThread();
+            
         }
 
-        #region Receive watcher events, and post to main thread
-        // Runs on our automation thread
-        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
-        {
-            Logger.Display.Verbose("! MainWindowChanged");
-            _syncContextMain.Post(MainWindowChanged, null);
-        }
 
-        // Runs on our automation thread
-        void _popupListWatcher_SelectedItemChanged(object sender, EventArgs args)
-        {
-            Logger.Display.Verbose("! PopupList SelectedItemChanged");
-            _syncContextMain.Post(PopupListSelectedItemChanged, null);
-        }
 
-        // Runs on our automation thread
-        void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
-        {
-            Logger.Display.Verbose($"! FormulaEdit StateChanged ({args.StateChangeType})");
-            _syncContextMain.Post(FormulaEditStateChanged, args.StateChangeType);
-        }
-        #endregion
+        //// Runs on the main thread
+        //void MainWindowChanged(object _unused_)
+        //{
+        //    // TODO: This is to guard against shutdown, but we should not have a race here 
+        //    //       - shutdown should be on the main thread, as is this event handler.
+        //    if (_windowWatcher == null)
+        //        return;
 
-        // Runs on the main thread
-        void MainWindowChanged(object _unused_)
-        {
-            // TODO: This is to guard against shutdown, but we should not have a race here 
-            //       - shutdown should be on the main thread, as is this event handler.
-            if (_windowWatcher == null)
-                return;
+        //    // TODO: !!! Reset / re-parent ToolTipWindows
+        //    Debug.Print($"IntelliSenseDisplay - MainWindowChanged - New window - {_windowWatcher.MainWindow:X}, Thread {Thread.CurrentThread.ManagedThreadId}");
 
-            // TODO: !!! Reset / re-parent ToolTipWindows
-            Debug.Print($"IntelliSenseDisplay - MainWindowChanged - New window - {_windowWatcher.MainWindow:X}, Thread {Thread.CurrentThread.ManagedThreadId}");
+        //    // _descriptionToolTip.SetOwner(e.Handle); // Not Parent, of course!
+        //    if (_descriptionToolTip != null)
+        //    {
+        //        if (_descriptionToolTip.OwnerHandle != _windowWatcher.MainWindow)
+        //        {
+        //            _descriptionToolTip.Dispose();
+        //            _descriptionToolTip = null;
+        //        }
+        //    }
+        //    if (_argumentsToolTip != null)
+        //    {
+        //        if (_argumentsToolTip.OwnerHandle != _windowWatcher.MainWindow)
+        //        {
+        //            _argumentsToolTip.Dispose();
+        //            _argumentsToolTip = null;
+        //        }
+        //    }
+        //    // _descriptionToolTip = new ToolTipWindow("", _windowWatcher.MainWindow);
+        //}
 
-            // _descriptionToolTip.SetOwner(e.Handle); // Not Parent, of course!
-            if (_descriptionToolTip != null)
-            {
-                if (_descriptionToolTip.OwnerHandle != _windowWatcher.MainWindow)
-                {
-                    _descriptionToolTip.Dispose();
-                    _descriptionToolTip = null;
-                }
-            }
-            if (_argumentsToolTip != null)
-            {
-                if (_argumentsToolTip.OwnerHandle != _windowWatcher.MainWindow)
-                {
-                    _argumentsToolTip.Dispose();
-                    _argumentsToolTip = null;
-                }
-            }
-            // _descriptionToolTip = new ToolTipWindow("", _windowWatcher.MainWindow);
-        }
+        //// Runs on the main thread
+        //void PopupListSelectedItemChanged(object _unused_)
+        //{
+        //    Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {_popupListWatcher?.SelectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
 
-        // Runs on the main thread
-        void PopupListSelectedItemChanged(object _unused_)
-        {
-            Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {_popupListWatcher?.SelectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+        //    if (_popupListWatcher == null)
+        //        return;
+        //    string functionName = _popupListWatcher.SelectedItemText;
 
-            if (_popupListWatcher == null)
-                return;
-            string functionName = _popupListWatcher.SelectedItemText;
+        //    IntelliSenseFunctionInfo functionInfo;
+        //    if ( _functionInfoMap.TryGetValue(functionName, out functionInfo))
+        //    {
+        //        if (_descriptionToolTip == null)
+        //        {
+        //            _descriptionToolTip = new ToolTipForm(_windowWatcher.MainWindow);
+        //            _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
+        //        }
+        //        // It's ours!
+        //        _descriptionToolTip.ShowToolTip(
+        //            text: new FormattedText { GetFunctionDescription(functionInfo) }, 
+        //            left: (int)_popupListWatcher.SelectedItemBounds.Right + 25,
+        //            top:  (int)_popupListWatcher.SelectedItemBounds.Top);
+        //    }
+        //    else
+        //    {
+        //        if (_descriptionToolTip != null)
+        //        {
+        //            _descriptionToolTip.Hide();
+        //        }
+        //    }
+        //}
 
-            IntelliSenseFunctionInfo functionInfo;
-            if ( _functionInfoMap.TryGetValue(functionName, out functionInfo))
-            {
-                if (_descriptionToolTip == null)
-                {
-                    _descriptionToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-                    _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-                }
-                // It's ours!
-                _descriptionToolTip.ShowToolTip(
-                    text: new FormattedText { GetFunctionDescription(functionInfo) }, 
-                    left: (int)_popupListWatcher.SelectedItemBounds.Right + 25,
-                    top:  (int)_popupListWatcher.SelectedItemBounds.Top);
-            }
-            else
-            {
-                if (_descriptionToolTip != null)
-                {
-                    _descriptionToolTip.Hide();
-                }
-            }
-        }
+        //// Runs on the main thread
+        //// TODO: Need better formula parsing story here
+        //// Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
+        //void FormulaEditStateChanged(object stateChangeTypeObj)
+        //{
+        //    var stateChangeType = (FormulaEditWatcher.StateChangeType)stateChangeTypeObj;
+        //    // Check for watcher already disposed 
+        //    // CONSIDER: How to manage threading with disposal...?
+        //    if (_formulaEditWatcher == null)
+        //        return;
 
-        // Runs on the main thread
-        // TODO: Need better formula parsing story here
-        // Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
-        void FormulaEditStateChanged(object stateChangeTypeObj)
-        {
-            var stateChangeType = (FormulaEditWatcher.StateChangeType)stateChangeTypeObj;
-            // Check for watcher already disposed 
-            // CONSIDER: How to manage threading with disposal...?
-            if (_formulaEditWatcher == null)
-                return;
+        //    if (stateChangeType == FormulaEditWatcher.StateChangeType.Move && _argumentsToolTip != null)
+        //    {
+        //        _argumentsToolTip.MoveToolTip(
+        //            (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
+        //        return;
+        //    }
 
-            if (stateChangeType == FormulaEditWatcher.StateChangeType.Move && _argumentsToolTip != null)
-            {
-                _argumentsToolTip.MoveToolTip(
-                    (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
-                return;
-            }
+        //    Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {_formulaEditWatcher.CurrentPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
+        //    if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
+        //    {
+        //        string prefix = _formulaEditWatcher.CurrentPrefix;
+        //        var match = Regex.Match(prefix, @"^=(?<functionName>\w*)\(");
+        //        if (match.Success)
+        //        {
+        //            string functionName = match.Groups["functionName"].Value;
 
-            Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {_formulaEditWatcher.CurrentPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
-            if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
-            {
-                string prefix = _formulaEditWatcher.CurrentPrefix;
-                var match = Regex.Match(prefix, @"^=(?<functionName>\w*)\(");
-                if (match.Success)
-                {
-                    string functionName = match.Groups["functionName"].Value;
+        //            IntelliSenseFunctionInfo functionInfo;
+        //            if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
+        //            {
+        //                // It's ours!
+        //                if (_argumentsToolTip == null)
+        //                {
+        //                    _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
+        //                }
 
-                    IntelliSenseFunctionInfo functionInfo;
-                    if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
-                    {
-                        // It's ours!
-                        if (_argumentsToolTip == null)
-                        {
-                            _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-                        }
+        //                // TODO: Fix this: Need to consider subformulae
+        //                int currentArgIndex = _formulaEditWatcher.CurrentPrefix.Count(c => c == ',');
+        //                _argumentsToolTip.ShowToolTip(
+        //                    GetFunctionIntelliSense(functionInfo, currentArgIndex),
+        //                    (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
+        //                return;
+        //            }
+        //        }
+        //    }
 
-                        // TODO: Fix this: Need to consider subformulae
-                        int currentArgIndex = _formulaEditWatcher.CurrentPrefix.Count(c => c == ',');
-                        _argumentsToolTip.ShowToolTip(
-                            GetFunctionIntelliSense(functionInfo, currentArgIndex),
-                            (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
-                        return;
-                    }
-                }
-            }
-
-            // All other paths, we just clear the box
-            if (_argumentsToolTip != null)
-                _argumentsToolTip.Hide();
-        }
+        //    // All other paths, we just clear the box
+        //    if (_argumentsToolTip != null)
+        //        _argumentsToolTip.Hide();
+        //}
 
         // TODO: Probably not a good place for LINQ !?
         IEnumerable<TextLine> GetFunctionDescription(IntelliSenseFunctionInfo functionInfo)
@@ -312,34 +271,6 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            if (_syncContextAuto == null)
-                return;
-
-            // Send is not supported on _syncContextAuto
-            _syncContextAuto.Post(delegate
-                {
-                    if (_windowWatcher != null)
-                    {
-                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
-                        _windowWatcher.Dispose();
-                        _windowWatcher = null;
-                    }
-                    if (_formulaEditWatcher != null)
-                    {
-                        _formulaEditWatcher.StateChanged -= _formulaEditWatcher_StateChanged;
-                        _formulaEditWatcher.Dispose();
-                        _formulaEditWatcher = null;
-                    }
-                    if (_popupListWatcher != null)
-                    {
-                        _popupListWatcher.SelectedItemChanged -= _popupListWatcher_SelectedItemChanged;
-                        _popupListWatcher.Dispose();
-                        _popupListWatcher = null;
-                    }
-                    _syncContextAuto.Complete();
-                    _syncContextAuto = null;
-                }, null);
-
             _syncContextMain.Send(delegate
                 {
                     if (_descriptionToolTip != null)
