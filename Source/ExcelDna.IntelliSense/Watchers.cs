@@ -55,7 +55,7 @@ namespace ExcelDna.IntelliSense
         public WindowWatcher(SynchronizationContext syncContextAuto)
         {
             #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
-            Debug.Print($"### WindowWatcher created on thread: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
+            // Debug.Print($"### WindowWatcher created on thread: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
             #pragma warning restore CS0618 // Type or member is obsolete
 
             // Using WinEvents instead of Automation so that we can watch top-level window changes, but only from the right (current Excel) process.
@@ -84,7 +84,7 @@ namespace ExcelDna.IntelliSense
             TreeWalker treeWalker = TreeWalker.ControlViewWalker;
             while ((string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty) != _mainWindowClass)
             {
-                Debug.Print($"Current Class = {current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty)}");
+                // Debug.Print($"Current Class = {current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty)}");
                 current = treeWalker.GetParent(current);
                 if (current == null)
                 {
@@ -111,7 +111,7 @@ namespace ExcelDna.IntelliSense
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_REORDER ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
                     {
-                        Debug.Print($"MainWindow update: {e.WindowHandle:X}, EventType: {e.EventType}");
+                        // Debug.Print($"MainWindow update: {e.WindowHandle:X}, EventType: {e.EventType}");
                         UpdateMainWindow(e.WindowHandle);
                     }
                     break;
@@ -119,7 +119,7 @@ namespace ExcelDna.IntelliSense
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)   // SHOW also since we might be installed later...
                     {
-                        Debug.Assert(PopupListWindow == IntPtr.Zero || e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW, "Unexpected new PopupList window...????");
+                        // Debug.Assert(PopupListWindow == IntPtr.Zero || e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW, "Unexpected new PopupList window...????");
                         PopupListWindow = e.WindowHandle;
                         PopupListWindowChanged?.Invoke(this, 
                             new WindowChangedEventArgs { Type = 
@@ -133,12 +133,12 @@ namespace ExcelDna.IntelliSense
                     }
                     else if (PopupListWindow != IntPtr.Zero && e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY)
                     {
-                        Debug.Fail("Unexpected DESTROY of PopupListWindow");
+                        // Expected when shutting down
                         PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs { Type = WindowChangedEventArgs.ChangeType.Destroy });
                     }
                     break;
                 case _inCellEditClass:
-                    Debug.Print($"InCell Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
+                    // Debug.Print($"InCell Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                          e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW) // SHOW also since we might be installed later...
                     {
@@ -156,7 +156,7 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case _formulaBarClass:
-                    Debug.Print($"FormulaBar Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
+                    // Debug.Print($"FormulaBar Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                          e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
                     {
@@ -169,7 +169,7 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case _selectDataSourceClass:
-                    Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
+                    // Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE)
                     {
                         // Get the name of this window - maybe ours or some other NUIDialog
@@ -227,7 +227,7 @@ namespace ExcelDna.IntelliSense
                 {
                     var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
                     var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
-                    Debug.Print($"Child: {hWndChild}, Class: {classChild}");
+                    // Debug.Print($"Child: {hWndChild}, Class: {classChild}");
                 }
 #endif
                 AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
@@ -243,7 +243,7 @@ namespace ExcelDna.IntelliSense
                 }
                 else
                 {
-                    Debug.Print("Could not get FormulaBar!");
+                    // Debug.Print("Could not get FormulaBar!");
                 }
             }
         }
@@ -341,7 +341,7 @@ namespace ExcelDna.IntelliSense
         void _windowWatcher_FormulaBarWindowChanged(object sender, EventArgs e)
         {
             var hWnd = _windowWatcher.FormulaBarWindow;
-            Debug.Print($"Will be watching Formula Bar: {hWnd}");
+            // Debug.Print($"Will be watching Formula Bar: {hWnd}");
             if (_formulaBar != null)
             {
                 // TODO: I've seen ElementNotAvailable here...
@@ -349,7 +349,7 @@ namespace ExcelDna.IntelliSense
                 if (hwndFormulaBar == hWnd)
                 {
                     // Window is fine - might be a text update
-                    Debug.Print("Doing Update for FormulaBar");
+                    // Debug.Print("Doing Update for FormulaBar");
 
                     UpdateEditState();
                     UpdateFormula();
@@ -377,7 +377,7 @@ namespace ExcelDna.IntelliSense
                 if (objInCellHandle != null && hWnd == (IntPtr)(int)objInCellHandle)
                 {
                     // Window is fine - might be a text update
-                    Debug.Print("Doing Update for InCellEdit");
+                    // Debug.Print("Doing Update for InCellEdit");
                     UpdateEditState();
                     UpdateFormula();
                     return;
@@ -403,15 +403,15 @@ namespace ExcelDna.IntelliSense
         // What thread does this run on?
         void TextChanged(object sender, AutomationEventArgs e)
         {
-            Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-            Debug.WriteLine($"! Active Text text changed. Is it the Formula Bar? {sender.Equals(_formulaBar)}, Is it the In Cell Edit? {sender.Equals(_inCellEdit)}");
+            // Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
+            // Debug.WriteLine($"! Active Text text changed. Is it the Formula Bar? {sender.Equals(_formulaBar)}, Is it the In Cell Edit? {sender.Equals(_inCellEdit)}");
             UpdateFormula(textChangedOnly: true);
         }
 
         // What thread does this run on?
         void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
-            Debug.Print($">>>> FormulaEditWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
+            // Debug.Print($">>>> FormulaEditWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
             UpdateEditState(true);
         }
 
@@ -454,9 +454,10 @@ namespace ExcelDna.IntelliSense
                     }
                     else
                     {
+                        // Neither have the focus, so we don't update anything
                         // CurrentFormula = null;
-                        CurrentPrefix = null;
-                        Debug.Print("Don't have a focused text box to update.");
+                        // CurrentPrefix = null;
+                        // Debug.Print("Don't have a focused text box to update.");
                     }
 
                     // As long as we have an InCellEdit, we are editing the formula...
@@ -469,8 +470,7 @@ namespace ExcelDna.IntelliSense
 
         void UpdateFormula(bool textChangedOnly = false)
         {
-            Debug.Print($">>>> FormulaEditWatcher.UpdateFormula on thread {Thread.CurrentThread.ManagedThreadId}");
-            //            CurrentFormula = "";
+            // Debug.Print($">>>> FormulaEditWatcher.UpdateFormula on thread {Thread.CurrentThread.ManagedThreadId}");
             CurrentPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
             OnStateChanged(textChangedOnly ? new StateChangeEventArgs(StateChangeType.TextChangedOnly) : StateChangeEventArgs.Empty);
         }
@@ -547,7 +547,7 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
                     // TODO: Confirm that this runs at most once
                     var hWnd = _windowWatcher.PopupListWindow;
-                    Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
+                    // Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
                     Debug.Assert(_popupList == null, "PopupList window created more than once ...???");
 
                     _popupList = AutomationElement.FromHandle(hWnd);
@@ -563,7 +563,7 @@ namespace ExcelDna.IntelliSense
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     IsVisible = false;
-                    UpdateSelectedItem();
+                    UpdateSelectedItem(_selectedItem);
                     break;
                 default:
                     break;
@@ -601,8 +601,8 @@ namespace ExcelDna.IntelliSense
         {
             if (IsVisible && _selectedItem != null)
             {
-                Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-                UpdateSelectedItem();
+                // Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
+                UpdateSelectedItem(_selectedItem);
             }
 
             //_syncContextAuto.Post(delegate
@@ -638,17 +638,16 @@ namespace ExcelDna.IntelliSense
         // Runs on an automation event thread
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
-            Debug.Print($">>>> PopupListWatcher.PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
-            _selectedItem = sender as AutomationElement;
-            UpdateSelectedItem();
+            // Debug.Print($">>>> PopupListWatcher.PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
+            UpdateSelectedItem(sender as AutomationElement);
         }
 
         // TODO: This should be exposed as an event and popup resize should be elsewhere
         // Runs on an automation event thread
         private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
         {
-            Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
-            Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
+            // Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
+            // Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
             // CONSIDER: Others too?
             if (e.StructureChangeType == StructureChangeType.ChildAdded)
             {
@@ -659,7 +658,7 @@ namespace ExcelDna.IntelliSense
                 var listElement = functionList.FindFirst(TreeScope.Children, Condition.TrueCondition);
                 if (listElement != null)
                 {
-                    Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler Post - Children Found !!!");
+                    // Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler Post - Children Found !!!");
 
                     _popupListList = listElement;
 
@@ -680,8 +679,7 @@ namespace ExcelDna.IntelliSense
                     {
                         try
                         {
-                            _selectedItem = curSel[0];
-                            UpdateSelectedItem();
+                            UpdateSelectedItem(curSel[0]);
                         }
                         catch (Exception ex)
                         {
@@ -719,18 +717,43 @@ namespace ExcelDna.IntelliSense
         }
 
         // Can run on our automation thread or on any automation event thread (which is also allowed to read properties)
-        private void UpdateSelectedItem()
+        // But might fail, if the newSelectedItem is already gone by the time we run...
+        private void UpdateSelectedItem(AutomationElement newSelectedItem)
         {
-            if (IsVisible && _selectedItem != null)
+            if (!IsVisible || newSelectedItem == null)
             {
-                SelectedItemText = (string)_selectedItem.GetCurrentPropertyValue(AutomationElement.NameProperty);
-                SelectedItemBounds = (Rect)_selectedItem.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-                Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
+                if (_selectedItem == null &&
+                    SelectedItemText == string.Empty &&
+                    SelectedItemBounds == Rect.Empty)
+                {
+                    // Don't change and fire event
+                    return;
+                }
+                _selectedItem = null;
+                SelectedItemText = string.Empty;
+                SelectedItemBounds = Rect.Empty;
             }
             else
             {
-                SelectedItemText = String.Empty;
-                SelectedItemBounds = Rect.Empty;
+                string selectedItemText = string.Empty;
+                Rect selectedItemBounds = Rect.Empty;
+
+                try
+                {
+                    selectedItemText = (string)newSelectedItem.GetCurrentPropertyValue(AutomationElement.NameProperty);
+                    selectedItemBounds = (Rect)newSelectedItem.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Print($"!!!Could not update selected item: {ex.Message}");
+                    // Don't fire the event - we couldn't process this change
+                    return;
+                }
+
+                _selectedItem = newSelectedItem;
+                SelectedItemText = selectedItemText;
+                SelectedItemBounds = selectedItemBounds;
+                // Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
             }
             OnSelectedItemChanged();
         }
@@ -739,7 +762,6 @@ namespace ExcelDna.IntelliSense
         void OnSelectedItemChanged()
         {
             _syncContextAuto.Post(_ => SelectedItemChanged(this, EventArgs.Empty), null);
-
         }
 
         public void Dispose()

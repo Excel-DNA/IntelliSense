@@ -44,7 +44,7 @@ namespace ExcelDna.IntelliSense
                 }
                 catch (Exception ex)
                 {
-                    Debug.Print($"### Unhandled exception on Automation thread - {ex.Message}");
+                    Debug.Print($"### Unhandled exception on Automation thread - {ex.ToString()}");
                 }
             }
 

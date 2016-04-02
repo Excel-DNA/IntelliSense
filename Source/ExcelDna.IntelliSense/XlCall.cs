@@ -40,8 +40,8 @@ namespace ExcelDna.IntelliSense
             if (fmlaInfo.wPointMode == xlModeReady)
                 return null; 
             
-            Debug.Print("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
-                fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
+            // Debug.Print("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
+            //    fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
 
             var prefixLen = Math.Min(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch);  // I've never seen ichLast > cch !?
             return Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);

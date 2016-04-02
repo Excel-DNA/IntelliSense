@@ -54,9 +54,8 @@ namespace ExcelDna.IntelliSense
 
         private void _uiMonitor_StateChanged(object sender, UIStateUpdate e)
         {
-            
+            Debug.Print($"STATE UPDATE ({e.Update}): {e.OldState} => {e.NewState}");
         }
-
 
 
         //// Runs on the main thread

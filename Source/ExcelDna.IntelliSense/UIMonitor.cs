@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows;
@@ -20,7 +21,18 @@ namespace ExcelDna.IntelliSense
             public Rect EditWindowBounds;
             public Rect ExcelTooltipBounds;
 
-            public virtual UIState WithFormulaPrefix(string newFormulaPrefix)
+            public virtual FormulaEdit WithMainWindow(IntPtr newMainWindow)
+            {
+                return new FormulaEdit
+                {
+                    MainWindow = newMainWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = this.EditWindowBounds,
+                    ExcelTooltipBounds = this.ExcelTooltipBounds
+                };
+            }
+
+            public virtual FormulaEdit WithFormulaPrefix(string newFormulaPrefix)
             {
                 return new FormulaEdit
                 {
@@ -30,6 +42,17 @@ namespace ExcelDna.IntelliSense
                     ExcelTooltipBounds = this.ExcelTooltipBounds
                 };
             }
+
+            public virtual FormulaEdit WithBounds(Rect newEditWindowBounds, Rect newExcelTooltipBounds)
+            {
+                return new FormulaEdit
+                {
+                    MainWindow = this.MainWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = newEditWindowBounds,
+                    ExcelTooltipBounds = newExcelTooltipBounds
+                };
+            }
         }
 
         public class FunctionList : FormulaEdit // CONSIDER: I'm not sure the hierarchy here has any value.
@@ -37,7 +60,20 @@ namespace ExcelDna.IntelliSense
             public string SelectedItemText;
             public Rect SelectedItemBounds;
 
-            public override UIState WithFormulaPrefix(string newFormulaPrefix)
+            public override FormulaEdit WithMainWindow(IntPtr newMainWindow)
+            {
+                return new FunctionList
+                {
+                    MainWindow = newMainWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = this.EditWindowBounds,
+                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+                    SelectedItemText = this.SelectedItemText,
+                    SelectedItemBounds = this.SelectedItemBounds
+                };
+            }
+
+            public override FormulaEdit WithFormulaPrefix(string newFormulaPrefix)
             {
                 return new FunctionList
                 {
@@ -50,7 +86,20 @@ namespace ExcelDna.IntelliSense
                 };
             }
 
-            public virtual UIState WithSelectedItem(string selectedItemText, Rect selectedItemBounds)
+            public override FormulaEdit WithBounds(Rect newEditWindowBounds, Rect newExcelTooltipBounds)
+            {
+                return new FunctionList
+                {
+                    MainWindow = this.MainWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = newEditWindowBounds,
+                    ExcelTooltipBounds = newExcelTooltipBounds,
+                    SelectedItemText = this.SelectedItemText,
+                    SelectedItemBounds = this.SelectedItemBounds
+                };
+            }
+
+            public virtual FunctionList WithSelectedItem(string selectedItemText, Rect selectedItemBounds)
             {
                 return new FunctionList
                 {
@@ -61,6 +110,17 @@ namespace ExcelDna.IntelliSense
                     SelectedItemText = selectedItemText,
                     SelectedItemBounds = selectedItemBounds
                 };
+            }
+
+            internal FormulaEdit AsFormulaEdit()
+            {
+                 return new FormulaEdit
+                    {
+                        EditWindowBounds = EditWindowBounds,
+                        ExcelTooltipBounds = ExcelTooltipBounds,
+                        FormulaPrefix = FormulaPrefix,
+                        MainWindow = MainWindow
+                    };
             }
         }
         public class SelectDataSource : UIState
@@ -78,7 +138,7 @@ namespace ExcelDna.IntelliSense
         // This is the universal update check
         // When an event knows exactly what changed (e.g. Text or SelectedItem), it need not call this
         // CONSIDER: How would this look with C# 7.0 patterns?
-        public static IEnumerable<UIStateUpdate.UpdateType> GetUpdateTypes(UIState oldState, UIState newState)
+        public static IEnumerable<UIStateUpdate> GetUpdates(UIState oldState, UIState newState)
         {
             if (oldState is Ready)
             {
@@ -86,124 +146,161 @@ namespace ExcelDna.IntelliSense
                 {
                     yield break;
                 }
-                else if (newState is FormulaEdit)
+                else if (newState is FunctionList)
                 {
-                    yield return UIStateUpdate.UpdateType.FormulaEditStart;
-                    if (newState is FunctionList)
-                    {
-                        yield return UIStateUpdate.UpdateType.FunctionListShow;
-                    }
+                    // We generate an intermediate state (!?)
+                    var functionList = (FunctionList)newState;
+                    var formulaEdit = functionList.AsFormulaEdit();
+                    yield return new UIStateUpdate(oldState, formulaEdit, UIStateUpdate.UpdateType.FormulaEditStart);
+                    yield return new UIStateUpdate(formulaEdit, newState, UIStateUpdate.UpdateType.FunctionListShow);
+                }
+                else if (newState is FormulaEdit) // But not FunctionList
+                {
+                    yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FormulaEditStart);
                 }
                 else if (newState is SelectDataSource)
                 {
                     // Go to Ready then to new state
-                    foreach (var update in GetUpdateTypes(oldState, ReadyState))
+                    foreach (var update in GetUpdates(oldState, ReadyState))
                         yield return update;
-                    yield return UIStateUpdate.UpdateType.SelectDataSourceShow;
+                    yield return new UIStateUpdate(ReadyState, newState, UIStateUpdate.UpdateType.SelectDataSourceShow);
                 }
             }
             else if (oldState is FunctionList)  // and thus also FormulaEdit
             {
                 if (newState is Ready)
                 {
-                    yield return UIStateUpdate.UpdateType.FunctionListHide;
-                    yield return UIStateUpdate.UpdateType.FormulaEditEnd;
+                    // We generate an intermediate state (!?)
+                    var formulaEdit = ((FunctionList)oldState).AsFormulaEdit();
+                    yield return new UIStateUpdate(oldState, formulaEdit, UIStateUpdate.UpdateType.FunctionListHide);
+                    yield return new UIStateUpdate(formulaEdit, newState, UIStateUpdate.UpdateType.FormulaEditEnd);
                 }
                 else if (newState is FunctionList)
                 {
                     var oldStateFL = (FunctionList)oldState;
                     var newStateFL = (FunctionList)newState;
-                    if (oldStateFL.MainWindow != newStateFL.MainWindow)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMainWindowChange;
-                    if (oldStateFL.EditWindowBounds != newStateFL.EditWindowBounds ||
-                        oldStateFL.ExcelTooltipBounds != newStateFL.ExcelTooltipBounds)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMove;
-                    if (oldStateFL.FormulaPrefix != newStateFL.FormulaPrefix)
-                        yield return UIStateUpdate.UpdateType.FormulaEditTextChange;
-                    if (oldStateFL.SelectedItemBounds != newStateFL.SelectedItemBounds ||
-                        oldStateFL.SelectedItemText != newStateFL.SelectedItemText)
-                        yield return UIStateUpdate.UpdateType.FunctionListSelectedItemChange;
+                    foreach (var update in GetUpdates(oldStateFL, newStateFL))
+                        yield return update;
                 }
-                else if (newState is FormulaEdit)
+                else if (newState is FormulaEdit) // but not FunctionList
                 {
-                    yield return UIStateUpdate.UpdateType.FunctionListHide;
-                    var oldStateFE = (FormulaEdit)oldState;
+                    var oldStateFE = ((FunctionList)oldState).AsFormulaEdit();
+                    yield return new UIStateUpdate(oldState, oldStateFE, UIStateUpdate.UpdateType.FunctionListHide);
+
                     var newStateFE = (FormulaEdit)newState;
-                    if (oldStateFE.MainWindow != newStateFE.MainWindow)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMainWindowChange;
-                    if (oldStateFE.EditWindowBounds != newStateFE.EditWindowBounds ||
-                        oldStateFE.ExcelTooltipBounds != newStateFE.ExcelTooltipBounds)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMove;
-                    if (oldStateFE.FormulaPrefix != newStateFE.FormulaPrefix)
-                        yield return UIStateUpdate.UpdateType.FormulaEditTextChange;
+                    foreach (var update in GetUpdates(oldStateFE, newStateFE))
+                        yield return update;
                 }
                 else if (newState is SelectDataSource)
                 {
                     // Go to Ready then to new state
-                    foreach (var update in GetUpdateTypes(oldState, ReadyState))
+                    foreach (var update in GetUpdates(oldState, ReadyState))
                         yield return update;
-                    yield return UIStateUpdate.UpdateType.SelectDataSourceShow;
+                    yield return new UIStateUpdate(ReadyState, newState, UIStateUpdate.UpdateType.SelectDataSourceShow);
                 }
             }
             else if (oldState is FormulaEdit)   // but not FunctionList
             {
                 if (newState is Ready)
                 {
-                    yield return UIStateUpdate.UpdateType.FormulaEditEnd;
+                    yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FormulaEditEnd);
                 }
                 else if (newState is FunctionList)
                 {
-                    yield return UIStateUpdate.UpdateType.FunctionListShow;
-                    var oldStateFL = (FunctionList)oldState;
-                    var newStateFL = (FunctionList)newState;
-                    if (oldStateFL.MainWindow != newStateFL.MainWindow)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMainWindowChange;
-                    if (oldStateFL.EditWindowBounds != newStateFL.EditWindowBounds ||
-                        oldStateFL.ExcelTooltipBounds != newStateFL.ExcelTooltipBounds)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMove;
-                    if (oldStateFL.FormulaPrefix != newStateFL.FormulaPrefix)
-                        yield return UIStateUpdate.UpdateType.FormulaEditTextChange;
+                    // First process any FormulaEdit changes
+                    var oldStateFE = (FormulaEdit)oldState;
+                    var newStateFE = ((FunctionList)newState).AsFormulaEdit();
+                    foreach (var update in GetUpdates(oldStateFE, newStateFE))
+                        yield return update;
+
+                    yield return new UIStateUpdate(newStateFE, newState, UIStateUpdate.UpdateType.FunctionListShow);
                 }
-                else if (newState is FormulaEdit)
+                else if (newState is FormulaEdit) // but not FunctionList
                 {
                     var oldStateFE = (FormulaEdit)oldState;
                     var newStateFE = (FormulaEdit)newState;
-                    if (oldStateFE.MainWindow != newStateFE.MainWindow)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMainWindowChange;
-                    if (oldStateFE.EditWindowBounds != newStateFE.EditWindowBounds ||
-                        oldStateFE.ExcelTooltipBounds != newStateFE.ExcelTooltipBounds)
-                        yield return UIStateUpdate.UpdateType.FormulaEditMove;
-                    if (oldStateFE.FormulaPrefix != newStateFE.FormulaPrefix)
-                        yield return UIStateUpdate.UpdateType.FormulaEditTextChange;
+                    foreach (var update in GetUpdates(oldStateFE, newStateFE))
+                        yield return update;
                 }
                 else if (newState is SelectDataSource)
                 {
                     // Go to Ready then to new state
-                    foreach (var update in GetUpdateTypes(oldState, ReadyState))
+                    foreach (var update in GetUpdates(oldState, ReadyState))
                         yield return update;
-                    yield return UIStateUpdate.UpdateType.SelectDataSourceShow;
+                    yield return new UIStateUpdate(ReadyState, newState, UIStateUpdate.UpdateType.SelectDataSourceShow);
                 }
             }
             else if (oldState is SelectDataSource)
             {
                 if (newState is Ready)
                 {
-                    yield return UIStateUpdate.UpdateType.SelectDataSourceHide;
+                    yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.SelectDataSourceHide);
                 }
                 else if (newState is SelectDataSource)
                 {
                     var oldStateSDS = (SelectDataSource)oldState;
                     var newStateSDS = (SelectDataSource)newState;
                     if (oldStateSDS.MainWindow != newStateSDS.MainWindow)
-                        yield return UIStateUpdate.UpdateType.SelectDataSourceMainWindowChange;
+                        yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.SelectDataSourceMainWindowChange);
                 }
                 else
                 {
                     // Go to Ready, then to new state
-                    yield return UIStateUpdate.UpdateType.SelectDataSourceHide;
-                    foreach (var update in GetUpdateTypes(ReadyState, newState))
+                    yield return new UIStateUpdate(oldState, ReadyState, UIStateUpdate.UpdateType.SelectDataSourceHide);
+                    foreach (var update in GetUpdates(ReadyState, newState))
                         yield return update;
                 }
+            }
+        }
+
+        static IEnumerable<UIStateUpdate> GetUpdates(FormulaEdit oldState, FormulaEdit newState)
+        {
+            // We generate intermediate states (!?)
+            if (oldState.MainWindow != newState.MainWindow)
+            {
+                var tempState = oldState.WithMainWindow(newState.MainWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMainWindowChange);
+                oldState = tempState;
+            }
+            if (oldState.EditWindowBounds != newState.EditWindowBounds ||
+                oldState.ExcelTooltipBounds != newState.ExcelTooltipBounds)
+            {
+                var tempState = oldState.WithBounds(newState.EditWindowBounds, newState.ExcelTooltipBounds);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMove);
+                oldState = tempState;
+            }
+            if (oldState.FormulaPrefix != newState.FormulaPrefix)
+            {
+                yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FormulaEditTextChange);
+            }
+        }
+
+        static IEnumerable<UIStateUpdate> GetUpdates(FunctionList oldState, FunctionList newState)
+        {
+            // We generate intermediate states (!?)
+            if (oldState.MainWindow != newState.MainWindow)
+            {
+                var tempState = oldState.WithMainWindow(newState.MainWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMainWindowChange);
+                oldState = (FunctionList)tempState;
+            }
+            if (oldState.EditWindowBounds != newState.EditWindowBounds ||
+                oldState.ExcelTooltipBounds != newState.ExcelTooltipBounds)
+            {
+                var tempState = oldState.WithBounds(newState.EditWindowBounds, newState.ExcelTooltipBounds);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMove);
+                oldState = (FunctionList)tempState;
+            }
+            if (oldState.FormulaPrefix != newState.FormulaPrefix)
+            {
+                var tempState = oldState.WithFormulaPrefix(newState.FormulaPrefix);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditTextChange);
+                oldState = (FunctionList)tempState;
+            }
+            if (oldState.SelectedItemText != newState.SelectedItemText ||
+                oldState.SelectedItemBounds != newState.SelectedItemBounds)
+            {
+                yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FunctionListSelectedItemChange);
             }
         }
 
@@ -211,10 +308,8 @@ namespace ExcelDna.IntelliSense
 
     public class UIStateUpdate : EventArgs
     {
-        // An Update notification might have multiple UpdateTypes
-
-        // We want to order and nest the updates (and UpdateTypes inside an Update), to make them easy to respond to.
-        // This means we have XXXStart, then stuff on the inside, then XXXEnd with correct nesting
+        // We want to order and nest the updates to make them easy to respond to.
+        // This means we have XXXStart, then stuff on the inside, then XXXEnd, always with correct nesting
         public enum UpdateType
         {
             FormulaEditStart,
@@ -236,7 +331,14 @@ namespace ExcelDna.IntelliSense
         }
         public UIState OldState;
         public UIState NewState;
-        public IEnumerable<UIStateUpdate.UpdateType> UpdateTypes;
+        public UpdateType Update;
+
+        public UIStateUpdate(UIState oldState, UIState newState, UpdateType update)
+        {
+            OldState = oldState;
+            NewState = newState;
+            Update = update;
+        }
     }
 
     // Combines all the information received from the UIAutomation and WinEvents watchers,
@@ -382,13 +484,15 @@ namespace ExcelDna.IntelliSense
             if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
             CurrentState = newStateOrNull;
-            StateChanged?.Invoke(this,
-                new UIStateUpdate
-                {
-                    OldState = oldState,
-                    NewState = CurrentState,
-                    UpdateTypes = UIState.GetUpdateTypes(oldState, CurrentState)
-                });
+            var updates = UIState.GetUpdates(oldState, CurrentState).ToList();
+            if (updates.Count > 1)
+            {
+                Debug.Print($"MULTIPLE STATE UPDATES: {updates.Count}");
+            }
+            foreach (var update in updates)
+            {
+                StateChanged?.Invoke(this, update);
+            }
         }
         #endregion
 
