@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Excel-DNA IntelliSense")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("IntelliSense service for Microsoft Excel")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Excel-DNA")]
 [assembly: AssemblyProduct("Excel-DNA IntelliSense")]
-[assembly: AssemblyCopyright("Copyright © Excel-DNA Contributors 2013-2015")]
+[assembly: AssemblyCopyright("Copyright © Excel-DNA Contributors 2013-2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

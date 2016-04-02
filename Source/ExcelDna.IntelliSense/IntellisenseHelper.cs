@@ -7,11 +7,11 @@ namespace ExcelDna.IntelliSense
 {
     // TODO: This is to be replaced by the Provider / Server info retrieval mechanism
     // First version might run on a timer for updates.
-    public class IntelliSenseHelper : IDisposable
+    class IntelliSenseHelper : IDisposable
     {
-        private readonly IntelliSenseDisplay _id;
-        private readonly IIntelliSenseProvider _excelDnaProvider = new ExcelDnaIntelliSenseProvider();
-        private readonly IIntelliSenseProvider _workbookProvider = new WorkbookIntelliSenseProvider();
+        readonly IntelliSenseDisplay _id;
+        readonly IIntelliSenseProvider _excelDnaProvider = new ExcelDnaIntelliSenseProvider();
+        readonly IIntelliSenseProvider _workbookProvider = new WorkbookIntelliSenseProvider();
         // TODO: Others
 
 

@@ -12,11 +12,11 @@ namespace ExcelDna.IntelliSense
     sealed class SingleThreadSynchronizationContext : SynchronizationContext
     {
         /// <summary>The queue of work items.</summary>
-        private readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> m_queue =
+        readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> m_queue =
             new BlockingCollection<KeyValuePair<SendOrPostCallback, object>>();
 
         // /// <summary>The processing thread.</summary>
-        // private readonly Thread m_thread = Thread.CurrentThread;
+        // readonly Thread m_thread = Thread.CurrentThread;
 
         /// <summary>Dispatches an asynchronous message to the synchronization context.</summary>
         /// <param name="d">The System.Threading.SendOrPostCallback delegate to call.</param>

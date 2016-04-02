@@ -319,7 +319,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the Automation thread
-        private void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
+        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         {
             if (_mainWindow != null)
             {
@@ -572,7 +572,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on our automation thread
-        private void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
+        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         {
             if (_mainWindow != null)
             {
@@ -645,7 +645,7 @@ namespace ExcelDna.IntelliSense
 
         // TODO: This should be exposed as an event and popup resize should be elsewhere
         // Runs on an automation event thread
-        private void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
+        void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
         {
             // Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
             // Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
@@ -709,7 +709,7 @@ namespace ExcelDna.IntelliSense
 
         // CONSIDER: This will run on our automation thread
         //           Should be OK to call MoveWindow from there - it just posts messages to the window.
-        private void TestMoveWindow(AutomationElement listWindow, int xOffset, int yOffset)
+        void TestMoveWindow(AutomationElement listWindow, int xOffset, int yOffset)
         {
             var hwndList = (IntPtr)(int)(listWindow.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty));
             var listRect = (Rect)listWindow.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
@@ -719,7 +719,7 @@ namespace ExcelDna.IntelliSense
 
         // Can run on our automation thread or on any automation event thread (which is also allowed to read properties)
         // But might fail, if the newSelectedItem is already gone by the time we run...
-        private void UpdateSelectedItem(AutomationElement newSelectedItem)
+        void UpdateSelectedItem(AutomationElement newSelectedItem)
         {
             if (!IsVisible || newSelectedItem == null)
             {
@@ -810,7 +810,7 @@ namespace ExcelDna.IntelliSense
     //        //_windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
     //    }
 
-    //    private void _windowWatcher_SelectDataSourceWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs e)
+    //    void _windowWatcher_SelectDataSourceWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs e)
     //    {
     //    }
 

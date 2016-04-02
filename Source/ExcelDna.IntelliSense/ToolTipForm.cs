@@ -11,10 +11,10 @@ namespace ExcelDna.IntelliSense
     class ToolTipForm  : Form
     {
         FormattedText _text;
-        private Label label;
-        private Label label1;
-        private ToolTip toolTip1;
-        private System.ComponentModel.IContainer components;
+        Label label;
+        Label label1;
+        ToolTip toolTip1;
+        System.ComponentModel.IContainer components;
         Win32Window _owner;
 
         public ToolTipForm(IntPtr hwndOwner)
@@ -85,9 +85,9 @@ namespace ExcelDna.IntelliSense
         //    }
         //}
 
-        private const int CS_DROPSHADOW = 0x00020000;
-        private const int WS_EX_TOOLWINDOW = 0x00000080;
-        private const int WS_EX_NOACTIVATE = 0x08000000;
+        const int CS_DROPSHADOW = 0x00020000;
+        const int WS_EX_TOOLWINDOW = 0x00000080;
+        const int WS_EX_NOACTIVATE = 0x08000000;
         protected override CreateParams CreateParams
         {
             get
@@ -148,7 +148,7 @@ namespace ExcelDna.IntelliSense
             Size = new Size(lineWidths.Max() + widthPadding, totalHeight + heightPadding);
         }
 
-        private void DrawString(Graphics g, Brush brush, ref Rectangle rect, out Size used,
+        void DrawString(Graphics g, Brush brush, ref Rectangle rect, out Size used,
                                 StringFormat format, string text, Font font)
         {
             using (StringFormat copy = (StringFormat)format.Clone())
@@ -172,7 +172,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        private void InitializeComponent()
+        void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
             this.label = new System.Windows.Forms.Label();

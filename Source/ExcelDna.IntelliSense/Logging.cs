@@ -139,7 +139,7 @@ namespace ExcelDna.IntelliSense
             s_AppDomainShutdown = true;
         }
 
-        private static void AppDomainUnloadEvent(object sender, EventArgs e)
+        static void AppDomainUnloadEvent(object sender, EventArgs e)
         {
             Close();
             s_AppDomainShutdown = true;
