@@ -556,7 +556,8 @@ namespace ExcelDna.IntelliSense
                     // Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListVisibleChangedHandler, AutomationElement.???Visible);
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
-                    Debug.Assert(false, "PopupList window destroyed...???");
+                    // Expected when closing
+                    // Debug.Assert(false, "PopupList window destroyed...???");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
                     IsVisible = true;

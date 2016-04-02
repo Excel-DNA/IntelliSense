@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows;
 using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
@@ -29,7 +30,9 @@ namespace ExcelDna.IntelliSense
     {
 
         // SyncContextMain is running on the main Excel thread (not a 'macro' context, though)
-        // Not sure we need this here... (the UIMonitor internally uses it, and raises all events on the main thread).
+        // Not sure we need this here... (the UIMonitor internally references it, and could raise the update events on the main thread...).
+        // CONSIDER: We could send in the two filters for selecteditem and formula change, so that these checks don't run on the main thread...
+
         SynchronizationContext _syncContextMain;
         readonly UIMonitor _uiMonitor;
 
@@ -39,6 +42,7 @@ namespace ExcelDna.IntelliSense
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
         ToolTipForm _argumentsToolTip;
+        IntPtr _mainWindow;
         
         public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor)
         {
@@ -49,77 +53,196 @@ namespace ExcelDna.IntelliSense
 
             _syncContextMain = syncContextMain;
             _uiMonitor = uiMonitor;
-            _uiMonitor.StateChanged += _uiMonitor_StateChanged;
+            _uiMonitor.StateUpdateFilter = StateUpdateFilter;
+            _uiMonitor.StateUpdate = StateUpdate;
         }
 
-        private void _uiMonitor_StateChanged(object sender, UIStateUpdate e)
+        // This runs on the UIMonitor's automation thread
+        bool StateUpdateFilter(UIStateUpdate update)
         {
-            Debug.Print($"STATE UPDATE ({e.Update}): {e.OldState} => {e.NewState}");
+            if (update.Update == UIStateUpdate.UpdateType.FormulaEditTextChange)
+            {
+                var fe = (UIState.FormulaEdit)update.NewState;
+                return ShouldProcessFormulaEditTextChange(fe.FormulaPrefix);
+            }
+            else if (update.Update == UIStateUpdate.UpdateType.FunctionListSelectedItemChange)
+            {
+                var fl = (UIState.FunctionList)update.NewState;
+                return ShouldProcessFunctionListSelectedItemChange(fl.SelectedItemText);
+            }
+            else
+            {
+                return true; // allow the update event to be raised
+            }
         }
 
+        // This runs on the main thread
+        void StateUpdate(UIStateUpdate update)
+        {
+            Debug.Print($"STATE UPDATE ({update.Update}): {update.OldState} => {update.NewState}");
 
-        //// Runs on the main thread
-        //void MainWindowChanged(object _unused_)
-        //{
-        //    // TODO: This is to guard against shutdown, but we should not have a race here 
-        //    //       - shutdown should be on the main thread, as is this event handler.
-        //    if (_windowWatcher == null)
-        //        return;
+            switch (update.Update)
+            {
+                case UIStateUpdate.UpdateType.FormulaEditStart:
+                    UpdateMainWindow((update.NewState as UIState.FormulaEdit).MainWindow);
+                    FormulaEditStart();
+                    break;
+                case UIStateUpdate.UpdateType.FormulaEditMove:
+                    break;
+                case UIStateUpdate.UpdateType.FormulaEditMainWindowChange:
+                    UpdateMainWindow((update.NewState as UIState.FormulaEdit).MainWindow);
+                    break;
+                case UIStateUpdate.UpdateType.FormulaEditTextChange:
+                    var fe = (UIState.FormulaEdit)update.NewState;
+                    FormulaEditTextChange(fe.FormulaPrefix, fe.EditWindowBounds, fe.ExcelTooltipBounds);
+                    break;
+                case UIStateUpdate.UpdateType.FunctionListShow:
+                    FunctionListShow();
+                    var fls = (UIState.FunctionList)update.NewState;
+                    FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds);
+                    break;
+                case UIStateUpdate.UpdateType.FunctionListMove:
+                    break;
+                case UIStateUpdate.UpdateType.FunctionListSelectedItemChange:
+                    var fl = (UIState.FunctionList)update.NewState;
+                    FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds);
+                    break;
+                case UIStateUpdate.UpdateType.FunctionListHide:
+                    FunctionListHide();
+                    break;
+                case UIStateUpdate.UpdateType.FormulaEditEnd:
+                    FormulaEditEnd();
+                    break;
+                case UIStateUpdate.UpdateType.SelectDataSourceShow:
+                case UIStateUpdate.UpdateType.SelectDataSourceMainWindowChange:
+                case UIStateUpdate.UpdateType.SelectDataSourceHide:
+                    // We ignore these
+                    break;
+                default:
+                    throw new InvalidOperationException("Unexpected UIStateUpdate");
+            }
+        }
 
-        //    // TODO: !!! Reset / re-parent ToolTipWindows
-        //    Debug.Print($"IntelliSenseDisplay - MainWindowChanged - New window - {_windowWatcher.MainWindow:X}, Thread {Thread.CurrentThread.ManagedThreadId}");
+        // Runs on the main thread
+        void UpdateMainWindow(IntPtr mainWindow)
+        {
+            if (_mainWindow != mainWindow &&
+                 (_descriptionToolTip != null ||
+                  _argumentsToolTip   != null ))
+            {
+                if (_descriptionToolTip != null)
+                {
+                    _descriptionToolTip.Dispose();
+                    _descriptionToolTip = new ToolTipForm(_mainWindow);
+                }
+                if (_argumentsToolTip != null)
+                {
+                    _argumentsToolTip.Dispose();
+                    _argumentsToolTip = new ToolTipForm(_mainWindow);
+                }
+                _mainWindow = mainWindow;
+            }
+        }
 
-        //    // _descriptionToolTip.SetOwner(e.Handle); // Not Parent, of course!
-        //    if (_descriptionToolTip != null)
-        //    {
-        //        if (_descriptionToolTip.OwnerHandle != _windowWatcher.MainWindow)
-        //        {
-        //            _descriptionToolTip.Dispose();
-        //            _descriptionToolTip = null;
-        //        }
-        //    }
-        //    if (_argumentsToolTip != null)
-        //    {
-        //        if (_argumentsToolTip.OwnerHandle != _windowWatcher.MainWindow)
-        //        {
-        //            _argumentsToolTip.Dispose();
-        //            _argumentsToolTip = null;
-        //        }
-        //    }
-        //    // _descriptionToolTip = new ToolTipWindow("", _windowWatcher.MainWindow);
-        //}
+        // Runs on the main thread
+        void FunctionListShow()
+        {
+            if (_descriptionToolTip == null)
+                _descriptionToolTip = new ToolTipForm(_mainWindow);
+        }
 
-        //// Runs on the main thread
-        //void PopupListSelectedItemChanged(object _unused_)
-        //{
-        //    Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {_popupListWatcher?.SelectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+        // Runs on the main thread
+        void FunctionListHide()
+        {
+            _descriptionToolTip.Hide();
+        }
 
-        //    if (_popupListWatcher == null)
-        //        return;
-        //    string functionName = _popupListWatcher.SelectedItemText;
+        // Runs on the main thread
+        void FormulaEditStart()
+        {
+            if (_argumentsToolTip == null)
+                _argumentsToolTip = new ToolTipForm(_mainWindow);
+        }
 
-        //    IntelliSenseFunctionInfo functionInfo;
-        //    if ( _functionInfoMap.TryGetValue(functionName, out functionInfo))
-        //    {
-        //        if (_descriptionToolTip == null)
-        //        {
-        //            _descriptionToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-        //            _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-        //        }
-        //        // It's ours!
-        //        _descriptionToolTip.ShowToolTip(
-        //            text: new FormattedText { GetFunctionDescription(functionInfo) }, 
-        //            left: (int)_popupListWatcher.SelectedItemBounds.Right + 25,
-        //            top:  (int)_popupListWatcher.SelectedItemBounds.Top);
-        //    }
-        //    else
-        //    {
-        //        if (_descriptionToolTip != null)
-        //        {
-        //            _descriptionToolTip.Hide();
-        //        }
-        //    }
-        //}
+        // Runs on the main thread
+        void FormulaEditTextChange(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
+        {
+            Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {formulaPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
+            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
+            if (match.Success)
+            {
+                string functionName = match.Groups["functionName"].Value;
+
+                IntelliSenseFunctionInfo functionInfo;
+                if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
+                {
+                    // TODO: Fix this: Need to consider subformulae
+                    int currentArgIndex = formulaPrefix.Count(c => c == ',');
+                    _argumentsToolTip.ShowToolTip(
+                        GetFunctionIntelliSense(functionInfo, currentArgIndex),
+                        (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+                    return;
+                }
+            }
+
+            // All other paths, we just clear the box
+            _argumentsToolTip.Hide();
+        }
+
+        // Runs on the main thread
+        void FormulaEditEnd()
+        {
+            _argumentsToolTip.Hide();
+        }
+
+        // Runs on the UIMonitor's automation thread - return true if we might want to process
+        bool ShouldProcessFunctionListSelectedItemChange(string selectedItemText)
+        {
+            if (_descriptionToolTip?.Visible == true)
+                return true;
+            
+            return _functionInfoMap.ContainsKey(selectedItemText);
+        }
+
+        // Runs on the UIMonitor's automation thread - return true if we might want to process
+        bool ShouldProcessFormulaEditTextChange(string formulaPrefix)
+        {
+            // CAREFUL: Because of threading, this might run before FormulaEditStart!
+
+            if (_argumentsToolTip?.Visible == true)
+                return true;
+
+            // TODO: Consolidate the check here with the FormulaMonitor
+            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
+            if (match.Success)
+            {
+                string functionName = match.Groups["functionName"].Value;
+                return _functionInfoMap.ContainsKey(functionName);
+            }
+            // Not interested...
+            Debug.Print($"Not processing formula {formulaPrefix}");
+            return false;
+        }
+        
+        // Runs on the main thread
+        void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds)
+        {
+            Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+
+            IntelliSenseFunctionInfo functionInfo;
+            if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
+            {
+                // It's ours!
+                _descriptionToolTip.ShowToolTip(
+                    text: new FormattedText { GetFunctionDescription(functionInfo) },
+                    left: (int)selectedItemBounds.Right + 25,
+                    top: (int)selectedItemBounds.Top);
+            }
+            else
+            {
+                FunctionListHide();
+            }
+        }
 
         //// Runs on the main thread
         //// TODO: Need better formula parsing story here
@@ -172,12 +295,15 @@ namespace ExcelDna.IntelliSense
         //        _argumentsToolTip.Hide();
         //}
 
+
+        // TODO: Performance / efficiency - cache these somehow
         // TODO: Probably not a good place for LINQ !?
+        static readonly string[] s_newLineStringArray = new string[] { Environment.NewLine };
         IEnumerable<TextLine> GetFunctionDescription(IntelliSenseFunctionInfo functionInfo)
         {
             return 
                 functionInfo.Description
-                .Split(new string[] { Environment.NewLine }, StringSplitOptions.None)
+                .Split(s_newLineStringArray, StringSplitOptions.None)
                 .Select(line => 
                     new TextLine { 
                         new TextRun

@@ -4,6 +4,8 @@ using System.Drawing;
 
 namespace ExcelDna.IntelliSense
 {
+    // TODO: Needs cleaning up for efficiency
+
     class FormattedText : IEnumerable<TextLine>
     {
         readonly List<TextLine> _lines;

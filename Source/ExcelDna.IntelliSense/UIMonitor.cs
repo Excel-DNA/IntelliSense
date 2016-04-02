@@ -10,7 +10,7 @@ namespace ExcelDna.IntelliSense
 
     // These are immutable representations of the state (reflecting only our interests)
     // We make a fresh a simplified state representation, so that we can make a matching state update representation.
-    public abstract class UIState
+    abstract class UIState
     {
         public static UIState ReadyState = new Ready();
         public class Ready : UIState { }
@@ -306,7 +306,7 @@ namespace ExcelDna.IntelliSense
 
     }
 
-    public class UIStateUpdate : EventArgs
+    class UIStateUpdate : EventArgs
     {
         // We want to order and nest the updates to make them easy to respond to.
         // This means we have XXXStart, then stuff on the inside, then XXXEnd, always with correct nesting
@@ -347,7 +347,7 @@ namespace ExcelDna.IntelliSense
     // TODO: Also should for argument lists, like TRUE / FALSE in VLOOKUP ...
     class UIMonitor : IDisposable
     {
-        readonly SynchronizationContext _syncContextMain;
+        readonly SynchronizationContext _syncContextMain;       // Updates will be raised on this thread (but filtered on the automation thread)
         SingleThreadSynchronizationContext _syncContextAuto;    // Running on the Automation thread we create here.
 
         WindowWatcher _windowWatcher;
@@ -355,7 +355,8 @@ namespace ExcelDna.IntelliSense
         PopupListWatcher _popupListWatcher;
 
         public UIState CurrentState = UIState.ReadyState;
-        public event EventHandler<UIStateUpdate> StateChanged;
+        public Func<UIStateUpdate, bool> StateUpdateFilter;   // Always called on the automation thread
+        public Action<UIStateUpdate> StateUpdate;       // Always posted to the main thread
 
         public UIMonitor(SynchronizationContext syncContextMain)
         {
@@ -423,6 +424,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on our automation thread
+        // CONSIDER: We might want to do some batching of the text edits?
         void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
         {
             Logger.Monitor.Verbose($"!> FormulaEdit StateChanged ({args.StateChangeType})");
@@ -453,7 +455,7 @@ namespace ExcelDna.IntelliSense
                     SelectedItemText = _popupListWatcher.SelectedItemText,
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix,
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
             }
             if (_formulaEditWatcher.IsEditingFormula)
@@ -462,7 +464,7 @@ namespace ExcelDna.IntelliSense
                 {
                     MainWindow = _windowWatcher.MainWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix,
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
             }
             if (_windowWatcher.IsSelectDataSourceWindowVisible)
@@ -476,7 +478,7 @@ namespace ExcelDna.IntelliSense
             return new UIState.Ready();
         }
 
-        // Raises the StateChanged event on our automation thread
+        // Filter the states changes (on the automation thread) and then raise changes (on the main thread)
         // TODO: We might short-cut the update type too, for the common FormulaEdit and SelectItemChange cases
         void OnStateChanged(UIState newStateOrNull = null)
         {
@@ -484,16 +486,59 @@ namespace ExcelDna.IntelliSense
             if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
             CurrentState = newStateOrNull;
-            var updates = UIState.GetUpdates(oldState, CurrentState).ToList();
-            if (updates.Count > 1)
+
+            var updates = UIState.GetUpdates(oldState, CurrentState)
+                                 .Where(StateUpdateFilter)
+                                 .ToList();
+            if (updates.Count > 0)
+                _syncContextMain.Post(RaiseStateUpdates, updates);
+        }
+
+        // Perf experiment
+        //void OnStateChanged(UIState newStateOrNull = null)
+        //{
+        //    var oldState = CurrentState;
+        //    if (newStateOrNull == null)
+        //        newStateOrNull = ReadCurrentState();
+        //    CurrentState = newStateOrNull;
+        //    // TODO: Performance: Can we get rid of this list...?
+        //    var updateEnumerator = UIState.GetUpdates(oldState, CurrentState).GetEnumerator();
+        //    if (!updateEnumerator.MoveNext())
+        //        return;
+        //    var firstUpdate = updateEnumerator.Current;
+        //    if (!updateEnumerator.MoveNext())
+        //    {
+        //        // Only had the one item
+        //        if (StateUpdateFilter(firstUpdate))
+        //        {
+        //            _syncContextMain.Post(SingleStateChange, firstUpdate);
+        //        }
+        //        return;
+
+        //    }
+        //    var updates = new List<UIStateUpdate>();
+        //    if (StateUpdateFilter(firstUpdate))
+        //        updates.Add(firstUpdate);
+        //    do
+        //    {
+        //        var update = updateEnumerator.Current; 
+        //        if (StateUpdateFilter(update))
+        //        updates.Add(update);
+        //    } while (updateEnumerator.MoveNext());
+
+        //    Debug.Print($"MULTIPLE STATE UPDATES: {updates.Count}");
+        //    _syncContextMain.Post(MultipleStateChanges, updates);
+        //}
+
+        // Runs on the main thread
+        void RaiseStateUpdates(object updates)
+        {
+            foreach (var update in (List<UIStateUpdate>)updates)
             {
-                Debug.Print($"MULTIPLE STATE UPDATES: {updates.Count}");
-            }
-            foreach (var update in updates)
-            {
-                StateChanged?.Invoke(this, update);
+                StateUpdate(update);
             }
         }
+
         #endregion
 
         public void Dispose()
