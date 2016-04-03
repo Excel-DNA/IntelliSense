@@ -329,15 +329,23 @@ namespace ExcelDna.IntelliSense
                 SelectDataSourceMainWindowChange,
             SelectDataSourceHide
         }
-        public UIState OldState;
-        public UIState NewState;
-        public UpdateType Update;
+        public UIState OldState { get; }
+        public UIState NewState { get; }
+        public UpdateType Update { get; }
+        public bool IsEnabled { get; private set; }  // Should this update be raised on the main thread - allows preview event to filter out some events
 
         public UIStateUpdate(UIState oldState, UIState newState, UpdateType update)
         {
             OldState = oldState;
             NewState = newState;
             Update = update;
+            IsEnabled = false;
+        }
+
+        // Call this to allow the update event (on the main thread) to be raised
+        public void EnableUpdateEvent()
+        {
+            IsEnabled = true;
         }
     }
 
@@ -355,8 +363,8 @@ namespace ExcelDna.IntelliSense
         PopupListWatcher _popupListWatcher;
 
         public UIState CurrentState = UIState.ReadyState;
-        public Func<UIStateUpdate, bool> StateUpdateFilter;   // Always called on the automation thread
-        public Action<UIStateUpdate> StateUpdate;       // Always posted to the main thread
+        public EventHandler<UIStateUpdate> StateUpdatePreview;   // Always called on the automation thread
+        public EventHandler<UIStateUpdate> StateUpdate;       // Always posted to the main thread
 
         public UIMonitor(SynchronizationContext syncContextMain)
         {
@@ -479,7 +487,6 @@ namespace ExcelDna.IntelliSense
         }
 
         // Filter the states changes (on the automation thread) and then raise changes (on the main thread)
-        // TODO: We might short-cut the update type too, for the common FormulaEdit and SelectItemChange cases
         void OnStateChanged(UIState newStateOrNull = null)
         {
             var oldState = CurrentState;
@@ -487,9 +494,15 @@ namespace ExcelDna.IntelliSense
                 newStateOrNull = ReadCurrentState();
             CurrentState = newStateOrNull;
 
-            var updates = UIState.GetUpdates(oldState, CurrentState)
-                                 .Where(StateUpdateFilter)
-                                 .ToList();
+            var updates = new List<UIStateUpdate>();    // TODO: Improve perf for common single-update case
+            foreach (var update in UIState.GetUpdates(oldState, CurrentState))
+            {
+                // First we raise the preview event on this thread
+                // allowing listeners to enable the main-thread event for this update
+                StateUpdatePreview?.Invoke(this, update);
+                if (update.IsEnabled)
+                    updates.Add(update);
+            }
             if (updates.Count > 0)
                 _syncContextMain.Post(RaiseStateUpdates, updates);
         }
@@ -535,7 +548,7 @@ namespace ExcelDna.IntelliSense
         {
             foreach (var update in (List<UIStateUpdate>)updates)
             {
-                StateUpdate(update);
+                StateUpdate?.Invoke(this, update);
             }
         }
 

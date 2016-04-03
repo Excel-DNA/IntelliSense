@@ -53,31 +53,37 @@ namespace ExcelDna.IntelliSense
 
             _syncContextMain = syncContextMain;
             _uiMonitor = uiMonitor;
-            _uiMonitor.StateUpdateFilter = StateUpdateFilter;
-            _uiMonitor.StateUpdate = StateUpdate;
+            _uiMonitor.StateUpdatePreview += StateUpdatePreview;
+            _uiMonitor.StateUpdate += StateUpdate;
         }
 
         // This runs on the UIMonitor's automation thread
-        bool StateUpdateFilter(UIStateUpdate update)
+        // Allows us to enable the update to be raised on main thread
+        // Might be raised on the main thread even if we don't enable it (other listeners might enable)
+        void StateUpdatePreview(object sender,  UIStateUpdate update)
         {
+            bool enable;
             if (update.Update == UIStateUpdate.UpdateType.FormulaEditTextChange)
             {
                 var fe = (UIState.FormulaEdit)update.NewState;
-                return ShouldProcessFormulaEditTextChange(fe.FormulaPrefix);
+                enable = ShouldProcessFormulaEditTextChange(fe.FormulaPrefix);
             }
             else if (update.Update == UIStateUpdate.UpdateType.FunctionListSelectedItemChange)
             {
                 var fl = (UIState.FunctionList)update.NewState;
-                return ShouldProcessFunctionListSelectedItemChange(fl.SelectedItemText);
+                enable = ShouldProcessFunctionListSelectedItemChange(fl.SelectedItemText);
             }
             else
             {
-                return true; // allow the update event to be raised
+                enable = true; // allow the update event to be raised by default
             }
+
+            if (enable)
+                update.EnableUpdateEvent();
         }
 
         // This runs on the main thread
-        void StateUpdate(UIStateUpdate update)
+        void StateUpdate(object sender, UIStateUpdate update)
         {
             Debug.Print($"STATE UPDATE ({update.Update}): {update.OldState} => {update.NewState}");
 
