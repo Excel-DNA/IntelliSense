@@ -57,6 +57,7 @@ namespace ExcelDna.IntelliSense
             _uiMonitor.StateUpdate += StateUpdate;
         }
 
+        #region Update Preview Filtering
         // This runs on the UIMonitor's automation thread
         // Allows us to enable the update to be raised on main thread
         // Might be raised on the main thread even if we don't enable it (other listeners might enable)
@@ -82,6 +83,36 @@ namespace ExcelDna.IntelliSense
                 update.EnableUpdateEvent();
         }
 
+        // Runs on the UIMonitor's automation thread - return true if we might want to process
+        bool ShouldProcessFunctionListSelectedItemChange(string selectedItemText)
+        {
+            if (_descriptionToolTip?.Visible == true)
+                return true;
+            
+            return _functionInfoMap.ContainsKey(selectedItemText);
+        }
+
+        // Runs on the UIMonitor's automation thread - return true if we might want to process
+        bool ShouldProcessFormulaEditTextChange(string formulaPrefix)
+        {
+            // CAREFUL: Because of threading, this might run before FormulaEditStart!
+
+            if (_argumentsToolTip?.Visible == true)
+                return true;
+
+            // TODO: Consolidate the check here with the FormulaMonitor
+            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
+            if (match.Success)
+            {
+                string functionName = match.Groups["functionName"].Value;
+                return _functionInfoMap.ContainsKey(functionName);
+            }
+            // Not interested...
+            Debug.Print($"Not processing formula {formulaPrefix}");
+            return false;
+        }
+        #endregion
+
         // This runs on the main thread
         void StateUpdate(object sender, UIStateUpdate update)
         {
@@ -94,13 +125,15 @@ namespace ExcelDna.IntelliSense
                     FormulaEditStart();
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditMove:
+                    var fem = (UIState.FormulaEdit)update.NewState;
+                    FormulaEditMove(fem.EditWindowBounds, fem.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditMainWindowChange:
                     UpdateMainWindow((update.NewState as UIState.FormulaEdit).MainWindow);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditTextChange:
-                    var fe = (UIState.FormulaEdit)update.NewState;
-                    FormulaEditTextChange(fe.FormulaPrefix, fe.EditWindowBounds, fe.ExcelTooltipBounds);
+                    var fetc = (UIState.FormulaEdit)update.NewState;
+                    FormulaEditTextChange(fetc.FormulaPrefix, fetc.EditWindowBounds, fetc.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListShow:
                     FunctionListShow();
@@ -108,6 +141,8 @@ namespace ExcelDna.IntelliSense
                     FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListMove:
+                    var flm = (UIState.FunctionList)update.NewState;
+                    FunctionListMove(flm.SelectedItemBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListSelectedItemChange:
                     var fl = (UIState.FunctionList)update.NewState;
@@ -151,23 +186,22 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FunctionListShow()
-        {
-            if (_descriptionToolTip == null)
-                _descriptionToolTip = new ToolTipForm(_mainWindow);
-        }
-
-        // Runs on the main thread
-        void FunctionListHide()
-        {
-            _descriptionToolTip.Hide();
-        }
-
-        // Runs on the main thread
         void FormulaEditStart()
         {
             if (_argumentsToolTip == null)
                 _argumentsToolTip = new ToolTipForm(_mainWindow);
+        }
+
+        // Runs on the main thread
+        void FormulaEditEnd()
+        {
+            _argumentsToolTip.Hide();
+        }
+
+        // Runs on the main thread
+        void FormulaEditMove(Rect editWindowBounds, Rect excelTooltipBounds)
+        {
+            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
         }
 
         // Runs on the main thread
@@ -195,41 +229,20 @@ namespace ExcelDna.IntelliSense
             _argumentsToolTip.Hide();
         }
 
+
         // Runs on the main thread
-        void FormulaEditEnd()
+        void FunctionListShow()
         {
-            _argumentsToolTip.Hide();
+            if (_descriptionToolTip == null)
+                _descriptionToolTip = new ToolTipForm(_mainWindow);
         }
 
-        // Runs on the UIMonitor's automation thread - return true if we might want to process
-        bool ShouldProcessFunctionListSelectedItemChange(string selectedItemText)
+        // Runs on the main thread
+        void FunctionListHide()
         {
-            if (_descriptionToolTip?.Visible == true)
-                return true;
-            
-            return _functionInfoMap.ContainsKey(selectedItemText);
+            _descriptionToolTip.Hide();
         }
 
-        // Runs on the UIMonitor's automation thread - return true if we might want to process
-        bool ShouldProcessFormulaEditTextChange(string formulaPrefix)
-        {
-            // CAREFUL: Because of threading, this might run before FormulaEditStart!
-
-            if (_argumentsToolTip?.Visible == true)
-                return true;
-
-            // TODO: Consolidate the check here with the FormulaMonitor
-            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
-            if (match.Success)
-            {
-                string functionName = match.Groups["functionName"].Value;
-                return _functionInfoMap.ContainsKey(functionName);
-            }
-            // Not interested...
-            Debug.Print($"Not processing formula {formulaPrefix}");
-            return false;
-        }
-        
         // Runs on the main thread
         void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds)
         {
@@ -249,58 +262,11 @@ namespace ExcelDna.IntelliSense
                 FunctionListHide();
             }
         }
-
-        //// Runs on the main thread
-        //// TODO: Need better formula parsing story here
-        //// Here are some ideas: http://fastexcel.wordpress.com/2013/10/27/parsing-functions-from-excel-formulas-using-vba-is-mid-or-a-byte-array-the-best-method/
-        //void FormulaEditStateChanged(object stateChangeTypeObj)
-        //{
-        //    var stateChangeType = (FormulaEditWatcher.StateChangeType)stateChangeTypeObj;
-        //    // Check for watcher already disposed 
-        //    // CONSIDER: How to manage threading with disposal...?
-        //    if (_formulaEditWatcher == null)
-        //        return;
-
-        //    if (stateChangeType == FormulaEditWatcher.StateChangeType.Move && _argumentsToolTip != null)
-        //    {
-        //        _argumentsToolTip.MoveToolTip(
-        //            (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
-        //        return;
-        //    }
-
-        //    Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {_formulaEditWatcher.CurrentPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
-        //    if (_formulaEditWatcher.IsEditingFormula && _formulaEditWatcher.CurrentPrefix != null)
-        //    {
-        //        string prefix = _formulaEditWatcher.CurrentPrefix;
-        //        var match = Regex.Match(prefix, @"^=(?<functionName>\w*)\(");
-        //        if (match.Success)
-        //        {
-        //            string functionName = match.Groups["functionName"].Value;
-
-        //            IntelliSenseFunctionInfo functionInfo;
-        //            if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
-        //            {
-        //                // It's ours!
-        //                if (_argumentsToolTip == null)
-        //                {
-        //                    _argumentsToolTip = new ToolTipForm(_windowWatcher.MainWindow);
-        //                }
-
-        //                // TODO: Fix this: Need to consider subformulae
-        //                int currentArgIndex = _formulaEditWatcher.CurrentPrefix.Count(c => c == ',');
-        //                _argumentsToolTip.ShowToolTip(
-        //                    GetFunctionIntelliSense(functionInfo, currentArgIndex),
-        //                    (int)_formulaEditWatcher.EditWindowBounds.Left, (int)_formulaEditWatcher.EditWindowBounds.Bottom + 5);
-        //                return;
-        //            }
-        //        }
-        //    }
-
-        //    // All other paths, we just clear the box
-        //    if (_argumentsToolTip != null)
-        //        _argumentsToolTip.Hide();
-        //}
-
+        
+        void FunctionListMove(Rect selectedItemBounds)
+        {
+            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + 25, (int)selectedItemBounds.Top);
+        }
 
         // TODO: Performance / efficiency - cache these somehow
         // TODO: Probably not a good place for LINQ !?
@@ -382,26 +348,9 @@ namespace ExcelDna.IntelliSense
                 };
         }
 
-        //public void Shutdown()
-        //{
-        //    Debug.Print("Shutdown!");
-        //    if (_current != null)
-        //    {
-        //        try
-        //        {
-        //            _current.Dispose();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Debug.Print("!!! Error during Shutdown: " + ex);
-        //        }
-                
-        //        _current = null;
-        //    }
-        //}
-
         public void Dispose()
         {
+            // TODO: How to interact with the pending event callbacks?
             _syncContextMain.Send(delegate
                 {
                     if (_descriptionToolTip != null)

@@ -670,9 +670,11 @@ namespace ExcelDna.IntelliSense
                     var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
                     Debug.Assert(selPat != null);
 
-                    // TODO: Fix again to run this on our automation thread
-                    Automation.AddAutomationEventHandler(
-                        SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
+                    _syncContextAuto.Send( _ =>
+                    {
+                        Automation.AddAutomationEventHandler(
+                            SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
+                    }, null);
 
                     // Update the current selection, if any
                     var curSel = selPat.Current.GetSelection();
@@ -698,8 +700,10 @@ namespace ExcelDna.IntelliSense
             {
                 if (_popupListList != null)
                 {
-                    // TODO: Fix again to run this on our automation thread
-                    Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
+                    _syncContextAuto.Send( _ =>
+                    {
+                        Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
+                    }, null);
                     _popupListList = null;
                 }
                 _selectedItem = null;
