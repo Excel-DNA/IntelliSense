@@ -19,11 +19,26 @@ namespace ExcelDna.IntelliSense
 
         public ToolTipForm(IntPtr hwndOwner)
         {
+            Debug.Assert(hwndOwner != IntPtr.Zero);
             InitializeComponent();
             _owner = new Win32Window(hwndOwner);
             // _owner = new NativeWindow();
             // _owner.AssignHandle(hwndParent); (...with ReleaseHandle in Dispose)
             Debug.Print($"Created ToolTipForm with owner {hwndOwner}");
+        }
+
+        protected override void DefWndProc(ref Message m)
+        {
+            const int WM_MOUSEACTIVATE = 0x21;
+            const int MA_NOACTIVATE = 0x0003;
+
+            switch(m.Msg)
+            {
+                case WM_MOUSEACTIVATE:
+                    m.Result = (IntPtr)MA_NOACTIVATE;
+                    return;
+            }
+            base.DefWndProc(ref m);
         }
 
         public void ShowToolTip()
@@ -85,16 +100,19 @@ namespace ExcelDna.IntelliSense
         //    }
         //}
 
-        const int CS_DROPSHADOW = 0x00020000;
-        const int WS_EX_TOOLWINDOW = 0x00000080;
-        const int WS_EX_NOACTIVATE = 0x08000000;
+
         protected override CreateParams CreateParams
         {
             get
             {
+                const int CS_DROPSHADOW = 0x00020000;
+                const int WS_CHILD = 0x40000000;
+                const int WS_EX_TOOLWINDOW = 0x00000080;
+                const int WS_EX_NOACTIVATE = 0x08000000;
                 // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
                 CreateParams baseParams = base.CreateParams;
                 baseParams.ClassStyle |= CS_DROPSHADOW;
+                baseParams.Style |= WS_CHILD;
                 baseParams.ExStyle |= ( WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW );
                 return baseParams;
             }

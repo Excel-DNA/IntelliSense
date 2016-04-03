@@ -12,8 +12,9 @@ namespace ExcelDna.IntelliSense
     sealed class SingleThreadSynchronizationContext : SynchronizationContext
     {
         /// <summary>The queue of work items.</summary>
-        readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> m_queue =
+        readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue =
             new BlockingCollection<KeyValuePair<SendOrPostCallback, object>>();
+        int _threadId = 0;
 
         // /// <summary>The processing thread.</summary>
         // readonly Thread m_thread = Thread.CurrentThread;
@@ -24,19 +25,29 @@ namespace ExcelDna.IntelliSense
         public override void Post(SendOrPostCallback d, object state)
         {
             if (d == null) throw new ArgumentNullException("d");
-            m_queue.Add(new KeyValuePair<SendOrPostCallback, object>(d, state));
+            _queue.Add(new KeyValuePair<SendOrPostCallback, object>(d, state));
         }
 
-        /// <summary>Not supported.</summary>
         public override void Send(SendOrPostCallback d, object state)
         {
-            throw new NotSupportedException("Synchronously sending is not supported.");
+            if (Thread.CurrentThread.ManagedThreadId == _threadId)
+            {
+                d(state);
+                return;
+            }
+
+            // We're being called on another thread...
+            AutoResetEvent ev = new AutoResetEvent(false);
+            Post(d, state);
+            Post((object are) => ((AutoResetEvent)are).Set(), ev);
+            ev.WaitOne();
         }
 
         /// <summary>Runs a loop to process all queued work items.</summary>
         public void RunOnCurrentThread()
         {
-            foreach (var workItem in m_queue.GetConsumingEnumerable())
+            _threadId = Thread.CurrentThread.ManagedThreadId;
+            foreach (var workItem in _queue.GetConsumingEnumerable())
             {
                 try
                 {
@@ -52,6 +63,6 @@ namespace ExcelDna.IntelliSense
         }
 
         /// <summary>Notifies the context that no more work will arrive.</summary>
-        public void Complete() { m_queue.CompleteAdding(); }
+        public void Complete() { _queue.CompleteAdding(); }
     }
 }

@@ -167,21 +167,22 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void UpdateMainWindow(IntPtr mainWindow)
         {
-            if (_mainWindow != mainWindow &&
-                 (_descriptionToolTip != null ||
-                  _argumentsToolTip   != null ))
+            if (_mainWindow != mainWindow)
             {
-                if (_descriptionToolTip != null)
-                {
-                    _descriptionToolTip.Dispose();
-                    _descriptionToolTip = new ToolTipForm(_mainWindow);
-                }
-                if (_argumentsToolTip != null)
-                {
-                    _argumentsToolTip.Dispose();
-                    _argumentsToolTip = new ToolTipForm(_mainWindow);
-                }
                 _mainWindow = mainWindow;
+                if (_descriptionToolTip != null || _argumentsToolTip != null)
+                {
+                    if (_descriptionToolTip != null)
+                    {
+                        _descriptionToolTip.Dispose();
+                        _descriptionToolTip = new ToolTipForm(_mainWindow);
+                    }
+                    if (_argumentsToolTip != null)
+                    {
+                        _argumentsToolTip.Dispose();
+                        _argumentsToolTip = new ToolTipForm(_mainWindow);
+                    }
+                }
             }
         }
 

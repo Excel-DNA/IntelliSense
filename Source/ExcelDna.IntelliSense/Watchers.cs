@@ -592,7 +592,7 @@ namespace ExcelDna.IntelliSense
                 }
                 catch (Exception ex)
                 {
-                    Debug.Print("!!! Error gettting main window from handle");
+                    Debug.Print($"!!! Error gettting main window from handle: {ex.Message}");
                 }
             }
         }
@@ -670,11 +670,19 @@ namespace ExcelDna.IntelliSense
                     var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
                     Debug.Assert(selPat != null);
 
-                    _syncContextAuto.Send( _ =>
-                    {
-                        Automation.AddAutomationEventHandler(
-                            SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
-                    }, null);
+                    // CONSIDER: Send might be a bit disruptive here / might not be necessary...
+                    // _syncContextAuto.Send( _ =>
+                    //{
+                        try
+                        {
+                            Automation.AddAutomationEventHandler(
+                                SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.Print("Error during AddAutomationEventHandler! " + ex);
+                        }
+                    //}, null);
 
                     // Update the current selection, if any
                     var curSel = selPat.Current.GetSelection();
@@ -700,10 +708,18 @@ namespace ExcelDna.IntelliSense
             {
                 if (_popupListList != null)
                 {
-                    _syncContextAuto.Send( _ =>
-                    {
-                        Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
-                    }, null);
+                    // CONSIDER: Send might be a bit disruptive here / might not be necessary...
+                    //_syncContextAuto.Send( _ =>
+                    //{
+                        try
+                        {
+                            Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.Print("Error during RemoveAutomationEventHandler! " + ex);
+                        }
+                    //}, null);
                     _popupListList = null;
                 }
                 _selectedItem = null;
