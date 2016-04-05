@@ -235,9 +235,10 @@ namespace ExcelDna.IntelliSense
                         Version = parts[2]
                     };
                 }
-                catch
+                catch (Exception ex)
                 {
                     // TODO: Log
+                    Debug.Print($"!!! ERROR: Invalid RegistrationString {registrationString}: {ex.Message}");
                     return null;
                 }
             }
@@ -380,10 +381,15 @@ namespace ExcelDna.IntelliSense
         // returns null if there are none registered
         static RegistrationInfo GetHighestPublishedRegistration()
         {
-            return Environment.GetEnvironmentVariable(ServersVariable)
-                              .Split(';')
-                              .Select(str => RegistrationInfo.FromRegistrationString(str))
-                              .Max();
+            var servers = Environment.GetEnvironmentVariable(ServersVariable);
+            if (servers == null)
+            {
+                Debug.Print("!!! ERROR: ServersVariable not set");
+                return null;
+            }
+            return servers.Split(';')
+                          .Select(str => RegistrationInfo.FromRegistrationString(str))
+                          .Max();
         }
         #endregion
 

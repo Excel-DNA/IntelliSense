@@ -104,6 +104,7 @@ namespace ExcelDna.IntelliSense
             switch (className)
             {
                 case _mainWindowClass:
+                case _mainWindowClass2:
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE || 
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
@@ -205,6 +206,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Runs on our automation thread
         void UpdateMainWindow(IntPtr hWnd)
         {
             if (MainWindow != hWnd)
@@ -218,37 +220,46 @@ namespace ExcelDna.IntelliSense
             {
                 // Either fresh window, or children not yet set up
 
-                // Search for formulaBar
-                // I've seen ElementNotAvailbleException here during shutdown
-                AutomationElement mainWindow = AutomationElement.FromHandle(hWnd);
+                //try // Anything can go wrong here, e.g. we're shutting down on the main thread
+                //{
+
+                    // Search for formulaBar
+
+                    AutomationElement mainWindow = AutomationElement.FromHandle(hWnd);
 #if DEBUG
-                var mainChildren = mainWindow.FindAll(TreeScope.Children, Condition.TrueCondition);
-                foreach (AutomationElement child in mainChildren)
-                {
-                    var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                    var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
-                    // Debug.Print($"Child: {hWndChild}, Class: {classChild}");
-                }
+                    var mainChildren = mainWindow.FindAll(TreeScope.Children, Condition.TrueCondition);
+                    foreach (AutomationElement child in mainChildren)
+                    {
+                        var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                        var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
+                        // Debug.Print($"Child: {hWndChild}, Class: {classChild}");
+                    }
 #endif
-                AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
-                    new PropertyCondition(AutomationElement.ClassNameProperty, _formulaBarClass));
-                if (formulaBar != null)
-                {
-                    FormulaBarWindow = (IntPtr)(int)formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                    AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
+                        new PropertyCondition(AutomationElement.ClassNameProperty, _formulaBarClass));
+                    if (formulaBar != null)
+                    {
+                        FormulaBarWindow = (IntPtr)(int)formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
 
-                    // CONSIDER:
-                    //  Watch WindowClose event for MainWindow?
+                        // CONSIDER:
+                        //  Watch WindowClose event for MainWindow?
 
-                    FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
-                }
-                else
-                {
-                    // Debug.Print("Could not get FormulaBar!");
-                }
+                        FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
+                    }
+                    else
+                    {
+                        // Debug.Print("Could not get FormulaBar!");
+                    }
+                //}
+                //catch (Exception ex)
+                //{
+
+                //}
             }
         }
 
         const string _mainWindowClass = "XLMAIN";
+        const string _mainWindowClass2 = "EXCEL7";  // What / when ????????
         const string _formulaBarClass = "EXCEL<";
         const string _inCellEditClass = "EXCEL6";
         const string _popupListClass = "__XLACOOUTER";

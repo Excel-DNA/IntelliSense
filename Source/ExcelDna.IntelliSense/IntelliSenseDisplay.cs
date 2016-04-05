@@ -189,6 +189,7 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void FormulaEditStart()
         {
+            Debug.Print($"IntelliSenseDisplay - FormulaEditStart");
             if (_argumentsToolTip == null)
                 _argumentsToolTip = new ToolTipForm(_mainWindow);
         }
@@ -196,7 +197,10 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void FormulaEditEnd()
         {
-            _argumentsToolTip.Hide();
+            Debug.Print($"IntelliSenseDisplay - FormulaEditEnd");
+            // _argumentsToolTip.Hide();
+            _argumentsToolTip.Dispose();
+            _argumentsToolTip = null;
         }
 
         // Runs on the main thread
@@ -227,13 +231,16 @@ namespace ExcelDna.IntelliSense
             }
 
             // All other paths, we just clear the box
-            _argumentsToolTip.Hide();
+            //_argumentsToolTip.Hide();
+            _argumentsToolTip.Dispose();
+            _argumentsToolTip = null;
         }
 
 
         // Runs on the main thread
         void FunctionListShow()
         {
+            Debug.Print($"IntelliSenseDisplay - FunctionListShow");
             if (_descriptionToolTip == null)
                 _descriptionToolTip = new ToolTipForm(_mainWindow);
         }
@@ -241,7 +248,10 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void FunctionListHide()
         {
-            _descriptionToolTip.Hide();
+            Debug.Print($"IntelliSenseDisplay - FunctionListHide");
+            //_descriptionToolTip.Hide();
+            _descriptionToolTip.Dispose();
+            _descriptionToolTip = null;
         }
 
         // Runs on the main thread
@@ -260,7 +270,7 @@ namespace ExcelDna.IntelliSense
             }
             else
             {
-                FunctionListHide();
+                _descriptionToolTip.Hide();
             }
         }
         

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace ExcelDna.IntelliSense
 {
@@ -28,6 +29,11 @@ namespace ExcelDna.IntelliSense
         {
             return GetEnumerator();
         }
+
+        public override string ToString()
+        {
+            return string.Join("\r\n", _lines.Select(l => l.ToString()));
+        }
     }
 
     class TextLine : IEnumerable<TextRun>
@@ -50,6 +56,11 @@ namespace ExcelDna.IntelliSense
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        public override string ToString()
+        {
+            return string.Concat(_runs.Select(r => r.Text));
         }
     }
 

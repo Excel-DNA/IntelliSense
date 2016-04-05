@@ -8,6 +8,8 @@ using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
+
+    // TODO: Drop shadow: http://stackoverflow.com/questions/16493698/drop-shadow-on-a-borderless-winform
     class ToolTipForm  : Form
     {
         FormattedText _text;
@@ -32,7 +34,7 @@ namespace ExcelDna.IntelliSense
             const int WM_MOUSEACTIVATE = 0x21;
             const int MA_NOACTIVATE = 0x0003;
 
-            switch(m.Msg)
+            switch (m.Msg)
             {
                 case WM_MOUSEACTIVATE:
                     m.Result = (IntPtr)MA_NOACTIVATE;
@@ -59,10 +61,12 @@ namespace ExcelDna.IntelliSense
             _text = text;
             if (!Visible)
             {
+                Debug.Print($"Showing ToolTipForm: {_text.ToString()}");
                 ShowToolTip();
             }
             else
             {
+                Debug.Print($"Invalidating ToolTipForm: {_text.ToString()}");
                 Invalidate();
             }
             Left = left;
@@ -100,26 +104,37 @@ namespace ExcelDna.IntelliSense
         //    }
         //}
 
-
+        
+        // Sometimes has Invalid Handle error when calling base.CreateParams (called from Invalidate() for some reason)
+        CreateParams _createParams;
         protected override CreateParams CreateParams
         {
             get
             {
-                const int CS_DROPSHADOW = 0x00020000;
-                const int WS_CHILD = 0x40000000;
-                const int WS_EX_TOOLWINDOW = 0x00000080;
-                const int WS_EX_NOACTIVATE = 0x08000000;
-                // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
-                CreateParams baseParams = base.CreateParams;
-                baseParams.ClassStyle |= CS_DROPSHADOW;
-                baseParams.Style |= WS_CHILD;
-                baseParams.ExStyle |= ( WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW );
-                return baseParams;
+                //if (_createParams == null)
+                {
+                    const int CS_DROPSHADOW = 0x00020000;
+                    const int WS_CHILD = 0x40000000;
+                    const int WS_EX_TOOLWINDOW = 0x00000080;
+                    const int WS_EX_NOACTIVATE = 0x08000000;
+                    // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
+                    _createParams = base.CreateParams;
+                    _createParams.ClassStyle |= CS_DROPSHADOW;
+                    // baseParams.Style |= WS_CHILD;
+                    _createParams.ExStyle |= (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+                }
+                return _createParams;
             }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            base.OnHandleDestroyed(e);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            Debug.Print($"Painting ToolTipForm: {_text.ToString()}");
             const int leftPadding = 3;
             const int linePadding = 2;
             const int widthPadding = 10;
@@ -233,6 +248,8 @@ namespace ExcelDna.IntelliSense
 
         }
 
+        
+        
         class Win32Window : IWin32Window
         {
             public IntPtr Handle

@@ -19,7 +19,7 @@ namespace TestAddIn
 
         public void AutoClose()
         {
-            // CONSIDER: Do we implement an explicit call here, or is the AppDomain Unload event good enough
+            // CONSIDER: Do we implement an explicit call here, or is the AppDomain Unload event good enough?
         }
     }
 }
