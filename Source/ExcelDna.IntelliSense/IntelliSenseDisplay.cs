@@ -26,6 +26,7 @@ namespace ExcelDna.IntelliSense
 
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
+    // NOTE: TrackFocus example shows how to do a window 'natively'.
     class IntelliSenseDisplay : IDisposable
     {
 
@@ -42,7 +43,8 @@ namespace ExcelDna.IntelliSense
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
         ToolTipForm _argumentsToolTip;
-        IntPtr _mainWindow;
+        IntPtr _formulaEditWindow;
+        IntPtr _functionListWindow;
         
         public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor)
         {
@@ -121,23 +123,25 @@ namespace ExcelDna.IntelliSense
             switch (update.Update)
             {
                 case UIStateUpdate.UpdateType.FormulaEditStart:
-                    UpdateMainWindow((update.NewState as UIState.FormulaEdit).MainWindow);
+                    UpdateFormulaEditWindow((update.NewState as UIState.FormulaEdit).FormulaEditWindow);
                     FormulaEditStart();
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditMove:
                     var fem = (UIState.FormulaEdit)update.NewState;
                     FormulaEditMove(fem.EditWindowBounds, fem.ExcelTooltipBounds);
                     break;
-                case UIStateUpdate.UpdateType.FormulaEditMainWindowChange:
-                    UpdateMainWindow((update.NewState as UIState.FormulaEdit).MainWindow);
+                case UIStateUpdate.UpdateType.FormulaEditWindowChange:
+                    UpdateFormulaEditWindow((update.NewState as UIState.FormulaEdit).FormulaEditWindow);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditTextChange:
                     var fetc = (UIState.FormulaEdit)update.NewState;
                     FormulaEditTextChange(fetc.FormulaPrefix, fetc.EditWindowBounds, fetc.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListShow:
-                    FunctionListShow();
                     var fls = (UIState.FunctionList)update.NewState;
+                    // TODO: TEMP
+                    _functionListWindow = fls.FunctionListWindow;
+                    FunctionListShow();
                     FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListMove:
@@ -155,7 +159,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditEnd();
                     break;
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
-                case UIStateUpdate.UpdateType.SelectDataSourceMainWindowChange:
+                case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
                     // We ignore these
                     break;
@@ -165,23 +169,26 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void UpdateMainWindow(IntPtr mainWindow)
+        void UpdateFormulaEditWindow(IntPtr formulaEditWindow)
         {
-            if (_mainWindow != mainWindow)
+            if (_formulaEditWindow != formulaEditWindow)
             {
-                _mainWindow = mainWindow;
-                if (_descriptionToolTip != null || _argumentsToolTip != null)
+                _formulaEditWindow = formulaEditWindow;
+                if (_argumentsToolTip != null)
                 {
-                    if (_descriptionToolTip != null)
-                    {
-                        _descriptionToolTip.Dispose();
-                        _descriptionToolTip = new ToolTipForm(_mainWindow);
-                    }
-                    if (_argumentsToolTip != null)
-                    {
-                        _argumentsToolTip.Dispose();
-                        _argumentsToolTip = new ToolTipForm(_mainWindow);
-                    }
+                    _argumentsToolTip.OwnerHandle = _formulaEditWindow;
+                }
+            }
+        }
+
+        void UpdateFunctionListWindow(IntPtr functionListWindow)
+        {
+            if (_functionListWindow != functionListWindow)
+            {
+                _functionListWindow = functionListWindow;
+                if (_descriptionToolTip != null)
+                {
+                    _descriptionToolTip.OwnerHandle = _functionListWindow;
                 }
             }
         }
@@ -191,16 +198,16 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditStart");
             if (_argumentsToolTip == null)
-                _argumentsToolTip = new ToolTipForm(_mainWindow);
+                _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
         }
 
         // Runs on the main thread
         void FormulaEditEnd()
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditEnd");
-            // _argumentsToolTip.Hide();
-            _argumentsToolTip.Dispose();
-            _argumentsToolTip = null;
+            _argumentsToolTip.Hide();
+            //_argumentsToolTip.Dispose();
+            //_argumentsToolTip = null;
         }
 
         // Runs on the main thread
@@ -231,9 +238,9 @@ namespace ExcelDna.IntelliSense
             }
 
             // All other paths, we just clear the box
-            //_argumentsToolTip.Hide();
-            _argumentsToolTip.Dispose();
-            _argumentsToolTip = null;
+            _argumentsToolTip.Hide();
+            //_argumentsToolTip.Dispose();
+            //_argumentsToolTip = null;
         }
 
 
@@ -242,16 +249,16 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Print($"IntelliSenseDisplay - FunctionListShow");
             if (_descriptionToolTip == null)
-                _descriptionToolTip = new ToolTipForm(_mainWindow);
+                _descriptionToolTip = new ToolTipForm(_functionListWindow);
         }
 
         // Runs on the main thread
         void FunctionListHide()
         {
             Debug.Print($"IntelliSenseDisplay - FunctionListHide");
-            //_descriptionToolTip.Hide();
-            _descriptionToolTip.Dispose();
-            _descriptionToolTip = null;
+            _descriptionToolTip.Hide();
+            //_descriptionToolTip.Dispose();
+            //_descriptionToolTip = null;
         }
 
         // Runs on the main thread

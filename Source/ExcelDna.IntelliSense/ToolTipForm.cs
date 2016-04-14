@@ -87,6 +87,19 @@ namespace ExcelDna.IntelliSense
                 if (_owner == null) return IntPtr.Zero;
                 return _owner.Handle;
             }
+            set
+            {
+                if (_owner == null || _owner.Handle != value)
+                {
+                    _owner = new Win32Window(value);
+                    if (Visible)
+                    {
+                        // Rather just change Owner....
+                        Hide();
+                        ShowToolTip();
+                    }
+                }
+            }
         }
 
         protected override bool ShowWithoutActivation

@@ -7,14 +7,19 @@ using Point = System.Drawing.Point;
 
 namespace ExcelDna.IntelliSense
 {
-    // NOTE: Really need to understand the two approaches to using UI Automation (BCL classes vs. COM wrapper)
-    //       My understanding from this post : https://social.msdn.microsoft.com/Forums/en-US/69cf1072-d57f-4aa1-a8ea-ea8a9a5da70a/using-uiautomation-via-com-interopuiautomationclientdll-causes-windows-explorer-to-crash?forum=windowsaccessibilityandautomation
-    //       is that we might prefer to use the UIAComWrapper.
-    //       On the other hand, "Even without UiaComWrapper, you can always use UI Automation in .NET through COM Interop -- just add a reference to the UIAutomationCore.dll library for your project. "
+    // NOTE: We're using the COM wrapper (UIAComWrapper) approach to UI Automation, rather than using the old System.Automation in .NET BCL
+    //       My understanding is from this post : https://social.msdn.microsoft.com/Forums/en-US/69cf1072-d57f-4aa1-a8ea-ea8a9a5da70a/using-uiautomation-via-com-interopuiautomationclientdll-causes-windows-explorer-to-crash?forum=windowsaccessibilityandautomation
     //       I think this is a sample of the new UI Automation 3.0 COM API: http://blogs.msdn.com/b/winuiautomation/archive/2012/03/06/windows-7-ui-automation-client-api-c-sample-e-mail-reader-version-1-0.aspx
-    //       Really need to understand threading guidance from here: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
+    //       Really need to keep in mind the threading guidance from here: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
 
     // NOTE: Check that the TextPattern is available where expected under Windows 7 (remember about CLSID_CUIAutomation8 class)
+
+    enum FormulaEditFocus
+    {
+        None = 0,
+        FormulaBar = 1,
+        InCellEdit = 2
+    }
 
     // All the code in this class runs on the Automation thread, including events we handle from the WinEventHook.
     class WindowWatcher : IDisposable
@@ -34,23 +39,44 @@ namespace ExcelDna.IntelliSense
             public ChangeType Type;
         }
 
-        public IntPtr MainWindow { get; private set; }
-        public IntPtr FormulaBarWindow { get; private set; }
-        public IntPtr InCellEditWindow { get; private set; }
+//         public IntPtr MainWindow { get; private set; }
+        public IntPtr FormulaBarWindow { get; private set; }    // Move to FormulaEditWatcher ??
+        public IntPtr InCellEditWindow { get; private set; }    // Move to FormulaEditWatcher ??
+        public FormulaEditFocus FormulaEditFocus { get; private set; }  // Move to FormulaEditWatcher ??
         public IntPtr PopupListWindow { get; private set; }
+        public IntPtr IsPopupListWindowVisible { get; private set; }
         // public IntPtr PopupListList { get; private set; }
         public IntPtr SelectDataSourceWindow { get; private set; }
         public bool IsSelectDataSourceWindowVisible { get; private set; }
+        public IntPtr FormulaEditWindow  // Move to FormulaEditWatcher ??
+        {
+            get
+            {
+                switch (FormulaEditFocus)
+                {
+                    case FormulaEditFocus.None:
+                        return IntPtr.Zero;
+                    case FormulaEditFocus.InCellEdit:
+                        return InCellEditWindow;
+                    case FormulaEditFocus.FormulaBar:
+                        return FormulaBarWindow;
+                    default:
+                        throw new ArgumentException("Incalid FormulaEditFocus");
+                }
+
+            }
+        }
 
         // NOTE: The WindowWatcher raises all events on our Automation thread (via syncContextAuto passed into the constructor).
-        public event EventHandler MainWindowChanged;
+        //        public event EventHandler MainWindowChanged;
         public event EventHandler FormulaBarWindowChanged;
-        public event EventHandler FormulaBarFocused;
         public event EventHandler InCellEditWindowChanged;
-        public event EventHandler InCellEditFocused;
+        public event EventHandler FormulaEditFocusChanged;
         public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;   // Might start off with nothing. Changes at most once.?????
+        public event EventHandler IsPopupListWindowsVisibleChanged;
         // public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.??????
         public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
+        public event EventHandler IsSelectDataSourceWindowVisibleChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
         {
@@ -72,6 +98,8 @@ namespace ExcelDna.IntelliSense
             try
             {
                 focused = AutomationElement.FocusedElement;
+                var className = focused.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
+                Debug.Print($"WindowWatcher.TryInitialize - Focused: {className}");
             }
             catch (ArgumentException aex)
             {
@@ -79,41 +107,48 @@ namespace ExcelDna.IntelliSense
                 return;
             }
 
-            // Start at the focued control, search ancestors until we find the main window
-            AutomationElement current = focused;
-            TreeWalker treeWalker = TreeWalker.ControlViewWalker;
-            while ((string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty) != _mainWindowClass)
-            {
-                // Debug.Print($"Current Class = {current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty)}");
-                current = treeWalker.GetParent(current);
-                if (current == null)
-                {
-                    Debug.Print("!!! WARNING: Failed to get main window from focused element"); // We'll be OK when a main window gets the focus
-                    return;    // At the root
-                }
-            }
-            // ... and update
-            UpdateMainWindow((IntPtr)(int)current.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty));
+            //// Start at the focused control, search ancestors until we find the main window
+            //AutomationElement current = focused;
+            //TreeWalker treeWalker = TreeWalker.ControlViewWalker;
+            //while ((string)current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty) != _mainWindowClass)
+            //{
+            //    // Debug.Print($"Current Class = {current.GetCurrentPropertyValue(AutomationElement.ClassNameProperty)}");
+            //    current = treeWalker.GetParent(current);
+            //    if (current == null)
+            //    {
+            //        Debug.Print("!!! WARNING: Failed to get main window from focused element"); // We'll be OK when a main window gets the focus
+            //        return;    // At the root
+            //    }
+            //}
+            //// ... and update
+            //UpdateMainWindow((IntPtr)(int)current.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty));
         }
 
         // This runs on the Automation thread, via SyncContextAuto passed in to WinEventHook when we created this WindowWatcher
+        // CONSIDER: We might be able to run all the watcher updates from WinEvents, including Location and Selection changes.
         void _windowStateChangeHook_WinEventReceived(object sender, WinEventHook.WinEventArgs e)
         {
             // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
             var className = Win32Helper.GetClassName(e.WindowHandle);
             switch (className)
             {
-                case _mainWindowClass:
-                case _mainWindowClass2:
-                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE || 
-                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
-                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
-                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_HIDE ||
-                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_REORDER ||
-                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
+                //case _mainWindowClass:
+                //    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE || 
+                //        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
+                //        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
+                //        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_HIDE ||
+                //        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_REORDER ||
+                //        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
+                //    {
+                //        // Debug.Print($"MainWindow update: {e.WindowHandle:X}, EventType: {e.EventType}");
+                //        UpdateMainWindow(e.WindowHandle);
+                //    }
+                //    break;
+                case _sheetWindowClass:
+                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
                     {
-                        // Debug.Print($"MainWindow update: {e.WindowHandle:X}, EventType: {e.EventType}");
-                        UpdateMainWindow(e.WindowHandle);
+                        // Maybe a new workbook is on top...
+                        // Note that there is also an EVENT_OBJECT_PARENTCHANGE (which we are not subscribing to at the moment
                     }
                     break;
                 case _popupListClass:
@@ -143,30 +178,38 @@ namespace ExcelDna.IntelliSense
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                          e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW) // SHOW also since we might be installed later...
                     {
-                        InCellEditWindow = e.WindowHandle;
-                        InCellEditWindowChanged?.Invoke(this, EventArgs.Empty);
+                        if (InCellEditWindow != e.WindowHandle)
+                        {
+                            InCellEditWindow = e.WindowHandle;
+                            InCellEditWindowChanged?.Invoke(this, EventArgs.Empty);
+                        }
                     }
                     else if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_HIDE)
                     {
-                        InCellEditWindow = IntPtr.Zero;
-                        InCellEditWindowChanged?.Invoke(this, EventArgs.Empty);
+                        FormulaEditFocus = FormulaEditFocus.None;
+                        FormulaEditFocusChanged?.Invoke(this, EventArgs.Empty);
                     }
                     else if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
                     {
-                        InCellEditFocused?.Invoke(this, EventArgs.Empty);
+                        FormulaEditFocus = FormulaEditFocus.InCellEdit;
+                        FormulaEditFocusChanged?.Invoke(this, EventArgs.Empty);
                     }
                     break;
                 case _formulaBarClass:
                     // Debug.Print($"FormulaBar Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
-                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
+                        e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
                     {
-                        FormulaBarWindow = e.WindowHandle;
-                        FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
+                        if (FormulaBarWindow != e.WindowHandle)
+                        {
+                            FormulaBarWindow = e.WindowHandle;
+                            FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
+                        }
                     }
                     else if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
                     {
-                        FormulaBarFocused?.Invoke(this, EventArgs.Empty);
+                        FormulaEditFocus = FormulaEditFocus.FormulaBar;
+                        FormulaEditFocusChanged?.Invoke(this, EventArgs.Empty);
                     }
                     break;
                 case _selectDataSourceClass:
@@ -206,60 +249,60 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Runs on our automation thread
-        void UpdateMainWindow(IntPtr hWnd)
-        {
-            if (MainWindow != hWnd)
-            {
-                MainWindow = hWnd;
-                FormulaBarWindow = IntPtr.Zero;
-                MainWindowChanged?.Invoke(this, EventArgs.Empty);
-            }
+//        // Runs on our automation thread
+//        void UpdateMainWindow(IntPtr hWnd)
+//        {
+//            if (MainWindow != hWnd)
+//            {
+//                MainWindow = hWnd;
+//                FormulaBarWindow = IntPtr.Zero;
+//                MainWindowChanged?.Invoke(this, EventArgs.Empty);
+//            }
 
-            if (FormulaBarWindow == IntPtr.Zero)
-            {
-                // Either fresh window, or children not yet set up
+//            if (FormulaBarWindow == IntPtr.Zero)
+//            {
+//                // Either fresh window, or children not yet set up
 
-                //try // Anything can go wrong here, e.g. we're shutting down on the main thread
-                //{
+//                //try // Anything can go wrong here, e.g. we're shutting down on the main thread
+//                //{
 
-                    // Search for formulaBar
+//                    // Search for formulaBar
 
-                    AutomationElement mainWindow = AutomationElement.FromHandle(hWnd);
-#if DEBUG
-                    var mainChildren = mainWindow.FindAll(TreeScope.Children, Condition.TrueCondition);
-                    foreach (AutomationElement child in mainChildren)
-                    {
-                        var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                        var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
-                        // Debug.Print($"Child: {hWndChild}, Class: {classChild}");
-                    }
-#endif
-                    AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
-                        new PropertyCondition(AutomationElement.ClassNameProperty, _formulaBarClass));
-                    if (formulaBar != null)
-                    {
-                        FormulaBarWindow = (IntPtr)(int)formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+//                    AutomationElement mainWindow = AutomationElement.FromHandle(hWnd);
+//#if DEBUG
+//                    var mainChildren = mainWindow.FindAll(TreeScope.Children, Condition.TrueCondition);
+//                    foreach (AutomationElement child in mainChildren)
+//                    {
+//                        var hWndChild = (IntPtr)(int)child.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+//                        var classChild = (string)child.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
+//                        // Debug.Print($"Child: {hWndChild}, Class: {classChild}");
+//                    }
+//#endif
+//                    AutomationElement formulaBar = mainWindow.FindFirst(TreeScope.Children,
+//                        new PropertyCondition(AutomationElement.ClassNameProperty, _formulaBarClass));
+//                    if (formulaBar != null)
+//                    {
+//                        FormulaBarWindow = (IntPtr)(int)formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
 
-                        // CONSIDER:
-                        //  Watch WindowClose event for MainWindow?
+//                        // CONSIDER:
+//                        //  Watch WindowClose event for MainWindow?
 
-                        FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
-                    }
-                    else
-                    {
-                        // Debug.Print("Could not get FormulaBar!");
-                    }
-                //}
-                //catch (Exception ex)
-                //{
+//                        FormulaBarWindowChanged?.Invoke(this, EventArgs.Empty);
+//                    }
+//                    else
+//                    {
+//                        // Debug.Print("Could not get FormulaBar!");
+//                    }
+//                //}
+//                //catch (Exception ex)
+//                //{
 
-                //}
-            }
-        }
+//                //}
+//            }
+//        }
 
         const string _mainWindowClass = "XLMAIN";
-        const string _mainWindowClass2 = "EXCEL7";  // What / when ????????
+        const string _sheetWindowClass = "EXCEL7";  // This is the sheet portion (not top level) - we get some notifications from here?
         const string _formulaBarClass = "EXCEL<";
         const string _inCellEditClass = "EXCEL6";
         const string _popupListClass = "__XLACOOUTER";
@@ -300,9 +343,10 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        IntPtr            _hwndFormulaBar;
         AutomationElement _formulaBar;
         AutomationElement _inCellEdit;
-        AutomationElement _mainWindow;
+        FormulaEditFocus _formulaEditFocus;
 
         // NOTE: Our event will always be raised on the _syncContextAuto thread (CONSIDER: Does this help?)
         public event EventHandler<StateChangeEventArgs> StateChanged;
@@ -314,6 +358,7 @@ namespace ExcelDna.IntelliSense
         // we just need to get the right window handle 
         public Rect EditWindowBounds { get; set; }
         public Point CaretPosition { get; set; }
+        public IntPtr FormulaBarWindow => _hwndFormulaBar;
 
         SynchronizationContext _syncContextAuto;
         WindowWatcher _windowWatcher;
@@ -324,29 +369,28 @@ namespace ExcelDna.IntelliSense
             _windowWatcher = windowWatcher;
             _windowWatcher.FormulaBarWindowChanged += _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged += _windowWatcher_InCellEditWindowChanged;
-            _windowWatcher.InCellEditFocused += _windowWatcher_FocusChanged;
-            _windowWatcher.FormulaBarFocused += _windowWatcher_FocusChanged;
-            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
+            _windowWatcher.FormulaEditFocusChanged += _windowWatcher_FormulaEditFocusChanged;
+//            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
         }
 
-        // Runs on the Automation thread
-        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
-        {
-            if (_mainWindow != null)
-            {
-                Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
-            }
+        //// Runs on the Automation thread
+        //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
+        //{
+        //    if (_mainWindow != null)
+        //    {
+        //        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+        //    }
 
-            WindowWatcher windowWatcher = (WindowWatcher)sender;
+        //    WindowWatcher windowWatcher = (WindowWatcher)sender;
 
-            if (windowWatcher.MainWindow != IntPtr.Zero)
-            {
-                // TODO: I see "Element not found" errors here...
-                //       There are different top-level windows in Excl 2013.
-                // _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
-                // Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
-            }
-        }
+        //    if (windowWatcher.MainWindow != IntPtr.Zero)
+        //    {
+        //        // TODO: I see "Element not found" errors here...
+        //        //       There are different top-level windows in Excl 2013.
+        //        // _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
+        //        // Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, LocationChanged, AutomationElement.BoundingRectangleProperty);
+        //    }
+        //}
 
         // Runs on the Automation thread
         void _windowWatcher_FormulaBarWindowChanged(object sender, EventArgs e)
@@ -356,8 +400,8 @@ namespace ExcelDna.IntelliSense
             if (_formulaBar != null)
             {
                 // TODO: I've seen ElementNotAvailable here...
-                IntPtr hwndFormulaBar = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
-                if (hwndFormulaBar == hWnd)
+                // IntPtr hwndFormulaBar = (IntPtr)(int)_formulaBar.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                if (_hwndFormulaBar == hWnd)
                 {
                     // Window is fine - might be a text update
                     // Debug.Print("Doing Update for FormulaBar");
@@ -370,6 +414,7 @@ namespace ExcelDna.IntelliSense
                 Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
                 _formulaBar = null;
             }
+            _hwndFormulaBar = hWnd;
             _formulaBar = AutomationElement.FromHandle(hWnd);
             UpdateEditState();
 
@@ -394,9 +439,9 @@ namespace ExcelDna.IntelliSense
                     return;
                 }
 
-                // Change is upon us,
-                // out with the old...
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                //// Change is upon us,
+                //// out with the old...
+                //Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
 
                 _inCellEdit = null;
             }
@@ -405,13 +450,17 @@ namespace ExcelDna.IntelliSense
             {
                 _inCellEdit = AutomationElement.FromHandle(hWnd);
                 UpdateEditState();
-                // CONSIDER: Can the incell box resize?
+                //// CONSIDER: Can the incell box resize?
                 Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TreeScope.Element, TextChanged);
             }
-            UpdateEditState();
+            else
+            {
+                UpdateEditState();
+            }
         }
 
-        // What thread does this run on?
+        // Runs on an Automation event thread
+        // CONSIDER: With WinEvents we could get notified from main thread
         void TextChanged(object sender, AutomationEventArgs e)
         {
             // Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
@@ -419,7 +468,8 @@ namespace ExcelDna.IntelliSense
             UpdateFormula(textChangedOnly: true);
         }
 
-        // What thread does this run on?
+        // Runs on an Automation event thread
+        // CONSIDER: With WinEvents we could get notified from main thread
         void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
             // Debug.Print($">>>> FormulaEditWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
@@ -427,7 +477,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the Automation thread
-        void _windowWatcher_FocusChanged(object sender, EventArgs e)
+        void _windowWatcher_FormulaEditFocusChanged(object sender, EventArgs e)
         {
             UpdateEditState();
             UpdateFormula();
@@ -435,9 +485,11 @@ namespace ExcelDna.IntelliSense
 
         void UpdateEditState(bool moveOnly = false)
         {
+            Debug.Print("> FormulaEditWatcher.UpdateEditState");
+            // Needs 
             _syncContextAuto.Post(delegate
                 {
-                    // TODO: This is not right yet - the list box might have the focus...
+                    // TODO: This is not right yet - the list box might have the focus... ?
                     AutomationElement focused;
                     try
                     {
@@ -494,12 +546,11 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            // NOt sure we need this:
+            // Not sure we need this:
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
-            _windowWatcher.InCellEditFocused -= _windowWatcher_FocusChanged;
-            _windowWatcher.FormulaBarFocused -= _windowWatcher_FocusChanged;
-            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
+            _windowWatcher.FormulaEditFocusChanged -= _windowWatcher_FormulaEditFocusChanged;
+//            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
 
             _syncContextAuto.Post(delegate 
             {
@@ -509,25 +560,26 @@ namespace ExcelDna.IntelliSense
                     Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
                     _formulaBar = null;
                 }
-                if (_inCellEdit != null)
-                {
-                    Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
-                    _inCellEdit = null;
-                }
-                if (_mainWindow != null)
-                {
-                    Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
-                    _mainWindow = null;
-                }
+                //if (_inCellEdit != null)
+                //{
+                //    Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                //    _inCellEdit = null;
+                //}
+                //if (_mainWindow != null)
+                //{
+                //    Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
+                //    _mainWindow = null;
+                //}
             }, null);
         }
     }
 
-    // The Popuplist is shown both for function selection, and for some argument selection.
-    // We ignore this, and match purely on the text of the selected item.
+    // The Popuplist is shown both for function selection, and for some argument selection lists (e.g. TRUE/FALSE).
+    // We ignore the reason for showing, and match purely on the text of the selected item.
     class PopupListWatcher : IDisposable
     {
         AutomationElement _mainWindow;
+        IntPtr            _hwndPopupList;
         AutomationElement _popupList;
         AutomationElement _popupListList;
         AutomationElement _selectedItem;
@@ -538,6 +590,7 @@ namespace ExcelDna.IntelliSense
         public bool IsVisible{ get; set; } = false;
         public string SelectedItemText { get; set; } = string.Empty;
         public Rect SelectedItemBounds { get; set; } = Rect.Empty;
+        public IntPtr PopupListHandle => _hwndPopupList;
 
         SynchronizationContext _syncContextAuto;
         WindowWatcher _windowWatcher;
@@ -546,7 +599,7 @@ namespace ExcelDna.IntelliSense
         {
             _syncContextAuto = syncContextAuto;
             _windowWatcher = windowWatcher;
-            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
+//            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
             _windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
         }
 
@@ -561,12 +614,24 @@ namespace ExcelDna.IntelliSense
                     // Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
                     Debug.Assert(_popupList == null, "PopupList window created more than once ...???");
 
+                    _hwndPopupList = hWnd;
                     _popupList = AutomationElement.FromHandle(hWnd);
                     // We set up the structure changed handler so that we can catch the sub-list creation
+                    Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListBoundsChanged, AutomationElement.BoundingRectangleProperty);
                     Automation.AddStructureChangedEventHandler(_popupList, TreeScope.Element, PopupListStructureChangedHandler);
                     // Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListVisibleChangedHandler, AutomationElement.???Visible);
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
+                    try
+                    {
+
+                        Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
+                    }
+                    catch (Exception ex)
+                    {
+                        /// Too Late????
+                        Debug.Print($"PopupList Event Handler Remove Error: {ex.Message}");
+                    }
                     // Expected when closing
                     // Debug.Assert(false, "PopupList window destroyed...???");
                     break;
@@ -582,34 +647,34 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Runs on our automation thread
-        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
-        {
-            if (_mainWindow != null)
-            {
-                Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, MainWindowLocationChanged);
-            }
+        //// Runs on our automation thread
+        //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
+        //{
+        //    if (_mainWindow != null)
+        //    {
+        //        Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, PopupListBoundsChanged);
+        //    }
 
-            WindowWatcher windowWatcher = (WindowWatcher)sender;
+        //    WindowWatcher windowWatcher = (WindowWatcher)sender;
 
-            if (windowWatcher.MainWindow != IntPtr.Zero)
-            {
-                // TODO: I've seen an (ElementNotAvailableException) error here that 'the element is not available'.
-                // TODO: Lots of time-outs here when debugging, but it's probably OK...
-                try
-                {
-                    _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
-                    Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, MainWindowLocationChanged, AutomationElement.BoundingRectangleProperty);
-                }
-                catch (Exception ex)
-                {
-                    Debug.Print($"!!! Error gettting main window from handle: {ex.Message}");
-                }
-            }
-        }
+        //    if (windowWatcher.MainWindow != IntPtr.Zero)
+        //    {
+        //        // TODO: I've seen an (ElementNotAvailableException) error here that 'the element is not available'.
+        //        // TODO: Lots of time-outs here when debugging, but it's probably OK...
+        //        try
+        //        {
+        //            _mainWindow = AutomationElement.FromHandle(windowWatcher.MainWindow);
+        //            Automation.AddAutomationPropertyChangedEventHandler(_mainWindow, TreeScope.Element, PopupListBoundsChanged, AutomationElement.BoundingRectangleProperty);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Debug.Print($"!!! Error gettting main window from handle: {ex.Message}");
+        //        }
+        //    }
+        //}
 
         // This runs on an automation event handler thread
-        void MainWindowLocationChanged(object sender, AutomationPropertyChangedEventArgs e)
+        void PopupListBoundsChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
             if (IsVisible && _selectedItem != null)
             {
@@ -800,7 +865,7 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Print("Disposing PopupListWatcher");
             // CONSIDER: Do we need this?
-            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
+//            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
             _windowWatcher.PopupListWindowChanged -= _windowWatcher_PopupListWindowChanged;
             _windowWatcher = null;
 

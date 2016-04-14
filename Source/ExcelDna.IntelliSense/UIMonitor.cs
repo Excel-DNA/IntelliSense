@@ -16,16 +16,16 @@ namespace ExcelDna.IntelliSense
         public class Ready : UIState { }
         public class FormulaEdit : UIState
         {
-            public IntPtr MainWindow;
+            public IntPtr FormulaEditWindow;    // Window where text entry focus is - either the in-cell edit window, or the formula bar
             public string FormulaPrefix;
             public Rect EditWindowBounds;
             public Rect ExcelTooltipBounds;
 
-            public virtual FormulaEdit WithMainWindow(IntPtr newMainWindow)
+            public virtual FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
                 return new FormulaEdit
                 {
-                    MainWindow = newMainWindow,
+                    FormulaEditWindow = newFormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelTooltipBounds = this.ExcelTooltipBounds
@@ -36,7 +36,7 @@ namespace ExcelDna.IntelliSense
             {
                 return new FormulaEdit
                 {
-                    MainWindow = this.MainWindow,
+                    FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = newFormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelTooltipBounds = this.ExcelTooltipBounds
@@ -47,7 +47,7 @@ namespace ExcelDna.IntelliSense
             {
                 return new FormulaEdit
                 {
-                    MainWindow = this.MainWindow,
+                    FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = newEditWindowBounds,
                     ExcelTooltipBounds = newExcelTooltipBounds
@@ -57,17 +57,35 @@ namespace ExcelDna.IntelliSense
 
         public class FunctionList : FormulaEdit // CONSIDER: I'm not sure the hierarchy here has any value.
         {
+            public IntPtr FunctionListWindow;
             public string SelectedItemText;
             public Rect SelectedItemBounds;
 
-            public override FormulaEdit WithMainWindow(IntPtr newMainWindow)
+            public override FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
                 return new FunctionList
                 {
-                    MainWindow = newMainWindow,
+                    FormulaEditWindow = newFormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelTooltipBounds = this.ExcelTooltipBounds,
+
+                    FunctionListWindow = this.FunctionListWindow,
+                    SelectedItemText = this.SelectedItemText,
+                    SelectedItemBounds = this.SelectedItemBounds
+                };
+            }
+
+            public FunctionList WithFunctionListWindow(IntPtr newFunctionListWindow)
+            {
+                return new FunctionList
+                {
+                    FormulaEditWindow = this.FormulaEditWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = this.EditWindowBounds,
+                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+
+                    FunctionListWindow = newFunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
                     SelectedItemBounds = this.SelectedItemBounds
                 };
@@ -77,10 +95,12 @@ namespace ExcelDna.IntelliSense
             {
                 return new FunctionList
                 {
-                    MainWindow = this.MainWindow,
+                    FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = newFormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelTooltipBounds = this.ExcelTooltipBounds,
+
+                    FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
                     SelectedItemBounds = this.SelectedItemBounds
                 };
@@ -90,10 +110,12 @@ namespace ExcelDna.IntelliSense
             {
                 return new FunctionList
                 {
-                    MainWindow = this.MainWindow,
+                    FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = newEditWindowBounds,
                     ExcelTooltipBounds = newExcelTooltipBounds,
+
+                    FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
                     SelectedItemBounds = this.SelectedItemBounds
                 };
@@ -103,10 +125,12 @@ namespace ExcelDna.IntelliSense
             {
                 return new FunctionList
                 {
-                    MainWindow = this.MainWindow,
+                    FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelTooltipBounds = this.ExcelTooltipBounds,
+
+                    FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = selectedItemText,
                     SelectedItemBounds = selectedItemBounds
                 };
@@ -116,24 +140,28 @@ namespace ExcelDna.IntelliSense
             {
                  return new FormulaEdit
                     {
+                        FormulaEditWindow = FormulaEditWindow,
+                        FormulaPrefix = FormulaPrefix,
                         EditWindowBounds = EditWindowBounds,
                         ExcelTooltipBounds = ExcelTooltipBounds,
-                        FormulaPrefix = FormulaPrefix,
-                        MainWindow = MainWindow
                     };
             }
         }
+
+        // Becomes a more general Window ro Dialog to watch (for resize extension)
         public class SelectDataSource : UIState
         {
-            public IntPtr MainWindow;
             public IntPtr SelectDataSourceWindow;
         }
 
         public override string ToString()
         {
-            return $"{GetType().Name}{((this is Ready) ? "" : "\r\n")}{string.Join("\r\n", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
+            #if DEBUG
+                return $"{GetType().Name}{((this is Ready) ? "" : "\r\n")}{string.Join("\r\n", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
+            #else
+                return base.ToString();
+            #endif
         }
-
 
         // This is the universal update check
         // When an event knows exactly what changed (e.g. Text or SelectedItem), it need not call this
@@ -240,8 +268,8 @@ namespace ExcelDna.IntelliSense
                 {
                     var oldStateSDS = (SelectDataSource)oldState;
                     var newStateSDS = (SelectDataSource)newState;
-                    if (oldStateSDS.MainWindow != newStateSDS.MainWindow)
-                        yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.SelectDataSourceMainWindowChange);
+                    if (oldStateSDS.SelectDataSourceWindow != newStateSDS.SelectDataSourceWindow)
+                        yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.SelectDataSourceWindowChange);
                 }
                 else
                 {
@@ -256,10 +284,11 @@ namespace ExcelDna.IntelliSense
         static IEnumerable<UIStateUpdate> GetUpdates(FormulaEdit oldState, FormulaEdit newState)
         {
             // We generate intermediate states (!?)
-            if (oldState.MainWindow != newState.MainWindow)
+            if (oldState.FormulaEditWindow != newState.FormulaEditWindow)
             {
-                var tempState = oldState.WithMainWindow(newState.MainWindow);
-                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMainWindowChange);
+                // Always changes together with Move ...?
+                var tempState = oldState.WithFormulaEditWindow(newState.FormulaEditWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditWindowChange);
                 oldState = tempState;
             }
             if (oldState.EditWindowBounds != newState.EditWindowBounds ||
@@ -278,11 +307,19 @@ namespace ExcelDna.IntelliSense
         static IEnumerable<UIStateUpdate> GetUpdates(FunctionList oldState, FunctionList newState)
         {
             // We generate intermediate states (!?)
-            if (oldState.MainWindow != newState.MainWindow)
+            if (oldState.FormulaEditWindow != newState.FormulaEditWindow)
             {
-                var tempState = oldState.WithMainWindow(newState.MainWindow);
-                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMainWindowChange);
+                // Always changes together with Move ...?
+                var tempState = oldState.WithFormulaEditWindow(newState.FormulaEditWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditWindowChange);
                 oldState = (FunctionList)tempState;
+            }
+            if (oldState.FunctionListWindow != newState.FunctionListWindow)
+            {
+                Debug.Print(">>>>> Unexpected FunctionListWindowChange");  // Should never change???
+                var tempState = oldState.WithFunctionListWindow(newState.FunctionListWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FunctionListWindowChange);
+                oldState = tempState;
             }
             if (oldState.EditWindowBounds != newState.EditWindowBounds ||
                 oldState.ExcelTooltipBounds != newState.ExcelTooltipBounds)
@@ -303,7 +340,6 @@ namespace ExcelDna.IntelliSense
                 yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FunctionListSelectedItemChange);
             }
         }
-
     }
 
     class UIStateUpdate : EventArgs
@@ -313,20 +349,21 @@ namespace ExcelDna.IntelliSense
         public enum UpdateType
         {
             FormulaEditStart,
-                // These two can happen while FunctionList is shown
+                // These three updates can happen while FunctionList is shown
                 FormulaEditMove,    // Includes moving between in-cell editing and the formula text box.
-                FormulaEditMainWindowChange,
+                FormulaEditWindowChange, // Includes moving between in-cell editing and the formula text box.
                 FormulaEditTextChange,
 
                 FunctionListShow,
                     FunctionListMove,
                     FunctionListSelectedItemChange,
+                    FunctionListWindowChange,
                 FunctionListHide,
 
             FormulaEditEnd,
 
             SelectDataSourceShow,
-                SelectDataSourceMainWindowChange,
+                SelectDataSourceWindowChange,
             SelectDataSourceHide
         }
         public UIState OldState { get; }
@@ -389,7 +426,7 @@ namespace ExcelDna.IntelliSense
             _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
 
             // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
-            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
+  //          _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
             _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
             _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
             _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
@@ -400,13 +437,13 @@ namespace ExcelDna.IntelliSense
         }
 
         #region Receive watcher events (all on the automation thread), and process
-        // Runs on our automation thread
-        void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
-        {
-            Logger.Monitor.Verbose("!> MainWindowChanged");
-            Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
-            OnStateChanged();
-        }
+        //// Runs on our automation thread
+        //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
+        //{
+        //    Logger.Monitor.Verbose("!> MainWindowChanged");
+        //    Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
+        //    OnStateChanged();
+        //}
 
         // Runs on our automation thread
         void _windowWatcher_SelectDataSourceWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs args)
@@ -459,7 +496,8 @@ namespace ExcelDna.IntelliSense
             {
                 return new UIState.FunctionList
                 {
-                    MainWindow = _windowWatcher.MainWindow,
+                    FormulaEditWindow = _windowWatcher.FormulaEditWindow,
+                    FunctionListWindow = _popupListWatcher.PopupListHandle,
                     SelectedItemText = _popupListWatcher.SelectedItemText,
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
@@ -470,7 +508,7 @@ namespace ExcelDna.IntelliSense
             {
                 return new UIState.FormulaEdit
                 {
-                    MainWindow = _windowWatcher.MainWindow,
+                    FormulaEditWindow = _formulaEditWatcher.FormulaBarWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
@@ -479,7 +517,6 @@ namespace ExcelDna.IntelliSense
             {
                 return new UIState.SelectDataSource
                 {
-                    MainWindow = _windowWatcher.MainWindow,
                     SelectDataSourceWindow = _windowWatcher.SelectDataSourceWindow
                 };
             }
@@ -490,8 +527,11 @@ namespace ExcelDna.IntelliSense
         void OnStateChanged(UIState newStateOrNull = null)
         {
             var oldState = CurrentState;
-            if (newStateOrNull == null)
+//            if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
+
+            Debug.Print($"NEWSTATE: {newStateOrNull.ToString()}");
+
             CurrentState = newStateOrNull;
 
             var updates = new List<UIStateUpdate>();    // TODO: Improve perf for common single-update case
@@ -565,7 +605,7 @@ namespace ExcelDna.IntelliSense
                 {
                     if (_windowWatcher != null)
                     {
-                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
+//                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
                         _windowWatcher.SelectDataSourceWindowChanged -= _windowWatcher_SelectDataSourceWindowChanged;
                         _windowWatcher.Dispose();
                         _windowWatcher = null;
