@@ -118,7 +118,7 @@ namespace ExcelDna.IntelliSense
         // This runs on the main thread
         void StateUpdate(object sender, UIStateUpdate update)
         {
-            Debug.Print($"STATE UPDATE ({update.Update}): {update.OldState} => {update.NewState}");
+            Debug.Print($"STATE UPDATE ({update.Update}): \r\t\t\t{update.OldState} \r\t\t=>\t{update.NewState}");
 
             switch (update.Update)
             {

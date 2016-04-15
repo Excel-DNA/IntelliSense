@@ -73,10 +73,8 @@ namespace ExcelDna.IntelliSense
         public event EventHandler InCellEditWindowChanged;
         public event EventHandler FormulaEditFocusChanged;
         public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;   // Might start off with nothing. Changes at most once.?????
-        public event EventHandler IsPopupListWindowsVisibleChanged;
         // public event EventHandler PopupListListChanged = delegate { };   // Might start off with nothing. Changes at most once.??????
         public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
-        public event EventHandler IsSelectDataSourceWindowVisibleChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
         {
@@ -155,7 +153,7 @@ namespace ExcelDna.IntelliSense
                     if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
                         e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)   // SHOW also since we might be installed later...
                     {
-                        // Debug.Assert(PopupListWindow == IntPtr.Zero || e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW, "Unexpected new PopupList window...????");
+                        Debug.Assert(PopupListWindow == IntPtr.Zero || PopupListWindow == e.WindowHandle, "Unexpected new PopupList window...????");
                         PopupListWindow = e.WindowHandle;
                         PopupListWindowChanged?.Invoke(this, 
                             new WindowChangedEventArgs { Type = 
@@ -578,7 +576,7 @@ namespace ExcelDna.IntelliSense
     // We ignore the reason for showing, and match purely on the text of the selected item.
     class PopupListWatcher : IDisposable
     {
-        AutomationElement _mainWindow;
+//        AutomationElement _mainWindow;
         IntPtr            _hwndPopupList;
         AutomationElement _popupList;
         AutomationElement _popupListList;
@@ -609,6 +607,7 @@ namespace ExcelDna.IntelliSense
             switch (e.Type)
             {
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
+                    Debug.Print("POPUPLISTWATCHER WINDOW CREATED");
                     // TODO: Confirm that this runs at most once
                     var hWnd = _windowWatcher.PopupListWindow;
                     // Debug.Print($">>>> PopupListWatcher - PopupListWindowChanged - New window {hWnd}");
@@ -622,6 +621,7 @@ namespace ExcelDna.IntelliSense
                     // Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListVisibleChangedHandler, AutomationElement.???Visible);
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
+                    Debug.Print("POPUPLISTWATCHER WINDOW DESTROY");
                     try
                     {
 
@@ -636,9 +636,16 @@ namespace ExcelDna.IntelliSense
                     // Debug.Assert(false, "PopupList window destroyed...???");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
+                    Debug.Print("POPUPLISTWATCHER WINDOW SHOW");
                     IsVisible = true;
+                    if (_popupListList == null)
+                    {
+                        // TODO: Clean up this hack
+                         PopupListStructureChangedHandler(_popupList, new StructureChangedEventArgs(StructureChangeType.ChildAdded, new int[0]));
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
+                    Debug.Print("POPUPLISTWATCHER WINDOW HIDE");
                     IsVisible = false;
                     UpdateSelectedItem(_selectedItem);
                     break;
@@ -723,7 +730,7 @@ namespace ExcelDna.IntelliSense
         // Runs on an automation event thread
         void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
         {
-            // Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
+            Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
             // Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
             // CONSIDER: Others too?
             if (e.StructureChangeType == StructureChangeType.ChildAdded)
@@ -743,7 +750,8 @@ namespace ExcelDna.IntelliSense
                     // TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
                     // TestMoveWindow(functionList, 0, 0);
 
-                    var selPat = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
+                    // If the _popupListList automation element is no plonger valid then we seem to get a InvalidPattern exception here.
+                    var selPat = _popupListList.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
                     Debug.Assert(selPat != null);
 
                     // CONSIDER: Send might be a bit disruptive here / might not be necessary...
@@ -751,6 +759,7 @@ namespace ExcelDna.IntelliSense
                     //{
                         try
                         {
+                            Debug.Print("POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER ADDED");
                             Automation.AddAutomationEventHandler(
                                 SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
                         }
@@ -784,11 +793,14 @@ namespace ExcelDna.IntelliSense
             {
                 if (_popupListList != null)
                 {
+                    var selPat = _popupListList.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
+                    Debug.Assert(selPat != null);
                     // CONSIDER: Send might be a bit disruptive here / might not be necessary...
                     //_syncContextAuto.Send( _ =>
                     //{
                         try
                         {
+                            Debug.Print("POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER REMOVED");
                             Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
                         }
                         catch (Exception ex)
@@ -817,6 +829,7 @@ namespace ExcelDna.IntelliSense
         // But might fail, if the newSelectedItem is already gone by the time we run...
         void UpdateSelectedItem(AutomationElement newSelectedItem)
         {
+            Debug.Print($"POPUPLISTWATCHER WINDOW CURRENT SELECTION {newSelectedItem}");
             if (!IsVisible || newSelectedItem == null)
             {
                 if (_selectedItem == null &&
@@ -858,6 +871,8 @@ namespace ExcelDna.IntelliSense
         // Raises the event on the automation thread (but the SyncContext.Post here is redundant)
         void OnSelectedItemChanged()
         {
+            Debug.Print("POPUPLISTWATCHER WINDOW SELECTEDITEM CHANGED");
+
             _syncContextAuto.Post(_ => SelectedItemChanged(this, EventArgs.Empty), null);
         }
 
