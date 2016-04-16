@@ -30,6 +30,9 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll", SetLastError = true)]
         internal static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, [Out] StringBuilder lParam);
 
@@ -37,14 +40,13 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern int SendMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
 
-
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool GetCursorPos(out Point lpPoint);
 
         [DllImport("user32.dll")]
         static extern bool ScreenToClient(IntPtr hWnd, ref Point lpPoint);
-
+        
         public static Point GetClientCursorPos(IntPtr hWnd)
         {
             Point pt;

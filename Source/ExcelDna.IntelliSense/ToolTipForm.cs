@@ -24,6 +24,8 @@ namespace ExcelDna.IntelliSense
             Debug.Assert(hwndOwner != IntPtr.Zero);
             InitializeComponent();
             _owner = new Win32Window(hwndOwner);
+            //Win32Helper.SetParent(this.Handle, hwndOwner);
+
             // _owner = new NativeWindow();
             // _owner.AssignHandle(hwndParent); (...with ReleaseHandle in Dispose)
             Debug.Print($"Created ToolTipForm with owner {hwndOwner}");
@@ -92,6 +94,7 @@ namespace ExcelDna.IntelliSense
                 if (_owner == null || _owner.Handle != value)
                 {
                     _owner = new Win32Window(value);
+                    //Win32Helper.SetParent(this.Handle, value);
                     if (Visible)
                     {
                         // Rather just change Owner....

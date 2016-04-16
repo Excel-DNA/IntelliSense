@@ -131,7 +131,9 @@ namespace ExcelDna.IntelliSense
                     FormulaEditMove(fem.EditWindowBounds, fem.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditWindowChange:
-                    UpdateFormulaEditWindow((update.NewState as UIState.FormulaEdit).FormulaEditWindow);
+                    var fewc = (UIState.FormulaEdit)update.NewState;
+                    UpdateFormulaEditWindow(fewc.FormulaEditWindow);
+                    FormulaEditTextChange(fewc.FormulaPrefix, fewc.EditWindowBounds, fewc.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditTextChange:
                     var fetc = (UIState.FormulaEdit)update.NewState;
@@ -176,7 +178,13 @@ namespace ExcelDna.IntelliSense
                 _formulaEditWindow = formulaEditWindow;
                 if (_argumentsToolTip != null)
                 {
-                    _argumentsToolTip.OwnerHandle = _formulaEditWindow;
+                    _argumentsToolTip.Dispose();
+                    _argumentsToolTip = null;
+                }
+                if (_formulaEditWindow != IntPtr.Zero)
+                {
+                    _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
+                    //_argumentsToolTip.OwnerHandle = _formulaEditWindow;
                 }
             }
         }
@@ -188,8 +196,15 @@ namespace ExcelDna.IntelliSense
                 _functionListWindow = functionListWindow;
                 if (_descriptionToolTip != null)
                 {
-                    _descriptionToolTip.OwnerHandle = _functionListWindow;
+                    _descriptionToolTip.Dispose();
+                    _descriptionToolTip = null;
                 }
+                if (_functionListWindow != IntPtr.Zero)
+                {
+                    _descriptionToolTip = new ToolTipForm(_functionListWindow);
+                    //_descriptionToolTip.OwnerHandle = _functionListWindow;
+                }
+                
             }
         }
 
@@ -197,7 +212,7 @@ namespace ExcelDna.IntelliSense
         void FormulaEditStart()
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditStart");
-            if (_argumentsToolTip == null)
+            if (_formulaEditWindow != IntPtr.Zero && _argumentsToolTip == null)
                 _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
         }
 
@@ -205,9 +220,9 @@ namespace ExcelDna.IntelliSense
         void FormulaEditEnd()
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditEnd");
-            _argumentsToolTip.Hide();
-            //_argumentsToolTip.Dispose();
-            //_argumentsToolTip = null;
+            //_argumentsToolTip.Hide();
+            _argumentsToolTip.Dispose();
+            _argumentsToolTip = null;
         }
 
         // Runs on the main thread
@@ -238,9 +253,12 @@ namespace ExcelDna.IntelliSense
             }
 
             // All other paths, we just clear the box
-            _argumentsToolTip.Hide();
-            //_argumentsToolTip.Dispose();
-            //_argumentsToolTip = null;
+            if (_argumentsToolTip != null)
+            {
+                //_argumentsToolTip.Hide();
+                _argumentsToolTip.Dispose();
+                _argumentsToolTip = null;
+            }
         }
 
 

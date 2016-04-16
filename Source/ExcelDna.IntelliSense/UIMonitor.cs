@@ -508,7 +508,7 @@ namespace ExcelDna.IntelliSense
             {
                 return new UIState.FormulaEdit
                 {
-                    FormulaEditWindow = _formulaEditWatcher.FormulaBarWindow,
+                    FormulaEditWindow = _formulaEditWatcher.FormulaEditWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
