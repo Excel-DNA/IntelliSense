@@ -252,12 +252,12 @@ namespace ExcelDna.IntelliSense
                 }
             }
 
-            // All other paths, we just clear the box
+            // All other paths, we hide the box
             if (_argumentsToolTip != null)
             {
-                //_argumentsToolTip.Hide();
-                _argumentsToolTip.Dispose();
-                _argumentsToolTip = null;
+                _argumentsToolTip.Hide();
+                //_argumentsToolTip.Dispose();
+                //_argumentsToolTip = null;
             }
         }
 

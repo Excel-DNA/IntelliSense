@@ -490,7 +490,6 @@ namespace ExcelDna.IntelliSense
 //        AutomationElement _mainWindow;
         IntPtr            _hwndPopupList;
         AutomationElement _popupList;
-        AutomationElement _popupListList;
         AutomationElement _selectedItem;
 
         // NOTE: Event will always be raised on our automation thread
@@ -656,7 +655,7 @@ namespace ExcelDna.IntelliSense
             catch (Exception ex)
             {
                 // Probably no longer visible
-                Debug.Print("POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER ADD FAILED");
+                Debug.Print($"POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER ADD FAILED: {ex.Message}");
                 _popupList = null;
             }
         }

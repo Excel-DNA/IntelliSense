@@ -14,8 +14,8 @@ namespace ExcelDna.IntelliSense
     {
         FormattedText _text;
         Label label;
-        Label label1;
-        ToolTip toolTip1;
+        Label labelDna;
+        ToolTip tipDna;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
 
@@ -130,7 +130,7 @@ namespace ExcelDna.IntelliSense
                 //if (_createParams == null)
                 {
                     const int CS_DROPSHADOW = 0x00020000;
-                    const int WS_CHILD = 0x40000000;
+                    //const int WS_CHILD = 0x40000000;
                     const int WS_EX_TOOLWINDOW = 0x00000080;
                     const int WS_EX_NOACTIVATE = 0x08000000;
                     // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
@@ -225,8 +225,8 @@ namespace ExcelDna.IntelliSense
         {
             this.components = new System.ComponentModel.Container();
             this.label = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
-            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.labelDna = new System.Windows.Forms.Label();
+            this.tipDna = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
             // 
             // label
@@ -239,14 +239,18 @@ namespace ExcelDna.IntelliSense
             this.label.TabIndex = 0;
             this.label.Text = "Some long label text.";
             // 
-            // label1
+            // labelDna
             // 
-            this.label1.BackColor = System.Drawing.Color.CornflowerBlue;
-            this.label1.Location = new System.Drawing.Point(0, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(2, 2);
-            this.label1.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.label1, "IntelliSense by Excel-DNA");
+            this.labelDna.BackColor = System.Drawing.Color.CornflowerBlue;
+            this.labelDna.Location = new System.Drawing.Point(0, 0);
+            this.labelDna.Name = "labelDna";
+            this.labelDna.Size = new System.Drawing.Size(2, 2);
+            this.labelDna.TabIndex = 0;
+            this.tipDna.SetToolTip(this.labelDna, "IntelliSense by Excel-DNA");
+            // 
+            // tipDna
+            // 
+            this.tipDna.ShowAlways = true;
             // 
             // ToolTipForm
             // 
@@ -254,7 +258,7 @@ namespace ExcelDna.IntelliSense
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(114, 20);
             this.ControlBox = false;
-            this.Controls.Add(this.label1);
+            this.Controls.Add(this.labelDna);
             this.DoubleBuffered = true;
             this.ForeColor = System.Drawing.Color.DimGray;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;

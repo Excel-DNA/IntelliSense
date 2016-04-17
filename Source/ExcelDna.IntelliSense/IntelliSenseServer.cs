@@ -393,39 +393,6 @@ namespace ExcelDna.IntelliSense
         }
         #endregion
 
-        //#region AppDomain helper
-        //static AppDomain GetAppDomain(string friendlyName)
-        //{
-        //    IntPtr enumHandle = IntPtr.Zero;
-        //    mscoree.ICorRuntimeHost host = new mscoree.CorRuntimeHost();
-
-        //    try
-        //    {
-        //        host.EnumDomains(out enumHandle);
-
-        //        while (true)
-        //        {
-        //            object domain;
-        //            host.NextDomain(enumHandle, out domain);
-
-        //            if (domain == null)
-        //                break;
-
-        //            AppDomain appDomain = (AppDomain)domain;
-        //            if (appDomain.FriendlyName.Equals(friendlyName))
-        //                return appDomain;
-        //        }
-        //    }
-        //    finally
-        //    {
-        //        host.CloseEnum(enumHandle);
-        //        System.Runtime.InteropServices.Marshal.ReleaseComObject(host); // Why??? Pure cargo-culting here...
-        //    }
-
-        //    return null;
-        //}
-        //#endregion
-
         #region IntelliSense control function registered with Excel
 
         static void RegisterControlFunction()
