@@ -28,7 +28,7 @@
                 return inout;
             }
 
-            [ExcelFunction]
+            [ExcelFunction(Name ="A.Non.Descript.Function")]
             public static object ANonDescriptFunction(object inout)
             {
                 return inout;

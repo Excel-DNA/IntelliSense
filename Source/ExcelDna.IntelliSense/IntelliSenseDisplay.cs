@@ -102,12 +102,13 @@ namespace ExcelDna.IntelliSense
             if (_argumentsToolTip?.Visible == true)
                 return true;
 
-            // TODO: Consolidate the check here with the FormulaMonitor
-            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
-            if (match.Success)
+            // TODO: Why do this twice....?
+            string functionName;
+            int currentArgIndex;
+            if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex))
             {
-                string functionName = match.Groups["functionName"].Value;
-                return _functionInfoMap.ContainsKey(functionName);
+                if (_functionInfoMap.ContainsKey(functionName))
+                    return true;
             }
             // Not interested...
             Debug.Print($"Not processing formula {formulaPrefix}");

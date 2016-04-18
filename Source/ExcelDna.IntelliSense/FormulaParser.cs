@@ -8,7 +8,7 @@ namespace ExcelDna.IntelliSense
         // TODO: This needs a proper implementation, considering subformulae
         internal static bool TryGetFormulaInfo(string formulaPrefix, out string functionName, out int currentArgIndex)
         {
-            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
+            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>(\w|.)*)\(");
             if (match.Success)
             {
                 functionName = match.Groups["functionName"].Value;
