@@ -235,21 +235,19 @@ namespace ExcelDna.IntelliSense
         void FormulaEditTextChange(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
         {
             Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {formulaPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
-            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>\w*)\(");
-            if (match.Success)
+            string functionName;
+            int currentArgIndex;
+            if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex))
             {
-                string functionName = match.Groups["functionName"].Value;
-
                 IntelliSenseFunctionInfo functionInfo;
                 if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
                 {
-                    // TODO: Fix this: Need to consider subformulae
-                    int currentArgIndex = formulaPrefix.Count(c => c == ',');
                     _argumentsToolTip.ShowToolTip(
                         GetFunctionIntelliSense(functionInfo, currentArgIndex),
                         (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
                     return;
                 }
+
             }
 
             // All other paths, we hide the box
@@ -288,15 +286,19 @@ namespace ExcelDna.IntelliSense
             if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
             {
                 // It's ours!
-                _descriptionToolTip.ShowToolTip(
-                    text: new FormattedText { GetFunctionDescription(functionInfo) },
-                    left: (int)selectedItemBounds.Right + 25,
-                    top: (int)selectedItemBounds.Top);
+                var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
+                if (descriptionLines != null)
+                {
+                    _descriptionToolTip.ShowToolTip(
+                        text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
+                        left: (int)selectedItemBounds.Right + 25,
+                        top: (int)selectedItemBounds.Top);
+                    return;
+                }
             }
-            else
-            {
-                _descriptionToolTip.Hide();
-            }
+
+            // Not ours or no description
+            _descriptionToolTip.Hide();
         }
         
         void FunctionListMove(Rect selectedItemBounds)
@@ -307,18 +309,20 @@ namespace ExcelDna.IntelliSense
         // TODO: Performance / efficiency - cache these somehow
         // TODO: Probably not a good place for LINQ !?
         static readonly string[] s_newLineStringArray = new string[] { Environment.NewLine };
-        IEnumerable<TextLine> GetFunctionDescription(IntelliSenseFunctionInfo functionInfo)
+        IEnumerable<TextLine> GetFunctionDescriptionOrNull(IntelliSenseFunctionInfo functionInfo)
         {
-            return 
-                functionInfo.Description
-                .Split(s_newLineStringArray, StringSplitOptions.None)
-                .Select(line => 
-                    new TextLine { 
-                        new TextRun
-                        {
-                            Style = System.Drawing.FontStyle.Regular,
-                            Text = line
-                        }});
+            var description = functionInfo.Description;
+            if (string.IsNullOrEmpty(description))
+                return null;
+
+            return description.Split(s_newLineStringArray, StringSplitOptions.None)
+                              .Select(line => 
+                                new TextLine { 
+                                    new TextRun
+                                    {
+                                        Style = System.Drawing.FontStyle.Regular,
+                                        Text = line
+                                    }});
         }
 
         FormattedText GetFunctionIntelliSense(IntelliSenseFunctionInfo functionInfo, int currentArgIndex)
@@ -357,12 +361,13 @@ namespace ExcelDna.IntelliSense
             }
             nameLine.Add(new TextRun { Text = ")" });
 
-            var descriptionLines = GetFunctionDescription(functionInfo);
+            var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
             
             var formattedText = new FormattedText { nameLine, descriptionLines };
             if (functionInfo.ArgumentList.Count > currentArgIndex)
             {
-                formattedText.Add(GetArgumentDescription(functionInfo.ArgumentList[currentArgIndex]));
+                var description = GetArgumentDescription(functionInfo.ArgumentList[currentArgIndex]);
+                formattedText.Add(description);
             }
 
             return formattedText;
@@ -379,7 +384,7 @@ namespace ExcelDna.IntelliSense
                     new TextRun
                     {
                         Style = System.Drawing.FontStyle.Italic,
-                        Text = argumentInfo.Description
+                        Text = argumentInfo.Description ?? ""
                     },
                 };
         }
@@ -399,6 +404,7 @@ namespace ExcelDna.IntelliSense
                         _argumentsToolTip.Dispose();
                         _argumentsToolTip = null;
                     }
+                    _uiMonitor.Dispose();
                 }, null);
 
             _syncContextMain = null;

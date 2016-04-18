@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FormattedText.cs" />
+    <Compile Include="FormulaParser.cs" />
     <Compile Include="IntelliSenseDisplay.cs" />
     <Compile Include="IntelliSenseHelper.cs" />
     <Compile Include="IntelliSenseProvider.cs" />

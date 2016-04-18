@@ -22,6 +22,18 @@
                 return "Howzit !";
             }
 
+            [ExcelFunction]
+            public static object AnotherFunction( [Description("In and out")] object inout)
+            {
+                return inout;
+            }
+
+            [ExcelFunction]
+            public static object ANonDescriptFunction(object inout)
+            {
+                return inout;
+            }
+
         }
     }
 #endif

@@ -18,7 +18,7 @@ namespace ExcelDna.IntelliSense
 
         public void Add(TextLine line) { _lines.Add(line); }
 
-        public void Add(IEnumerable<TextLine> lines) { _lines.AddRange(lines); }
+        public void Add(IEnumerable<TextLine> lines) { if (lines != null) _lines.AddRange(lines); }
 
         public IEnumerator<TextLine> GetEnumerator()
         {
