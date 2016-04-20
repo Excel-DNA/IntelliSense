@@ -6,7 +6,9 @@ using System.Linq;
 namespace ExcelDna.IntelliSense
 {
     // TODO: Needs cleaning up for efficiency
-
+    // An alternative representation is as a string with extra attributes attached
+    // each indicating a range in the string to modify.
+    // (like NSAttributedString)
     class FormattedText : IEnumerable<TextLine>
     {
         readonly List<TextLine> _lines;
