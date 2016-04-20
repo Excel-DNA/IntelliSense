@@ -38,7 +38,6 @@ namespace ExcelDna.IntelliSense
     }
 
     // Provides IntelliSense info for all Excel-DNA based .xll add-ins, using the built-in RegistrationInfo helper function.
-    // TODO: Loader monitoring - LdrRegisterDllNotification  / see http://stackoverflow.com/questions/4242469/detect-when-a-module-dll-is-unloaded
     class ExcelDnaIntelliSenseProvider : IIntelliSenseProvider
     {
         class XllRegistrationInfo
@@ -53,6 +52,12 @@ namespace ExcelDna.IntelliSense
             {
                 _xllPath = xllPath;
                 _dllLoadNotification = new LoaderNotification();
+                _dllLoadNotification.LoadNotification += _dllLoadNotification_LoadNotification;
+            }
+
+            private void _dllLoadNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
+            {
+                Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
             }
 
             // Called in a macro context

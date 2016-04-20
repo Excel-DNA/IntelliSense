@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ExcelDna.IntelliSense
 {
-    // Also not LDR_MODULE infor here: http://stackoverflow.com/questions/4242469/detect-when-a-module-dll-is-unloaded
+    // Also note LDR_MODULE info here: http://stackoverflow.com/questions/4242469/detect-when-a-module-dll-is-unloaded
     class LoaderNotification : IDisposable
     {
         public enum Reason : uint
@@ -13,6 +12,15 @@ namespace ExcelDna.IntelliSense
             Unloaded = 2
         }
 
+        public class NotificationEventArgs : EventArgs
+        {
+            public Reason Reason;
+            public string FullDllName;
+        }
+
+        public event EventHandler<NotificationEventArgs> LoadNotification;
+
+        #region PInvoke details
         // Helper for UNICODE_STRING type - couldn't figure out how to do it simply with Marshaling
         static class UnicodeString
         {
@@ -43,7 +51,6 @@ namespace ExcelDna.IntelliSense
             public uint SizeOfImage;      // The size of the DLL image, in bytes.
         }
 
-
         enum NtStatus : uint
         {
             // Success
@@ -65,14 +72,20 @@ namespace ExcelDna.IntelliSense
         [DllImport("ntdll.dll")]
         static extern uint /*NtStatus*/ LdrUnregisterDllNotification(IntPtr cookie);
 
+        #endregion
+
         IntPtr _cookie;
         LdrNotification _notificationDelegate;
 
         public LoaderNotification()
         {
-            IntPtr context = new IntPtr(12345);
+            IntPtr context = IntPtr.Zero; // new IntPtr(12345);
             _notificationDelegate = Notification;
             var status = LdrRegisterDllNotification(0, _notificationDelegate, context, out _cookie);
+            if (status != 0)
+            {
+                throw new InvalidOperationException($"Error in LdrRegisterDlLNotification. Result: {status}");
+            }
         }
 
         // WARNING! LoaderLock danger here
@@ -80,8 +93,10 @@ namespace ExcelDna.IntelliSense
         {
             IntPtr pFullDllName = Marshal.ReadIntPtr(pNotificationData, 4);
             string fullDllName = UnicodeString.ToString(pFullDllName);
-            Debug.Print($"@@@@ LdrNotification: {notificationReason} - {fullDllName}");
-            // Raise Event 
+            NotificationEventArgs args = new NotificationEventArgs { Reason = notificationReason, FullDllName = fullDllName };
+            LoadNotification?.Invoke(this, args);
+
+            // Debug.Print($"@@@@ LdrNotification: {notificationReason} - {fullDllName}");
         }
 
         #region IDisposable Support
