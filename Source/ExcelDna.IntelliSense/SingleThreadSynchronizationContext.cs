@@ -47,6 +47,7 @@ namespace ExcelDna.IntelliSense
         public void RunOnCurrentThread()
         {
             _threadId = Thread.CurrentThread.ManagedThreadId;
+            Debug.Print($"SingleThreadSynchronizationContext Running (Thread {_threadId})!");
             foreach (var workItem in _queue.GetConsumingEnumerable())
             {
                 try
@@ -55,7 +56,7 @@ namespace ExcelDna.IntelliSense
                 }
                 catch (Exception ex)
                 {
-                    Debug.Print($"### Unhandled exception on Automation thread - {ex.ToString()}");
+                    Debug.Print($"### Unhandled exception on SingleThreadSynchronizationContext (Thread {_threadId}) - {ex.ToString()}");
                 }
             }
 

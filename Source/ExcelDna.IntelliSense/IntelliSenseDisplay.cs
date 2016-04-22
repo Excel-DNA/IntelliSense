@@ -2,17 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
-using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
-    [Serializable]
     class IntelliSenseFunctionInfo
     {
-        [Serializable]
         public class ArgumentInfo
         {
             public string ArgumentName;
@@ -57,6 +53,15 @@ namespace ExcelDna.IntelliSense
             _uiMonitor = uiMonitor;
             _uiMonitor.StateUpdatePreview += StateUpdatePreview;
             _uiMonitor.StateUpdate += StateUpdate;
+        }
+
+        // TODO: Still not sure how to delete / unregister...
+        internal void UpdateFunctionInfos(IEnumerable<IntelliSenseFunctionInfo> functionInfos)
+        {
+            foreach (var fi in functionInfos)
+            {
+                RegisterFunctionInfo(fi);
+            }
         }
 
         #region Update Preview Filtering
@@ -411,11 +416,26 @@ namespace ExcelDna.IntelliSense
             _syncContextMain = null;
         }
 
+        // TODO: Think about case again
+        // TODO: Consider locking...
         public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
         {
             // TODO : Dictionary from KeyLookup
-            _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
+            IntelliSenseFunctionInfo oldFunctionInfo;
+            if (!_functionInfoMap.TryGetValue(functionInfo.FunctionName, out oldFunctionInfo))
+            {
+                _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
+            }
+            else
+            {
+                // Update  against the function name
+                _functionInfoMap[functionInfo.FunctionName] = functionInfo;
+            }
         }
-        // TODO: How to UnregisterFunctionInfo ...?
+
+        public void UnregisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
+        {
+            _functionInfoMap.Remove(functionInfo.FunctionName);
+        }
     }
 }

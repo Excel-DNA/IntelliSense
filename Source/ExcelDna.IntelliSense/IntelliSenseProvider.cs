@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
@@ -29,11 +30,16 @@ namespace ExcelDna.IntelliSense
 
     // We expect the server to hook some Excel events to provide the entry points... (not sure what this means anymore...?)
 
-    // Consider interaction with Application.MacroOptions. (or not?)
+    // TODO: Consider interaction with Application.MacroOptions. (or not?)
 
-    interface IIntelliSenseProvider
+    // TODO: We might relax the threading rules, to say that Refresh runs on the same thread as Invalidate 
+    // TODO: We might get rid of Refresh (since that runs in the Invalidate context)    
+    interface IIntelliSenseProvider : IDisposable
     {
-        void Refresh(); // Executed in a macro context, on the main Excel thread
+        void Initialize();  // Executed in a macro context, on the main Excel thread
+        void Refresh();     // Executed in a macro context, on the main Excel thread
+        event EventHandler Invalidate;  // Must be raised in a macro context, on the main thread
+
         IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos(); // Called from a worker thread - no Excel or COM access (probably an MTA thread involved in the UI Automation)
     }
 
@@ -46,21 +52,13 @@ namespace ExcelDna.IntelliSense
             bool _regInfoNotAvailable = false;  // Set to true if we know for sure that reginfo is #N/A
             double _version = -1;               // Version indicator to enumerate from scratch
             object[,] _regInfo = null;          // Default value
-            LoaderNotification _dllLoadNotification;
 
             public XllRegistrationInfo(string xllPath)
             {
                 _xllPath = xllPath;
-                _dllLoadNotification = new LoaderNotification();
-                _dllLoadNotification.LoadNotification += _dllLoadNotification_LoadNotification;
             }
 
-            private void _dllLoadNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
-            {
-                Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
-            }
-
-            // Called in a macro context
+            // Called on the main thread in a macro context
             public void Refresh()
             {
                 if (_regInfoNotAvailable)
@@ -74,7 +72,7 @@ namespace ExcelDna.IntelliSense
                     return;
                 }
 
-                if (regInfoResponse == null)
+                if (regInfoResponse == null || regInfoResponse.Equals(ExcelError.ExcelErrorNum))
                 {
                     // no update - versions match
                     return;
@@ -133,26 +131,100 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        ExcelSynchronizationContext _syncContextExcel;
         Dictionary<string, XllRegistrationInfo> _xllRegistrationInfos = new Dictionary<string, XllRegistrationInfo>();
+        LoaderNotification _loaderNotification;
+        public event EventHandler Invalidate;
 
-        public void Refresh()
+        public ExcelDnaIntelliSenseProvider()
         {
-            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
-            foreach (var xllPath in GetLoadedXllPaths())
+            var threadRefresh = new Thread(RunRefreshWatch);
+            threadRefresh.Start();
+        }
+
+        // DANGER: Still subject to LoaderLock problem...
+        void loaderNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
+        {
+            Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
+            if (e.FullDllName.EndsWith(".xll", StringComparison.OrdinalIgnoreCase))
+                _syncContextExcel.Post(ProcessLoadNotification, e);
+        }
+
+        // Runs on the main thread, in a macro context 
+        void ProcessLoadNotification(object state)
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            // we might want to introduce a delay here, so that the .xll can complete loading...
+            var notification = (LoaderNotification.NotificationEventArgs)state;;
+            var xllPath = notification.FullDllName;
+            lock (_xllRegistrationInfos)
             {
                 XllRegistrationInfo regInfo;
                 if (!_xllRegistrationInfos.TryGetValue(xllPath, out regInfo))
                 {
-                    regInfo = new XllRegistrationInfo(xllPath);
-                    _xllRegistrationInfos[xllPath] = regInfo;
+                    if (notification.Reason == LoaderNotification.Reason.Loaded)
+                    {
+                        regInfo = new XllRegistrationInfo(xllPath);
+                        _xllRegistrationInfos[xllPath] = regInfo;
+                        regInfo.Refresh();
+                        OnInvalidate();
+                    }
                 }
-                regInfo.Refresh();
+                else if (notification.Reason == LoaderNotification.Reason.Unloaded)
+                {
+                    _xllRegistrationInfos.Remove(xllPath);
+                }
             }
         }
 
+        void RunRefreshWatch()
+        {
+            _loaderNotification = new LoaderNotification();
+            _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
+            _syncContextExcel = new ExcelSynchronizationContext();
+        }
+
+        // Must be called on the main Excel thread
+        public void Initialize()
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize");
+            lock (_xllRegistrationInfos)
+            {
+                foreach (var xllPath in GetLoadedXllPaths())
+                {
+                    XllRegistrationInfo regInfo;
+                    if (!_xllRegistrationInfos.TryGetValue(xllPath, out regInfo))
+                    {
+                        regInfo = new XllRegistrationInfo(xllPath);
+                        _xllRegistrationInfos[xllPath] = regInfo;
+                        regInfo.Refresh();
+                    }
+                }
+            }
+        }
+
+        // Must be called on the main Excel thread
+        public void Refresh()
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
+            lock (_xllRegistrationInfos)
+            {
+                foreach (var regInfo in _xllRegistrationInfos.Values)
+                {
+                    regInfo.Refresh();
+                }
+            }
+        }
+
+        // May be called from any thread
         public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
         {
-            return _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos());
+            lock (_xllRegistrationInfos)
+            {
+                return _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+            }
         }
 
         // Called in macro context
@@ -160,6 +232,7 @@ namespace ExcelDna.IntelliSense
         // Application.AddIns2 also lists add-ins interactively loaded (Excel 2010+) and has IsOpen property.
         // See: http://blogs.office.com/2010/02/16/migrating-excel-4-macros-to-vba/
         // Alternative on old Excel is DOCUMENTS(2) which lists all loaded .xlm (also .xll?)
+        // Alternative, more in line with our update watch, is to enumerate all loaded modules...
         IEnumerable<string> GetLoadedXllPaths()
         {
             // TODO: Implement properly...
@@ -172,6 +245,16 @@ namespace ExcelDna.IntelliSense
                 }
             }
         }
+
+        void OnInvalidate()
+        {
+            Invalidate?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void Dispose()
+        {
+            _loaderNotification.Dispose();
+        }
     }
 
     // For VBA code, (either in a regular workbook that is open, or in an add-in)
@@ -179,6 +262,8 @@ namespace ExcelDna.IntelliSense
     // In the Workbook that contains the VBA.
     // Initially we won't scope the IntelliSense to the Workbook where the UDFs are defined, 
     // but we should consider that.
+
+    // TODO: Can't we read the Application.MacroOptions...?
 
     class WorkbookIntelliSenseProvider : IIntelliSenseProvider
     {
@@ -263,9 +348,14 @@ namespace ExcelDna.IntelliSense
 
         Dictionary<string, WorkbookRegistrationInfo> _workbookRegistrationInfos = new Dictionary<string, WorkbookRegistrationInfo>();
 
-        public void Refresh()
+        public event EventHandler Invalidate;
+        
+        public void Initialize()
         {
-            Logger.Provider.Info("WorkbookIntelliSenseProvider.Refresh");
+            Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
+
+            //var app = ExcelDnaUtil.Application;
+            // app.WorkbookLoaded...
             foreach (var name in GetLoadedWorkbookNames())
             {
                 WorkbookRegistrationInfo regInfo;
@@ -276,6 +366,11 @@ namespace ExcelDna.IntelliSense
                 }
                 regInfo.Refresh();
             }
+        }
+
+        public void Refresh()
+        {
+            Logger.Provider.Info("WorkbookIntelliSenseProvider.Refresh");
         }
 
         public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
@@ -294,6 +389,10 @@ namespace ExcelDna.IntelliSense
             {
                 yield return wb.Name; 
             }
+        }
+
+        public void Dispose()
+        {
         }
     }
 

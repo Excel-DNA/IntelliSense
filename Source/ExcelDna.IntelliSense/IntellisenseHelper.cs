@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows.Forms;
-using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
@@ -9,39 +10,69 @@ namespace ExcelDna.IntelliSense
     // First version might run on a timer for updates.
     class IntelliSenseHelper : IDisposable
     {
-        readonly IntelliSenseDisplay _id;
-        readonly IIntelliSenseProvider _excelDnaProvider = new ExcelDnaIntelliSenseProvider();
-        readonly IIntelliSenseProvider _workbookProvider = new WorkbookIntelliSenseProvider();
-        // TODO: Others
+        readonly SynchronizationContext _syncContextMain; // Main thread, not macro context
+        readonly UIMonitor _uiMonitor;  // We want the UIMonitor here, because we might hook up other display enhancements
 
+        // These need to get combined into a UIEnhancement class ....
+        readonly IntelliSenseDisplay _display;
+        readonly List<IIntelliSenseProvider> _providers = new List<IIntelliSenseProvider>();
+        // TODO: Others
 
         public IntelliSenseHelper()
         {
-            SynchronizationContext syncContextMain = new WindowsFormsSynchronizationContext();
-            var uiMonitor = new UIMonitor(syncContextMain);
+            _syncContextMain = new WindowsFormsSynchronizationContext();
+            _uiMonitor = new UIMonitor(_syncContextMain);
 
-            _id = new IntelliSenseDisplay(syncContextMain, uiMonitor);
+            IIntelliSenseProvider excelDnaProvider = new ExcelDnaIntelliSenseProvider();
+            _providers.Add(excelDnaProvider);
+            IIntelliSenseProvider workbookProvider = new WorkbookIntelliSenseProvider();
+            _providers.Add(workbookProvider);
+
+            _display = new IntelliSenseDisplay(_syncContextMain, _uiMonitor);
             RegisterIntellisense();
         }
 
         void RegisterIntellisense()
         {
-            _excelDnaProvider.Refresh();    // Must be in macro context
-            foreach (var fi in _excelDnaProvider.GetFunctionInfos())
+            foreach (var provider in _providers)
             {
-                _id.RegisterFunctionInfo(fi);
+                provider.Invalidate += Provider_Invalidate;
+                provider.Initialize();
+                UpdateDisplay(provider);
             }
+        }
 
-            _workbookProvider.Refresh();
-            foreach (var fi in _workbookProvider.GetFunctionInfos())
-            {
-                _id.RegisterFunctionInfo(fi);
-            }
+        // Must be raised on the main thread, in a macro context
+        // We need to call Refresh on the main thread in a macro context,
+        // and then GetFunctionInfos() to update the Display
+        void Provider_Invalidate(object sender, EventArgs e)
+        {
+            RefreshProvider(sender);
+        }
+
+        // Must be called on the main thread, in a macro context
+        // TODO: Still not sure how to delete / unregister...
+        void RefreshProvider(object providerObj)
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            IIntelliSenseProvider provider = (IIntelliSenseProvider)providerObj;
+            provider.Refresh();
+            UpdateDisplay(provider);
+        }
+
+        void UpdateDisplay(IIntelliSenseProvider provider)
+        {
+            var functionInfos = provider.GetFunctionInfos();
+            _display.UpdateFunctionInfos(functionInfos);
         }
 
         public void Dispose()
         {
-            _id.Dispose();
+            foreach (var provider in _providers)
+            {
+                provider.Dispose();
+            }
+            _display.Dispose();
         }
     }
 }
