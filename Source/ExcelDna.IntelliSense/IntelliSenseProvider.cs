@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using ExcelDna.Integration;
+using Microsoft.Office.Interop.Excel;
 
 namespace ExcelDna.IntelliSense
 {
@@ -33,14 +34,15 @@ namespace ExcelDna.IntelliSense
     // TODO: Consider interaction with Application.MacroOptions. (or not?)
 
     // TODO: We might relax the threading rules, to say that Refresh runs on the same thread as Invalidate 
-    // TODO: We might get rid of Refresh (since that runs in the Invalidate context)    
+    // TODO: We might get rid of Refresh (since that runs in the Invalidate context)
+    // TODO: The two providers have been refactored to work very similarly - maybe be can extract out a base class...
     interface IIntelliSenseProvider : IDisposable
     {
         void Initialize();  // Executed in a macro context, on the main Excel thread
         void Refresh();     // Executed in a macro context, on the main Excel thread
         event EventHandler Invalidate;  // Must be raised in a macro context, on the main thread
 
-        IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos(); // Called from a worker thread - no Excel or COM access (probably an MTA thread involved in the UI Automation)
+        IList<IntelliSenseFunctionInfo> GetFunctionInfos(); // Called from a worker thread - no Excel or COM access (probably an MTA thread involved in the UI Automation)
     }
 
     // Provides IntelliSense info for all Excel-DNA based .xll add-ins, using the built-in RegistrationInfo helper function.
@@ -138,11 +140,59 @@ namespace ExcelDna.IntelliSense
 
         public ExcelDnaIntelliSenseProvider()
         {
-            var threadRefresh = new Thread(RunRefreshWatch);
-            threadRefresh.Start();
+            _loaderNotification = new LoaderNotification();
+            _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
+            _syncContextExcel = new ExcelSynchronizationContext();
         }
 
+        #region IIntelliSenseProvider implementation
+
+        // Must be called on the main Excel thread
+        public void Initialize()
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize");
+            lock (_xllRegistrationInfos)
+            {
+                foreach (var xllPath in GetLoadedXllPaths())
+                {
+                    if (!_xllRegistrationInfos.ContainsKey(xllPath))
+                    {
+                        XllRegistrationInfo regInfo = new XllRegistrationInfo(xllPath);
+                        _xllRegistrationInfos[xllPath] = regInfo;
+                        regInfo.Refresh();
+                    }
+                }
+            }
+        }
+
+        // Must be called on the main Excel thread
+        public void Refresh()
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
+            lock (_xllRegistrationInfos)
+            {
+                foreach (var regInfo in _xllRegistrationInfos.Values)
+                {
+                    regInfo.Refresh();
+                }
+            }
+        }
+
+        // May be called from any thread
+        public IList<IntelliSenseFunctionInfo> GetFunctionInfos()
+        {
+            lock (_xllRegistrationInfos)
+            {
+                return _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+            }
+        }
+
+        #endregion
+
         // DANGER: Still subject to LoaderLock problem...
+        // TODO: Consider Load/Unload done when AddIns is enumerated...
         void loaderNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
         {
             Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
@@ -166,64 +216,15 @@ namespace ExcelDna.IntelliSense
                     {
                         regInfo = new XllRegistrationInfo(xllPath);
                         _xllRegistrationInfos[xllPath] = regInfo;
-                        regInfo.Refresh();
+                        //regInfo.Refresh();    // Rather not.... so that we don't even try during the AddIns enumeration... OnInvalidate will lead to Refresh()
                         OnInvalidate();
                     }
                 }
                 else if (notification.Reason == LoaderNotification.Reason.Unloaded)
                 {
                     _xllRegistrationInfos.Remove(xllPath);
+                    // OnInvalidate();
                 }
-            }
-        }
-
-        void RunRefreshWatch()
-        {
-            _loaderNotification = new LoaderNotification();
-            _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
-            _syncContextExcel = new ExcelSynchronizationContext();
-        }
-
-        // Must be called on the main Excel thread
-        public void Initialize()
-        {
-            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
-            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize");
-            lock (_xllRegistrationInfos)
-            {
-                foreach (var xllPath in GetLoadedXllPaths())
-                {
-                    XllRegistrationInfo regInfo;
-                    if (!_xllRegistrationInfos.TryGetValue(xllPath, out regInfo))
-                    {
-                        regInfo = new XllRegistrationInfo(xllPath);
-                        _xllRegistrationInfos[xllPath] = regInfo;
-                        regInfo.Refresh();
-                    }
-                }
-            }
-        }
-
-        // Must be called on the main Excel thread
-        public void Refresh()
-        {
-            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
-            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
-            lock (_xllRegistrationInfos)
-            {
-                foreach (var regInfo in _xllRegistrationInfos.Values)
-                {
-                    regInfo.Refresh();
-                }
-            }
-        }
-
-        // May be called from any thread
-        public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
-        {
-            lock (_xllRegistrationInfos)
-            {
-                return _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
             }
         }
 
@@ -278,7 +279,7 @@ namespace ExcelDna.IntelliSense
             {
                 _name = name;
             }
-
+ 
             // Called in a macro context
             public void Refresh()
             {
@@ -349,38 +350,97 @@ namespace ExcelDna.IntelliSense
         Dictionary<string, WorkbookRegistrationInfo> _workbookRegistrationInfos = new Dictionary<string, WorkbookRegistrationInfo>();
 
         public event EventHandler Invalidate;
-        
+
+        #region IIntelliSenseProvider implementation
+
+        public WorkbookIntelliSenseProvider()
+        {
+        }
+
         public void Initialize()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
 
+            // The events are just to keep track of the set of open workbooks, 
+            var xlApp = (Application)ExcelDnaUtil.Application;
+            xlApp.WorkbookOpen += Excel_WorkbookOpen;
+            xlApp.WorkbookBeforeClose += Excel_WorkbookBeforeClose;
+            //xlApp.WorkbookAddinInstall += Excel_WorkbookAddinInstall;
+            //xlApp.WorkbookAddinUninstall += Excel_WorkbookAddinUninstall;
+
             //var app = ExcelDnaUtil.Application;
             // app.WorkbookLoaded...
-            foreach (var name in GetLoadedWorkbookNames())
+            lock (_workbookRegistrationInfos)
             {
-                WorkbookRegistrationInfo regInfo;
-                if (!_workbookRegistrationInfos.TryGetValue(name, out regInfo))
+                foreach (var name in GetLoadedWorkbookNames())
                 {
-                    regInfo = new WorkbookRegistrationInfo(name);
-                    _workbookRegistrationInfos[name] = regInfo;
+                    if (!_workbookRegistrationInfos.ContainsKey(name))
+                    {
+                        WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
+                        _workbookRegistrationInfos[name] = regInfo;
+                        regInfo.Refresh();
+                    }
                 }
-                regInfo.Refresh();
             }
         }
 
+        // Runs on the main thread
         public void Refresh()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Refresh");
+            lock (_workbookRegistrationInfos)
+            {
+                foreach (var regInfo in _workbookRegistrationInfos.Values)
+                {
+                    regInfo.Refresh();
+                }
+            }
         }
 
-        public IEnumerable<IntelliSenseFunctionInfo> GetFunctionInfos()
+        // May be called from any thread
+        public IList<IntelliSenseFunctionInfo> GetFunctionInfos()
         {
-            return _workbookRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos());
+            lock (_workbookRegistrationInfos)
+            {
+                return _workbookRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+            }
         }
+
+        #endregion
+
+        void Excel_WorkbookOpen(Workbook Wb)
+        {
+            var regInfo = new WorkbookRegistrationInfo(Wb.Name);
+            lock (_workbookRegistrationInfos)
+            {
+                _workbookRegistrationInfos[Wb.Name] = regInfo;
+                OnInvalidate();
+            }
+        }
+
+        void Excel_WorkbookBeforeClose(Workbook Wb, ref bool Cancel)
+        {
+            // Do we have to worry about renaming / Save As?
+            lock (_workbookRegistrationInfos)
+            {
+                _workbookRegistrationInfos.Remove(Wb.Name);
+            }
+        }
+
+        //private void Excel_WorkbookAddinInstall(Workbook Wb)
+        //{
+        //    throw new NotImplementedException();
+        //}
+
+        //private void Excel_WorkbookAddinUninstall(Workbook Wb)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         // Called in macro context
         // Might be implemented by tracking Application events
         // Remember this changes when a workbook is saved, and can refer to the wrong workbook as they are closed / opened
+        // CONSIDER: Check AddIns2 ?
         IEnumerable<string> GetLoadedWorkbookNames()
         {
             // TODO: Implement properly...
@@ -389,6 +449,11 @@ namespace ExcelDna.IntelliSense
             {
                 yield return wb.Name; 
             }
+        }
+
+        void OnInvalidate()
+        {
+            Invalidate?.Invoke(this, EventArgs.Empty);
         }
 
         public void Dispose()
