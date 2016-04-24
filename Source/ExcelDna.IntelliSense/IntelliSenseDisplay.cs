@@ -192,6 +192,10 @@ namespace ExcelDna.IntelliSense
                     _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
                     //_argumentsToolTip.OwnerHandle = _formulaEditWindow;
                 }
+                else
+                {
+                    Debug.Fail("Unexpected null FormulaEditWindow...");
+                }
             }
         }
 
@@ -226,9 +230,13 @@ namespace ExcelDna.IntelliSense
         void FormulaEditEnd()
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditEnd");
-            //_argumentsToolTip.Hide();
-            _argumentsToolTip.Dispose();
-            _argumentsToolTip = null;
+            // TODO: When can it be null
+            if (_argumentsToolTip != null)
+            {
+                //_argumentsToolTip.Hide();
+                _argumentsToolTip.Dispose();
+                _argumentsToolTip = null;
+            }
         }
 
         // Runs on the main thread

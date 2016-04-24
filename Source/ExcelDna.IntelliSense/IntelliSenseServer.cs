@@ -397,7 +397,7 @@ namespace ExcelDna.IntelliSense
 
         static void RegisterControlFunction()
         {
-            var method = typeof(IntelliSenseServer).GetMethod("IntelliSenseServerControl", BindingFlags.Static | BindingFlags.Public);
+            var method = typeof(IntelliSenseServer).GetMethod(nameof(IntelliSenseServerControl), BindingFlags.Static | BindingFlags.Public);
             var name = "IntelliSenseServerControl_" +_serverId.ToString("N");
             ExcelIntegration.RegisterMethods(new List<MethodInfo> { method }, 
                                              new List<object> { new ExcelCommandAttribute { Name = name } }, 
