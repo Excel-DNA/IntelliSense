@@ -20,16 +20,19 @@ namespace ExcelDna.IntelliSense
 
         public IntelliSenseHelper()
         {
+            Logger.Initialization.Verbose("IntelliSenseHelper Constructor Begin");
             _syncContextMain = new WindowsFormsSynchronizationContext();
             _uiMonitor = new UIMonitor(_syncContextMain);
-
-            IIntelliSenseProvider excelDnaProvider = new ExcelDnaIntelliSenseProvider();
-            _providers.Add(excelDnaProvider);
-            IIntelliSenseProvider workbookProvider = new WorkbookIntelliSenseProvider();
-            _providers.Add(workbookProvider);
-
             _display = new IntelliSenseDisplay(_syncContextMain, _uiMonitor);
+
+            _providers = new List<IIntelliSenseProvider>
+            {
+                new ExcelDnaIntelliSenseProvider(),
+                new WorkbookIntelliSenseProvider()
+            };
+
             RegisterIntellisense();
+            Logger.Initialization.Verbose("IntelliSenseHelper Constructor End");
         }
 
         void RegisterIntellisense()
@@ -42,7 +45,6 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Must be raised on the main thread, in a macro context
         // We need to call Refresh on the main thread in a macro context,
         // and then GetFunctionInfos() to update the Display
         void Provider_Invalidate(object sender, EventArgs e)

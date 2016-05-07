@@ -14,7 +14,8 @@ namespace TestAddIn
         public void AutoOpen()
         {
             IntelliSenseServer.Register();
-            // ExcelDna.Logging.LogDisplay.Show();
+            ExcelDna.Logging.LogDisplay.Show();
+            ExcelDna.Logging.LogDisplay.DisplayOrder = ExcelDna.Logging.DisplayOrder.NewestFirst;
         }
 
         public void AutoClose()

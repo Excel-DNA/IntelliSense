@@ -71,6 +71,7 @@ namespace ExcelDna.IntelliSense
                 if (regInfoResponse.Equals(ExcelError.ExcelErrorNA))
                 {
                     _regInfoNotAvailable = true;
+                    Logger.Provider.Verbose($"XllRegistrationInfo not available for {_xllPath}");
                     return;
                 }
 
@@ -101,7 +102,9 @@ namespace ExcelDna.IntelliSense
                 if (regInfo == null)
                     yield break;
 
-                for (int i = 0; i < regInfo.GetLength(0); i++)
+                int regInfoCount = regInfo.GetLength(0);
+                Logger.Provider.Verbose($"XllRegistrationInfo for {_xllPath}: {regInfoCount} registrations");
+                for (int i = 0; i < regInfoCount; i++)
                 {
                     if (regInfo[i, 0] is ExcelEmpty)
                     {
@@ -136,6 +139,7 @@ namespace ExcelDna.IntelliSense
         ExcelSynchronizationContext _syncContextExcel;
         Dictionary<string, XllRegistrationInfo> _xllRegistrationInfos = new Dictionary<string, XllRegistrationInfo>();
         LoaderNotification _loaderNotification;
+        bool _isDirty;
         public event EventHandler Invalidate;
 
         public ExcelDnaIntelliSenseProvider()
@@ -158,6 +162,7 @@ namespace ExcelDna.IntelliSense
                 {
                     if (!_xllRegistrationInfos.ContainsKey(xllPath))
                     {
+                        Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.Initialize: Adding XllRegistrationInfo for {xllPath}");
                         XllRegistrationInfo regInfo = new XllRegistrationInfo(xllPath);
                         _xllRegistrationInfos[xllPath] = regInfo;
                         regInfo.Refresh();
@@ -177,16 +182,25 @@ namespace ExcelDna.IntelliSense
                 {
                     regInfo.Refresh();
                 }
+                _isDirty = false;
             }
         }
 
         // May be called from any thread
         public IList<IntelliSenseFunctionInfo> GetFunctionInfos()
         {
+            IList<IntelliSenseFunctionInfo> functionInfos;
             lock (_xllRegistrationInfos)
             {
-                return _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+                functionInfos = _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
             }
+            Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos Begin");
+            foreach (var info in functionInfos)
+            {
+                Logger.Provider.Verbose($"\t{info.FunctionName}({info.ArgumentList.Count}) - {info.Description} ");
+            }
+            Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos End");
+            return functionInfos;
         }
 
         #endregion
@@ -195,7 +209,7 @@ namespace ExcelDna.IntelliSense
         // TODO: Consider Load/Unload done when AddIns is enumerated...
         void loaderNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
         {
-            Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
+            // Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
             if (e.FullDllName.EndsWith(".xll", StringComparison.OrdinalIgnoreCase))
                 _syncContextExcel.Post(ProcessLoadNotification, e);
         }
@@ -207,6 +221,9 @@ namespace ExcelDna.IntelliSense
             // we might want to introduce a delay here, so that the .xll can complete loading...
             var notification = (LoaderNotification.NotificationEventArgs)state;;
             var xllPath = notification.FullDllName;
+
+            Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.ProcessLoadNotification {notification}, {xllPath}");
+
             lock (_xllRegistrationInfos)
             {
                 XllRegistrationInfo regInfo;
@@ -217,12 +234,18 @@ namespace ExcelDna.IntelliSense
                         regInfo = new XllRegistrationInfo(xllPath);
                         _xllRegistrationInfos[xllPath] = regInfo;
                         //regInfo.Refresh();    // Rather not.... so that we don't even try during the AddIns enumeration... OnInvalidate will lead to Refresh()
-                        OnInvalidate();
+
+                        if (!_isDirty)
+                        {
+                            _isDirty = true;
+                            _syncContextExcel.Post(OnInvalidate, null);
+                        }
                     }
                 }
                 else if (notification.Reason == LoaderNotification.Reason.Unloaded)
                 {
                     _xllRegistrationInfos.Remove(xllPath);
+                    // Not too worried about cleaning up
                     // OnInvalidate();
                 }
             }
@@ -247,7 +270,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        void OnInvalidate()
+        void OnInvalidate(object _unused_)
         {
             Invalidate?.Invoke(this, EventArgs.Empty);
         }

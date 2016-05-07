@@ -163,6 +163,16 @@ namespace ExcelDna.IntelliSense
             #endif
         }
 
+        // TODO: Figure out what to do with this
+        public string LogString()
+        {
+            #if DEBUG
+                return $"{GetType().Name}{((this is Ready) ? "" : "\t")}{string.Join("\t", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
+            #else
+                return ToString();
+            #endif
+        }
+
         // This is the universal update check
         // When an event knows exactly what changed (e.g. Text or SelectedItem), it need not call this
         // CONSIDER: How would this look with C# 7.0 patterns?
@@ -384,6 +394,16 @@ namespace ExcelDna.IntelliSense
         {
             IsEnabled = true;
         }
+
+        public override string ToString()
+        {
+            return $"{Update}: {OldState} -> {NewState}";
+        }
+
+        public string LogString()
+        {
+            return $"({Update.ToString()}): [{OldState.LogString()}] -> [{NewState.LogString()}]";
+        }
     }
 
     // Combines all the information received from the UIAutomation and WinEvents watchers,
@@ -408,10 +428,10 @@ namespace ExcelDna.IntelliSense
             _syncContextMain = syncContextMain;
 
             // Make a separate thread and set to MTA, according to: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692%28v=vs.85%29.aspx
+            // This thread will be used for UI Automation calls, particularly adding and removing event handlers.
             var threadAuto = new Thread(RunUIAutomation);
             threadAuto.SetApartmentState(ApartmentState.MTA);
             threadAuto.Start();
-
         }
 
         // This runs on the new thread we've created to do all the Automation stuff (_threadAuto)
@@ -420,6 +440,8 @@ namespace ExcelDna.IntelliSense
         {
             _syncContextAuto = new SingleThreadSynchronizationContext();
 
+            Logger.Monitor.Verbose("UIMonitor.RunUIAutomation installing watchers");
+
             // Create and hook together the various watchers
             _windowWatcher = new WindowWatcher(_syncContextAuto);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
@@ -427,7 +449,7 @@ namespace ExcelDna.IntelliSense
 
             // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
   //          _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
-            _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
+            // _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
             _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
             _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
 
@@ -436,7 +458,7 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto.RunOnCurrentThread();
         }
 
-        #region Receive watcher events (all on the automation thread), and process
+#region Receive watcher events (all on the automation thread), and process
         //// Runs on our automation thread
         //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         //{
@@ -452,10 +474,11 @@ namespace ExcelDna.IntelliSense
             OnStateChanged();
         }
 
+        // Runs on our automation thread
         void _popupListWatcher_SelectedItemChanged(object sender, EventArgs args)
         {
             Logger.Monitor.Verbose("!> PopupList SelectedItemChanged");
-            Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
+            //Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
 
             if (CurrentState is UIState.FunctionList && _popupListWatcher.IsVisible)
             {
@@ -473,7 +496,7 @@ namespace ExcelDna.IntelliSense
         void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
         {
             Logger.Monitor.Verbose($"!> FormulaEdit StateChanged ({args.StateChangeType})");
-            Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
+            //Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
 
             if (args.StateChangeType == FormulaEditWatcher.StateChangeType.TextChangedOnly &&
                 CurrentState is UIState.FormulaEdit)
@@ -496,7 +519,7 @@ namespace ExcelDna.IntelliSense
             {
                 return new UIState.FunctionList
                 {
-                    FormulaEditWindow = _windowWatcher.FormulaEditWindow,
+                    FormulaEditWindow = _formulaEditWatcher.FormulaEditWindow,
                     FunctionListWindow = _popupListWatcher.PopupListHandle,
                     SelectedItemText = _popupListWatcher.SelectedItemText,
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
@@ -513,13 +536,13 @@ namespace ExcelDna.IntelliSense
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
             }
-            if (_windowWatcher.IsSelectDataSourceWindowVisible)
-            {
-                return new UIState.SelectDataSource
-                {
-                    SelectDataSourceWindow = _windowWatcher.SelectDataSourceWindow
-                };
-            }
+            //if (_windowWatcher.IsSelectDataSourceWindowVisible)
+            //{
+            //    return new UIState.SelectDataSource
+            //    {
+            //        SelectDataSourceWindow = _windowWatcher.SelectDataSourceWindow
+            //    };
+            //}
             return new UIState.Ready();
         }
 
@@ -530,13 +553,14 @@ namespace ExcelDna.IntelliSense
 //            if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
 
-            Debug.Print($"NEWSTATE: {newStateOrNull.ToString()}");
+            // Debug.Print($"NEWSTATE: {newStateOrNull.ToString()}");
 
             CurrentState = newStateOrNull;
 
             var updates = new List<UIStateUpdate>();    // TODO: Improve perf for common single-update case
             foreach (var update in UIState.GetUpdates(oldState, CurrentState))
             {
+                Logger.Monitor.Verbose($">> {update.LogString()}");
                 // First we raise the preview event on this thread
                 // allowing listeners to enable the main-thread event for this update
                 StateUpdatePreview?.Invoke(this, update);
@@ -592,7 +616,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        #endregion
+#endregion
 
         public void Dispose()
         {
@@ -606,7 +630,7 @@ namespace ExcelDna.IntelliSense
                     if (_windowWatcher != null)
                     {
 //                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
-                        _windowWatcher.SelectDataSourceWindowChanged -= _windowWatcher_SelectDataSourceWindowChanged;
+                        // _windowWatcher.SelectDataSourceWindowChanged -= _windowWatcher_SelectDataSourceWindowChanged;
                         _windowWatcher.Dispose();
                         _windowWatcher = null;
                     }

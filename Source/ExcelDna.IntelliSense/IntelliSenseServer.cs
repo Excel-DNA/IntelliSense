@@ -47,7 +47,7 @@ namespace ExcelDna.IntelliSense
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "0.0.1";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "0.0.2";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -76,10 +76,12 @@ namespace ExcelDna.IntelliSense
         // Called directly from AutoOpen.
         public static void Register()
         {
+            TraceLogger.Initialize();
+
+            Logger.Initialization.Info($"IntelliSenseServer.Register Begin: Version {ServerVersion} in {AppDomain.CurrentDomain.FriendlyName}");
             if (IsDisabled())
                 return;
 
-            TraceLogger.Initialize();
             RegisterControlFunction();
             PublishRegistration();
 
@@ -95,6 +97,10 @@ namespace ExcelDna.IntelliSense
                 // We're newer - deactivate the active server and activate ourselves.
                 shouldActivate = true;
             }
+            else
+            {
+                Logger.Initialization.Info($"IntelliSenseServer not being activated now. Active Version: {activeInfo.Version}");
+            }
             // Else we're not activating - there is an active server and it is the same version or newer
             // TODO: Tell it to load our UDFs somehow - maybe call a hidden macro?
 
@@ -104,6 +110,7 @@ namespace ExcelDna.IntelliSense
             }
 
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
+            Logger.Initialization.Info("IntelliSenseServer.Register End");
         }
 
         // DomainUnload runs when AutoClose() would run on the add-in.
@@ -138,9 +145,9 @@ namespace ExcelDna.IntelliSense
                 // TODO: Perhaps also register macro to trigger updates
                 return true;
             }
-            catch (Exception /*ex*/)
+            catch (Exception ex)
             {
-                // TOOD: Log
+                Logger.Initialization.Error($"IntelliSenseServer.Activate failed: {ex}");
                 return false;
             }
         }
@@ -175,9 +182,16 @@ namespace ExcelDna.IntelliSense
             var environmentDisabled = Environment.GetEnvironmentVariable(DisabledVersionsVariable) as string;
 
             var thisVersion = ServerVersion;
-            return IsVersionMatch(thisVersion, machineDisabled) ||
-                   IsVersionMatch(thisVersion, userDisabled) ||
-                   IsVersionMatch(thisVersion, environmentDisabled);
+            var isDisabled = IsVersionMatch(thisVersion, machineDisabled) ||
+                             IsVersionMatch(thisVersion, userDisabled) ||
+                             IsVersionMatch(thisVersion, environmentDisabled);
+
+            if (isDisabled)
+            {
+                Logger.Initialization.Info($"IntelliSenseServer version {thisVersion} is disabled. MachineDisabled: {machineDisabled}, UserDisabled: {userDisabled}, EnvironmentDisabled: {environmentDisabled}");
+            }
+
+            return isDisabled;
         }
 
         // Attempts to activate the server described by registrationInfo

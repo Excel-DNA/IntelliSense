@@ -51,7 +51,7 @@ namespace ExcelDna.IntelliSense
 
     // NOTE: To simplify configuration (so that we provide one TraceSource per referenced assembly) and still allow some grouping
     //       we use the EventId to define a trace event classification.
-    // These names are not surfaces to the Trace Listeners - just the IDs, so we should document them.
+    // These names are not surfaced to the Trace Listeners - just the IDs, so we should document them.
     enum IntelliSenseTraceEventId
     {
         Initialization = 1,

@@ -98,6 +98,7 @@ namespace ExcelDna.IntelliSense
             if (_hWinEventHook == IntPtr.Zero)
             {
                 Logger.WinEvents.Error("SetWinEventHook failed");
+                // Is SetLastError used? - SetWinEventHook documentation does not indicate so
                 throw new Win32Exception("SetWinEventHook failed");
             }
             Logger.WinEvents.Info($"SetWinEventHook success");
@@ -111,6 +112,8 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, idObject, idChild, dwEventThread, dwmsEventTime));
         }
 
+        // Runs on our Automation thread (via SyncContext passed into the constructor)
+        // CONSIDER: Performance impact of logging (including GetClassName) here 
         void OnWinEventReceived(object winEventArgsObj)
         {
             var winEventArgs = (WinEventArgs)winEventArgsObj;

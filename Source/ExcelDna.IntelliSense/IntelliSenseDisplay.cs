@@ -256,9 +256,16 @@ namespace ExcelDna.IntelliSense
                 IntelliSenseFunctionInfo functionInfo;
                 if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
                 {
-                    _argumentsToolTip.ShowToolTip(
-                        GetFunctionIntelliSense(functionInfo, currentArgIndex),
-                        (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+                    if (_argumentsToolTip != null)
+                    {
+                        _argumentsToolTip.ShowToolTip(
+                            GetFunctionIntelliSense(functionInfo, currentArgIndex),
+                            (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+                    }
+                    else
+                    {
+                        Logger.Display.Warn("FormulaEditTextChange with no arguments tooltip !?");
+                    }
                     return;
                 }
 
