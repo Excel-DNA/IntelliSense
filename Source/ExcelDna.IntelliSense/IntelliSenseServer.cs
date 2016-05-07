@@ -119,6 +119,9 @@ namespace ExcelDna.IntelliSense
         // We don't expect DomainUnload to run when Excel is shutting down.
         static void CurrentDomain_DomainUnload(object sender, EventArgs e)
         {
+            // Early shutdown notification
+            XlCall.ShutdownStarted();
+
             UnpublishRegistration();
             if (_isActive)
             {

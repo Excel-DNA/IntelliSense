@@ -498,7 +498,7 @@ namespace ExcelDna.IntelliSense
             Logger.Monitor.Verbose($"!> FormulaEdit StateChanged ({args.StateChangeType})");
             //Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
 
-            if (args.StateChangeType == FormulaEditWatcher.StateChangeType.TextChangedOnly &&
+            if (args.StateChangeType == FormulaEditWatcher.StateChangeType.TextChange &&
                 CurrentState is UIState.FormulaEdit)
             {
                 var newState = ((UIState.FormulaEdit)CurrentState).WithFormulaPrefix(_formulaEditWatcher.CurrentPrefix);

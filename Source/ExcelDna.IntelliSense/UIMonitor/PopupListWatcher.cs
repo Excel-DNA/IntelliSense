@@ -10,7 +10,6 @@ namespace ExcelDna.IntelliSense
     // We ignore the reason for showing, and match purely on the text of the selected item.
     class PopupListWatcher : IDisposable
     {
-//        AutomationElement _mainWindow;
         IntPtr            _hwndPopupList;
         AutomationElement _popupList;
         AutomationElement _selectedItem;
@@ -30,7 +29,6 @@ namespace ExcelDna.IntelliSense
         {
             _syncContextAuto = syncContextAuto;
             _windowWatcher = windowWatcher;
-//            _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
             _windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
         }
 
@@ -160,12 +158,14 @@ namespace ExcelDna.IntelliSense
         // Runs on an automation event thread
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
-            // Debug.Print($">>>> PopupListWatcher.PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
+            Logger.WindowWatcher.Verbose($"PopupList PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
             UpdateSelectedItem(sender as AutomationElement);
         }
 
+        // Runs on our automation thread
         void InstallEventHandlers()
         {
+            Logger.WindowWatcher.Verbose($"PopupList Installing event handlers on thread {Thread.CurrentThread.ManagedThreadId}");
             try
             {
                 Automation.AddAutomationEventHandler(
@@ -185,7 +185,10 @@ namespace ExcelDna.IntelliSense
         void UpdateSelectedItem()
         {
             if (_popupList == null)
+            {
+                Logger.WindowWatcher.Verbose($"PopupList UpdateSelectedItem ignored: PopupList is null");
                 return;
+            }
 
             Condition patCondition = new PropertyCondition(
                 AutomationElement.IsSelectionPatternAvailableProperty, true);
@@ -202,13 +205,13 @@ namespace ExcelDna.IntelliSense
                     }
                     catch (Exception ex)
                     {
-                        Logger.WindowWatcher.Warn($"PopupList.UpdateSelectedItem error {ex}");
+                        Logger.WindowWatcher.Warn($"PopupList UpdateSelectedItem error {ex}");
                     }
                 }
             }
             else
             {
-                Logger.WindowWatcher.Warn("PopupList.UpdateSelectedItem - No descendent has SelectionPatter !?");
+                Logger.WindowWatcher.Warn("PopupList UpdateSelectedItem - No descendent has SelectionPattern !?");
             }
         }
 
@@ -347,8 +350,7 @@ namespace ExcelDna.IntelliSense
         // Raises the event on the automation thread (but the SyncContext.Post here is redundant)
         void OnSelectedItemChanged()
         {
-            Debug.Print("POPUPLISTWATCHER WINDOW SELECTEDITEM CHANGED");
-
+            Logger.WindowWatcher.Verbose($"PopupList SelectedItemChanged {SelectedItemText}");
             _syncContextAuto.Post(_ => SelectedItemChanged(this, EventArgs.Empty), null);
         }
 

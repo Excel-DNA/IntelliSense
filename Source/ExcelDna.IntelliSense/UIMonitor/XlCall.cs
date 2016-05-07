@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace ExcelDna.IntelliSense
@@ -29,22 +30,51 @@ namespace ExcelDna.IntelliSense
             public int ichCaret;      // char offset to blinking caret
         }
 
+        // This give a global mechanism to indicate shutdown as early as possible
+        // Maybe helps with debugging...
+        static bool _shutdownStarted = false;
+        public static void ShutdownStarted()
+        {
+            _shutdownStarted = true;
+        }
+
         // Returns null if not in edit mode
         // TODO: What do we know about the threading constraints on this call?
+
+        // NOTE: I've only seen this crash during shutdown
+        //       We enable handling of the AccessViolation as best we can
+        [HandleProcessCorruptedStateExceptions]
         public static string GetFormulaEditPrefix()
         {
-            var fmlaInfo = new FmlaInfo();
-            var result = LPenHelper(xlGetFmlaInfo, ref fmlaInfo);
-            if (result != 0)
-                throw new InvalidOperationException("LPenHelper failed. Result: " + result);
-            if (fmlaInfo.wPointMode == xlModeReady)
-                return null; 
-            
-            // Debug.Print("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
-            //    fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
+            if (_shutdownStarted)
+                return null;
 
-            var prefixLen = Math.Min(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch);  // I've never seen ichLast > cch !?
-            return Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);
+            try
+            {
+                var fmlaInfo = new FmlaInfo();
+                var result = LPenHelper(xlGetFmlaInfo, ref fmlaInfo);
+                if (result != 0)
+                {
+                    Logger.WindowWatcher.Warn($"LPenHelper Failed. Result: {result}");
+                    throw new InvalidOperationException("LPenHelper Failed. Result: " + result);
+                }
+                if (fmlaInfo.wPointMode == xlModeReady)
+                {
+                    // Logger.WindowWatcher.Verbose($"LPenHelper PointMode Ready");
+                    return null;
+                }
+
+                //Logger.WindowWatcher.Verbose("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
+                //    fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
+
+                var prefixLen = Math.Min(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch);  // I've never seen ichLast > cch !?
+                return Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);
+            }
+            catch (AccessViolationException)
+            {
+                Logger.WindowWatcher.Warn("LPenHelper Access Violation!");
+                return null;
+            }
         }
     }
 }

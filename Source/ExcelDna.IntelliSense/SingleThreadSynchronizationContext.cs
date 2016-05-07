@@ -47,7 +47,7 @@ namespace ExcelDna.IntelliSense
         public void RunOnCurrentThread()
         {
             _threadId = Thread.CurrentThread.ManagedThreadId;
-            Debug.Print($"SingleThreadSynchronizationContext Running (Thread {_threadId})!");
+            Logger.Monitor.Info($"SingleThreadSynchronizationContext Running (Thread {_threadId})!");
             foreach (var workItem in _queue.GetConsumingEnumerable())
             {
                 try
@@ -56,11 +56,11 @@ namespace ExcelDna.IntelliSense
                 }
                 catch (Exception ex)
                 {
-                    Debug.Print($"### Unhandled exception on SingleThreadSynchronizationContext (Thread {_threadId}) - {ex.ToString()}");
+                    Logger.Monitor.Warn($"SingleThreadSynchronizationContext ### Unhandled exception (Thread {_threadId}) - {ex}");
                 }
             }
 
-            Debug.Print("SingleThreadSynchronizationContext Complete!");
+            Logger.Monitor.Info("SingleThreadSynchronizationContext Complete!");
         }
 
         /// <summary>Notifies the context that no more work will arrive.</summary>

@@ -182,6 +182,10 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //    break;
                 default:
+                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
+                    {
+                        Logger.WindowWatcher.Verbose($"FOCUS! on {className}");
+                    }
                     //InCellEditWindowChanged(this, EventArgs.Empty);
                     break;
             }

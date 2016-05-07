@@ -184,6 +184,7 @@ namespace ExcelDna.IntelliSense
                 _formulaEditWindow = formulaEditWindow;
                 if (_argumentsToolTip != null)
                 {
+                    // Rather ChangeParent...?
                     _argumentsToolTip.Dispose();
                     _argumentsToolTip = null;
                 }
@@ -194,7 +195,7 @@ namespace ExcelDna.IntelliSense
                 }
                 else
                 {
-                    Debug.Fail("Unexpected null FormulaEditWindow...");
+                    // Debug.Fail("Unexpected null FormulaEditWindow...");
                 }
             }
         }
@@ -242,6 +243,13 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void FormulaEditMove(Rect editWindowBounds, Rect excelTooltipBounds)
         {
+            Debug.Print($"IntelliSenseDisplay - FormulaEditMove");
+            Debug.Assert(_argumentsToolTip != null);
+            if (_argumentsToolTip == null)
+            {
+                Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");
+                return;
+            }
             _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
         }
 
