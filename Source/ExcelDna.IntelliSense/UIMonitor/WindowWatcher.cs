@@ -19,19 +19,24 @@ namespace ExcelDna.IntelliSense
     {
         public class WindowChangedEventArgs : EventArgs
         {
-
-            // CONSIDER: This mapping is trivial - just get rid of it?
             public enum ChangeType
             {
                 Create = 1,
                 Destroy = 2,
                 Show = 3,
                 Hide = 4,
-                Focus = 5
+                Focus = 5,
+                Unfocus = 6
             }
 
             public readonly IntPtr WindowHandle;
             public readonly ChangeType Type;
+
+            internal WindowChangedEventArgs(IntPtr windowHandle, ChangeType changeType)
+            {
+                WindowHandle = windowHandle;
+                Type = changeType;
+            }
 
             internal WindowChangedEventArgs(IntPtr windowHandle, WinEventHook.WinEvent winEvent)
             {
@@ -78,6 +83,11 @@ namespace ExcelDna.IntelliSense
 
         WinEventHook _windowStateChangeHook;
 
+        // These track keyboard focus for Windows in the Excel process
+        // Used to synthesize the 'Unfocus' change events
+        IntPtr _focusedWindowHandle;
+        string _focusedWindowClassName;
+
 
 //        public IntPtr SelectDataSourceWindow { get; private set; }
 //        public bool IsSelectDataSourceWindowVisible { get; private set; }
@@ -107,18 +117,47 @@ namespace ExcelDna.IntelliSense
         public void TryInitialize()
         {
             // Debug.Print("### WindowWatcher TryInitialize on thread: " + Thread.CurrentThread.ManagedThreadId);
-            AutomationElement focused;
-            try
+            var focusedWindowHandle = Win32Helper.GetFocusedWindowHandle();
+            string className = null;
+            if (focusedWindowHandle != IntPtr.Zero)
+                className = Win32Helper.GetClassName(_focusedWindowHandle);
+
+            UpdateFocus(focusedWindowHandle, className);
+        }
+
+        bool UpdateFocus(IntPtr windowHandle, string windowClassName)
+        {
+            if (windowHandle == _focusedWindowHandle)
             {
-                focused = AutomationElement.FocusedElement;
-                var className = focused.GetCurrentPropertyValue(AutomationElement.ClassNameProperty);
-                Debug.Print($"WindowWatcher.TryInitialize - Focused: {className}");
+                Debug.Assert(_focusedWindowClassName == windowClassName);
+                return false;
             }
-            catch (ArgumentException aex)
+
+            Logger.WindowWatcher.Verbose($"Focus lost by {_focusedWindowHandle} ({_focusedWindowClassName})");
+            // It has changed - raise an event for the old window
+            switch (_focusedWindowClassName)
             {
-                Debug.Print($"!!! ERROR: Failed to get Focused Element: {aex}");
-                return;
+                case _popupListClass:
+                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    break;
+                case _inCellEditClass:
+                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    break;
+                case _formulaBarClass:
+                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    break;
+                //case _nuiDialogClass:
+                default:
+                    // Not one of our watched window, so we don't care
+                    break;
             }
+
+            // Set the new focus info
+            // Event will be raised by WinEventReceived handler itself
+            _focusedWindowHandle = windowHandle;
+            _focusedWindowClassName = windowClassName;
+            Logger.WindowWatcher.Verbose($"Focus changed to {windowHandle} ({windowClassName})");
+            return true;
         }
 
         // This runs on the Automation thread, via SyncContextAuto passed in to WinEventHook when we created this WindowWatcher
@@ -130,8 +169,18 @@ namespace ExcelDna.IntelliSense
             if (!WindowChangedEventArgs.IsSupportedWinEvent(e.EventType))
                 return;
 
-            // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
             var className = Win32Helper.GetClassName(e.WindowHandle);
+            if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
+            {
+                // Might raise change event for Unfocus
+                if (!UpdateFocus(e.WindowHandle, className))
+                {
+                    // We already have the right focus
+                    return;
+                }
+            }
+
+            // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
             switch (className)
             {
                 //case _sheetWindowClass:
@@ -182,10 +231,6 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //    break;
                 default:
-                    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
-                    {
-                        Logger.WindowWatcher.Verbose($"FOCUS! on {className}");
-                    }
                     //InCellEditWindowChanged(this, EventArgs.Empty);
                     break;
             }
@@ -200,9 +245,6 @@ namespace ExcelDna.IntelliSense
             }
         }
     }
-
-
- 
 
     //class SelectDataSourceWatcher : IDisposable
     //{

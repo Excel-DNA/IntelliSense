@@ -118,22 +118,26 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                     if (_formulaEditFocus != FormulaEditFocus.FormulaBar)
                     {
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar focus");
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Focus");
                         _formulaEditFocus = FormulaEditFocus.FormulaBar;
                         UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
-                case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
-                    break;
-                case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
                     if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
                     {
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar hidden");
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Unfocus");
                         _formulaEditFocus = FormulaEditFocus.None;
                         UpdateFormulaPolling();
                         UpdateEditState();
                     }
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Show");
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Hide");
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");
@@ -161,23 +165,26 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                     if (_formulaEditFocus != FormulaEditFocus.InCellEdit)
                     {
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit focus");
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Focus");
                         _formulaEditFocus = FormulaEditFocus.InCellEdit;
                         UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
+                    if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
+                    {
+                        Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
+                        _formulaEditFocus = FormulaEditFocus.None;
+                        UpdateFormulaPolling();
+                        UpdateEditState();
+                    }
+                    break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Show");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
-                    // NOTE: Very confusing - under Excel 2010 InCellEdit gets hidden immediately, and never shown again....
-                    //if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
-                    //{
-                    //    Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit hidden");
-                    //    _formulaEditFocus = FormulaEditFocus.None;
-                    //    UpdateFormulaPolling();
-                    //    UpdateEditState();
-                    //}
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Hide");
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");

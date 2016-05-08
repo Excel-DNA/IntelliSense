@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -47,6 +48,49 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll")]
         static extern bool ScreenToClient(IntPtr hWnd, ref Point lpPoint);
         
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
+
+        struct GUITHREADINFO
+        {
+            public int cbSize;
+            public int flags;
+            public IntPtr hwndActive;
+            public IntPtr hwndFocus;
+            public IntPtr hwndCapture;
+            public IntPtr hwndMenuOwner;
+            public IntPtr hwndMoveSize;
+            public IntPtr hwndCaret;
+            public Rectangle rcCaret;
+        }
+
+        [DllImport("user32.dll", SetLastError=true)]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        // Returns the WindowHandle of the focused window, if that window is in our process.
+        public static IntPtr GetFocusedWindowHandle()
+        {
+            var info = new GUITHREADINFO();
+            info.cbSize = Marshal.SizeOf(info);
+            if (!GetGUIThreadInfo(0, ref info))
+                throw new Win32Exception();
+
+            var focusedWindow = info.hwndFocus;
+            if (focusedWindow == IntPtr.Zero)
+                return focusedWindow;
+
+            uint processId;
+            uint threadId = GetWindowThreadProcessId(focusedWindow, out processId);
+            if (threadId == 0)
+                throw new Win32Exception();
+
+            uint currentProcessId = GetCurrentProcessId();
+            if (processId == currentProcessId)
+                return focusedWindow;
+
+            return IntPtr.Zero;
+        }
+
         public static Point GetClientCursorPos(IntPtr hWnd)
         {
             Point pt;

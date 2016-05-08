@@ -85,6 +85,10 @@ namespace ExcelDna.IntelliSense
                     IsVisible = false;
                     UpdateSelectedItem(_selectedItem);
                     break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
+                    Logger.WindowWatcher.Verbose($"PopupList unexpected focus event!?");
+                    break;
                 default:
                     break;
             }
