@@ -73,7 +73,7 @@ xcopy "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna*" "$(TargetDir)ExcelDna.
 xcopy "$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDna64.xll" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.xll*" /C /Y
 "$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.dna" /Y /O "$(TargetDir)ExcelDna.IntelliSense.xll"
 "$(SolutionDir)\packages\ExcelDna.AddIn.0.33.9\tools\ExcelDnaPack.exe" "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn64.dna" /Y /O "$(TargetDir)ExcelDna.IntelliSense64.xll"
-xcopy "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.xll.config" "$(TargetDir)ExcelDna.IntelliSense.xll.config"</PostBuildEvent>
+xcopy "$(TargetDir)ExcelDna.IntelliSense.Host-AddIn.xll.config" "$(TargetDir)ExcelDna.IntelliSense.xll.config*"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
