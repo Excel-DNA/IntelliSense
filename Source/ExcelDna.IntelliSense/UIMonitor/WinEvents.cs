@@ -101,15 +101,25 @@ namespace ExcelDna.IntelliSense
                 // Is SetLastError used? - SetWinEventHook documentation does not indicate so
                 throw new Win32Exception("SetWinEventHook failed");
             }
-            Logger.WinEvents.Info($"SetWinEventHook success");
+            Logger.WinEvents.Info($"SetWinEventHook success on thread {Thread.CurrentThread.ManagedThreadId}");
         }
 
         // This runs on the Excel main thread - get off quickly
         void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd, 
-                        int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+                            int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
-            _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, idObject, idChild, dwEventThread, dwmsEventTime));
+            try
+            {
+                if (disposedValue)
+                    return;
+
+                // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
+                _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, idObject, idChild, dwEventThread, dwmsEventTime));
+            }
+            catch (Exception ex)
+            {
+                Logger.WinEvents.Warn($"HandleWinEvent Exception {ex}");
+            }
         }
 
         // Runs on our Automation thread (via SyncContext passed into the constructor)
@@ -128,13 +138,24 @@ namespace ExcelDna.IntelliSense
         {
             if (!disposedValue)
             {
+                Logger.WinEvents.Info($"WinEventHook Dispose on thread {Thread.CurrentThread.ManagedThreadId}");
                 if (disposing)
                 {
                     // TODO: dispose managed state (managed objects).
                 }
-
-                Logger.WinEvents.Info($"UnhookWinEvent");
-                UnhookWinEvent(_hWinEventHook);
+                _syncContextAuto.Post(winEventHook =>
+                {
+                    try
+                    {
+                        Logger.WinEvents.Info($"UnhookWinEvent called on thread {Thread.CurrentThread.ManagedThreadId}");
+                        bool result = UnhookWinEvent((IntPtr)winEventHook);
+                        Logger.WinEvents.Info($"UnhookWinEvent result {result}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.WinEvents.Warn($"UnhookWinEvent Exception {ex}");
+                    }
+                }, _hWinEventHook);
 
                 disposedValue = true;
             }
