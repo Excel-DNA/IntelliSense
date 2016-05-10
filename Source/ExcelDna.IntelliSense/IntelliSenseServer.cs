@@ -119,8 +119,9 @@ namespace ExcelDna.IntelliSense
         // We don't expect DomainUnload to run when Excel is shutting down.
         static void CurrentDomain_DomainUnload(object sender, EventArgs e)
         {
-            // Early shutdown notification
-            XlCall.ShutdownStarted();
+            Logger.Initialization.Info("IntelliSenseServer DomainUnload");
+            //// Early shutdown notification
+            //XlCall.ShutdownStarted();
 
             UnpublishRegistration();
             if (_isActive)
@@ -167,9 +168,10 @@ namespace ExcelDna.IntelliSense
                 ClearActiveRegistrationInfo();
                 return true;
             }
-            catch (Exception /*ex*/)
+            catch (Exception ex)
             {
                 // TODO: Log
+                Logger.Initialization.Error($"IntelliSenseServer.Deactivate error: {ex}");
                 return false;
             }
         }

@@ -620,12 +620,11 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-
             if (_syncContextAuto == null)
                 return;
 
             // Send is not supported on _syncContextAuto
-            _syncContextAuto.Post(delegate
+            _syncContextAuto.Send(delegate
                 {
                     if (_windowWatcher != null)
                     {
@@ -646,9 +645,16 @@ namespace ExcelDna.IntelliSense
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
-                    _syncContextAuto.Complete();
-                    _syncContextAuto = null;
                 }, null);
+
+            // Let the above delegate and nested calls run, then clean up.
+            // (not sure it makes a difference anymore...)
+            _syncContextAuto.Post(delegate
+            {
+                _syncContextAuto.Complete();
+                _syncContextAuto = null;
+            }, null);
+
         }
     }
 }

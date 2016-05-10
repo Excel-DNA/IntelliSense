@@ -246,13 +246,13 @@ namespace ExcelDna.IntelliSense
 
             if (isTextPatternAvailable)
             {
-                Logger.WindowWatcher.Info("FormulaEdit TextPattern adding change handler");
+                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit TextPattern adding change handler");
                 Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, element, TreeScope.Element, TextChanged);
                 _enableFormulaPolling = false;
             }
             else
             {
-                Logger.WindowWatcher.Info("FormulaEdit TextPattern not available - enabling polling");
+                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit TextPattern not available - enabling polling");
                 _enableFormulaPolling = true;   // Has an effect when focus changes
                 UpdateFormulaPolling();
             }
@@ -263,8 +263,14 @@ namespace ExcelDna.IntelliSense
             bool isTextPatternAvailable = (bool)element.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
             if (isTextPatternAvailable)
             {
-                Logger.WindowWatcher.Info("FormulaEdit TextPattern removing change handler");
+                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit removing text change handler");
                 Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, element, TextChanged);
+            }
+            else
+            {
+                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit disabling polling");
+                _enableFormulaPolling = false;
+                UpdateFormulaPolling();
             }
         }
 
@@ -300,13 +306,12 @@ namespace ExcelDna.IntelliSense
                 }
                 else // no focus
                 {
-                    if (_formulaPollingTimer != null)
-                        _formulaPollingTimer.Change(-1, -1);
+                    _formulaPollingTimer?.Change(-1, -1);
                 }
             }
             else if (_formulaPollingTimer != null)
             {
-                _formulaPollingTimer.Dispose();
+                _formulaPollingTimer?.Dispose();
                 _formulaPollingTimer = null;
             }
         }
@@ -425,27 +430,27 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            if (_formulaPollingTimer != null)
-            {
-                _formulaPollingTimer.Dispose();
-            }
+            Logger.WindowWatcher.Verbose("FormulaEdit Disposing");
+            XlCall.ShutdownStarted();
+
             // Not sure we need this:
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
 //            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
 
-            _syncContextAuto.Post(delegate 
+            _formulaPollingTimer?.Dispose();
+            _formulaPollingTimer = null;
+
+            _syncContextAuto.Send(delegate 
             {
-                Debug.Print("Disposing FormulaEditWatcher");
-                //Automation.RemoveAutomationFocusChangedEventHandler(FocusChangedEventHandler);
-                //if (_formulaBar != null)
-                //{
-                //    Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _formulaBar, TextChanged);
-                //    _formulaBar = null;
-                //}
+                if (_formulaBar != null)
+                {
+                    UninstallTextChangeMonitor(_formulaBar);
+                    _formulaBar = null;
+                }
                 if (_inCellEdit != null)
                 {
-                    Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, _inCellEdit, TextChanged);
+                    UninstallTextChangeMonitor(_inCellEdit);
                     _inCellEdit = null;
                 }
                 //if (_mainWindow != null)

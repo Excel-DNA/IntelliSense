@@ -313,6 +313,9 @@ namespace ExcelDna.IntelliSense
         void UpdateSelectedItem(AutomationElement newSelectedItem)
         {
             // Debug.Print($"POPUPLISTWATCHER WINDOW CURRENT SELECTION {newSelectedItem}");
+
+            // TODO: Sometimes the IsVisble is not updated, but we are visible and the first selection is set
+
             if (!IsVisible || newSelectedItem == null)
             {
                 if (_selectedItem == null &&
@@ -364,7 +367,7 @@ namespace ExcelDna.IntelliSense
             _windowWatcher.PopupListWindowChanged -= _windowWatcher_PopupListWindowChanged;
             _windowWatcher = null;
 
-            _syncContextAuto.Post(delegate
+            _syncContextAuto.Send(delegate
             {
                 Debug.Print("Disposing PopupListWatcher - In Automation context");
                 if (_popupList != null)

@@ -277,6 +277,7 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Dispose");
             _loaderNotification.Dispose();
         }
     }
@@ -481,6 +482,10 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            Logger.Provider.Info("WorkbookIntelliSenseProvider.Dispose");
+            var xlApp = (Application)ExcelDnaUtil.Application;
+            xlApp.WorkbookOpen -= Excel_WorkbookOpen;
+            xlApp.WorkbookBeforeClose -= Excel_WorkbookBeforeClose;
         }
     }
 

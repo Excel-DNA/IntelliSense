@@ -143,13 +143,13 @@ namespace ExcelDna.IntelliSense
                 {
                     // TODO: dispose managed state (managed objects).
                 }
-                _syncContextAuto.Post(winEventHook =>
+                _syncContextAuto.Send(winEventHook =>
                 {
                     try
                     {
                         Logger.WinEvents.Info($"UnhookWinEvent called on thread {Thread.CurrentThread.ManagedThreadId}");
                         bool result = UnhookWinEvent((IntPtr)winEventHook);
-                        Logger.WinEvents.Info($"UnhookWinEvent result {result}");
+                        Logger.WinEvents.Info($"UnhookWinEvent success? {result}");
                     }
                     catch (Exception ex)
                     {
@@ -161,18 +161,20 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-         ~WinEventHook()
-        {
-           // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-           Dispose(false);
-         }
+        // TODO: Does this make any sense?
+        //       We _have_to_ Unhook from the automation thread...
+        // ~WinEventHook()
+        //{
+        //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+        //   Dispose(false);
+        // }
 
         // This code added to correctly implement the disposable pattern.
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
             Dispose(true);
-            GC.SuppressFinalize(this);
+            // GC.SuppressFinalize(this);
         }
         #endregion
     }

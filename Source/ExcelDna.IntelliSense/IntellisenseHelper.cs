@@ -70,11 +70,16 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            Logger.Initialization.Verbose("IntelliSenseHelper Dispose Start");
+
             foreach (var provider in _providers)
             {
                 provider.Dispose();
             }
+            _uiMonitor.Dispose();
             _display.Dispose();
+
+            Logger.Initialization.Verbose("IntelliSenseHelper Dispose End");
         }
     }
 }

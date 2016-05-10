@@ -89,6 +89,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // WARNING! LoaderLock danger here
+        //          LoadNotification event handler must be very careful, not load any other managed library etc...
         void Notification(Reason notificationReason, IntPtr pNotificationData, IntPtr context)
         {
             IntPtr pFullDllName = Marshal.ReadIntPtr(pNotificationData, 4);
@@ -112,6 +113,7 @@ namespace ExcelDna.IntelliSense
                 }
 
                 var status = LdrUnregisterDllNotification(_cookie);
+                Logger.Initialization.Verbose($"LoaderNotification LdrUnregisterDllNotification Result: {status}");
                 disposedValue = true;
             }
         }
@@ -127,7 +129,7 @@ namespace ExcelDna.IntelliSense
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
             Dispose(true);
-             GC.SuppressFinalize(this);
+            GC.SuppressFinalize(this);
         }
         #endregion
 

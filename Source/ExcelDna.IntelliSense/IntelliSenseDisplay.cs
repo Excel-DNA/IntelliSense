@@ -420,22 +420,22 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            // TODO: How to interact with the pending event callbacks?
-            _syncContextMain.Send(delegate
-                {
-                    if (_descriptionToolTip != null)
-                    {
-                        _descriptionToolTip.Dispose();
-                        _descriptionToolTip = null;
-                    }
-                    if (_argumentsToolTip != null)
-                    {
-                        _argumentsToolTip.Dispose();
-                        _argumentsToolTip = null;
-                    }
-                    _uiMonitor.Dispose();
-                }, null);
-
+            _uiMonitor.StateUpdatePreview -= StateUpdatePreview;
+            _uiMonitor.StateUpdate -= StateUpdate;
+            //// TODO: How to interact with the pending event callbacks?
+            //_syncContextMain.Send(delegate
+            //    {
+            //        if (_descriptionToolTip != null)
+            //        {
+            //            _descriptionToolTip.Dispose();
+            //            _descriptionToolTip = null;
+            //        }
+            //        if (_argumentsToolTip != null)
+            //        {
+            //            _argumentsToolTip.Dispose();
+            //            _argumentsToolTip = null;
+            //        }
+            //    }, null);
             _syncContextMain = null;
         }
 
