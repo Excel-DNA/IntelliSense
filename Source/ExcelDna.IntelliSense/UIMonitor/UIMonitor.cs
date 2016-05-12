@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows;
+using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
@@ -645,6 +646,9 @@ namespace ExcelDna.IntelliSense
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
+                    // Try to clean up any stray event handlers too...
+                    Automation.RemoveAllEventHandlers();
+
                 }, null);
 
             // Let the above delegate and nested calls run, then clean up.
