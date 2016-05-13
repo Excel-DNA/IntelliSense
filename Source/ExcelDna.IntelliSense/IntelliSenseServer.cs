@@ -110,7 +110,19 @@ namespace ExcelDna.IntelliSense
             }
 
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
+            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
             Logger.Initialization.Info("IntelliSenseServer.Register End");
+        }
+
+        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        {
+            Logger.Initialization.Verbose("IntelliSenseServer ProcessExit Begin");
+            if (_isActive)
+            {
+                Deactivate();
+            }
+            Logger.Initialization.Verbose("IntelliSenseServer PrcessExit End");
+            
         }
 
         // DomainUnload runs when AutoClose() would run on the add-in.
@@ -119,7 +131,7 @@ namespace ExcelDna.IntelliSense
         // We don't expect DomainUnload to run when Excel is shutting down.
         static void CurrentDomain_DomainUnload(object sender, EventArgs e)
         {
-            Logger.Initialization.Info("IntelliSenseServer DomainUnload");
+            Logger.Initialization.Verbose("IntelliSenseServer DomainUnload Begin");
             //// Early shutdown notification
             //XlCall.ShutdownStarted();
 
@@ -134,6 +146,7 @@ namespace ExcelDna.IntelliSense
                     ActivateServer(highestRegistration);
                 }
             }
+            Logger.Initialization.Verbose("IntelliSenseServer DomainUnload End");
         }
 
         // Called internally from the Register() call, or via the control function from another server.
@@ -156,7 +169,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Called internally from the AppDomain_DomainUnload event handler, and via the control function from another server when that server figures out that it must become the active server.
+        // Called internally from the AppDomain_DomainUnload or AppDomain_ProcessExit event handler, and via the control function from another server when that server figures out that it must become the active server.
         internal static bool Deactivate()
         {
             try
