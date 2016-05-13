@@ -57,7 +57,8 @@ namespace ExcelDna.IntelliSense
                     try
                     {
                         // DO we need to remove...?
-                        Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
+                        if (_popupList != null)
+                            Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
                     }
                     catch (Exception ex)
                     {
@@ -74,6 +75,7 @@ namespace ExcelDna.IntelliSense
                     if (_popupList == null)
                     {
                         Logger.WindowWatcher.Verbose($"PopupList automation initialize");
+                        _hwndPopupList = e.WindowHandle;
                         _popupList = AutomationElement.FromHandle(_hwndPopupList);
                         // We set up the structure changed handler so that we can catch the sub-list creation
                         InstallEventHandlers();
