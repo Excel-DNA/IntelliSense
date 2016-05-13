@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -20,12 +21,27 @@ namespace ExcelDna.IntelliSense
         Win32Window _owner;
         int _left;
         int _top;
+        Brush _textBrush;
+        Pen _borderPen;
+        Dictionary<FontStyle, Font> _fonts;
 
         public ToolTipForm(IntPtr hwndOwner)
         {
             Debug.Assert(hwndOwner != IntPtr.Zero);
             InitializeComponent();
             _owner = new Win32Window(hwndOwner);
+            // CONSIDER: Maybe make a more general solution that lazy-loads as needed
+            _fonts = new Dictionary<FontStyle, Font>
+            {
+                { FontStyle.Regular, new Font("Segoe UI", 9, FontStyle.Regular) },
+                { FontStyle.Bold, new Font("Segoe UI", 9, FontStyle.Bold) },
+                { FontStyle.Italic, new Font("Segoe UI", 9, FontStyle.Italic) },
+                { FontStyle.Underline, new Font("Segoe UI", 9, FontStyle.Underline) },
+                { FontStyle.Bold | FontStyle.Italic, new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic) },
+
+            };
+            _textBrush = new SolidBrush(Color.FromArgb(68, 68, 68));
+            _borderPen = new Pen(Color.FromArgb(205, 205, 205));
             //Win32Helper.SetParent(this.Handle, hwndOwner);
 
             // _owner = new NativeWindow();
@@ -63,9 +79,13 @@ namespace ExcelDna.IntelliSense
         public void ShowToolTip(FormattedText text, int left, int top)
         {
             _text = text;
+            _left = left;
+            _top = top;
             if (!Visible)
             {
                 Debug.Print($"Showing ToolTipForm: {_text.ToString()}");
+                Left = _left;
+                Top = _top;
                 ShowToolTip();
             }
             else
@@ -73,8 +93,6 @@ namespace ExcelDna.IntelliSense
                 Debug.Print($"Invalidating ToolTipForm: {_text.ToString()}");
                 Invalidate();
             }
-            _left = left;
-            _top = top;
         }
 
         public void MoveToolTip(int left, int top)
@@ -88,7 +106,8 @@ namespace ExcelDna.IntelliSense
         {
             get
             {
-                if (_owner == null) return IntPtr.Zero;
+                if (_owner == null)
+                    return IntPtr.Zero;
                 return _owner.Handle;
             }
             set
@@ -99,7 +118,7 @@ namespace ExcelDna.IntelliSense
                     //Win32Helper.SetParent(this.Handle, value);
                     if (Visible)
                     {
-                        // Rather just change Owner....
+                        // CONSIDER: Rather just change Owner....
                         Hide();
                         ShowToolTip();
                     }
@@ -152,11 +171,12 @@ namespace ExcelDna.IntelliSense
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            Debug.Print($"Painting ToolTipForm: {_text.ToString()}");
-            const int leftPadding = 3;
+            Debug.Assert(_left != 0 || _top != 0);
+            Logger.Display.Verbose($"ToolTipForm OnPaint: {_text.ToString()} @ ({_left},{_top})");
+            const int leftPadding = 6;
             const int linePadding = 2;
             const int widthPadding = 10;
-            const int heightPadding = 7;
+            const int heightPadding = 3;
 
             base.OnPaint(e);
             List<int> lineWidths = new List<int>();
@@ -178,16 +198,13 @@ namespace ExcelDna.IntelliSense
                     int lineHeight = 0;
                     foreach (var run in line)
                     {
-                        using (var font = new Font("Segoe UI", 9, run.Style))   // TODO: Look this up or something ...?
-                        {
-                            // TODO: Empty strings are a problem....
-                            var text = run.Text == "" ? " " : run.Text;
+                        var font = _fonts[run.Style];
+                        // TODO: Empty strings are a problem....
+                        var text = run.Text == "" ? " " : run.Text;
 
-                            // TODO: Find the color SystemBrushes.ControlDarkDark
-                            DrawString(e.Graphics, SystemBrushes.WindowFrame, ref layoutRect, out textSize, format, text, font);
-                            totalWidth += textSize.Width;
-                            lineHeight = Math.Max(lineHeight, textSize.Height);
-                        }
+                        DrawString(e.Graphics, _textBrush, ref layoutRect, out textSize, format, text, font);
+                        totalWidth += textSize.Width;
+                        lineHeight = Math.Max(lineHeight, textSize.Height);
                     }
                     lineWidths.Add(totalWidth);
                     totalWidth = 0;
@@ -196,7 +213,27 @@ namespace ExcelDna.IntelliSense
                 }
             }
 
-            SetBounds(_left, _top, lineWidths.Max() + widthPadding, totalHeight + heightPadding);
+            var width = lineWidths.Max() + widthPadding;
+            var height = totalHeight + heightPadding;
+            //if (Left != _left ||
+            //    Top != _top ||
+            //    Width != width ||
+            //    Height != height)
+            //{
+                //var pRegion = Win32Helper.CreateRoundRectRgn(0, 0, width - 1, height - 1, 2, 2);
+                //try
+                //{
+                //    Region = Region.FromHrgn(pRegion);
+                //}
+                //finally
+                //{
+                //    Win32Helper.DeleteObject(pRegion);
+                //}
+                SetBounds(_left, _top, width, height);
+            //}
+
+            DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
+
 //            Size = new Size(lineWidths.Max() + widthPadding, totalHeight + heightPadding);
         }
 
@@ -222,6 +259,36 @@ namespace ExcelDna.IntelliSense
                 rect.X += width;
                 rect.Width -= width;
             }
+        }
+
+            
+        public void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
+        {
+            var oldMode = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Draw the truncated rectangle in white.
+            using (GraphicsPath path = new GraphicsPath())
+            {
+                path.StartFigure();
+
+//                if (radiusX <= 0.0F || radiusY <= 0.0F)
+                {
+                    path.AddRectangle(r);
+                }
+                //else
+                {
+                    //arcs work with diameters (radius * 2)
+                    PointF d = new PointF(Math.Min(radiusX * 2, r.Width), Math.Min(radiusY * 2, r.Height));
+                    path.AddArc(r.X, r.Y, d.X, d.Y, 180, 90);
+                    path.AddArc(r.Right - d.X, r.Y, d.X, d.Y, 270, 90);
+                    path.AddArc(r.Right - d.X, r.Bottom - d.Y, d.X, d.Y, 0, 90);
+                    path.AddArc(r.X, r.Bottom - d.Y, d.X, d.Y, 90, 90);
+                }
+                path.CloseFigure();
+                g.DrawPath(_borderPen, path);
+            }
+            g.SmoothingMode = oldMode;
         }
 
         void InitializeComponent()
@@ -264,7 +331,7 @@ namespace ExcelDna.IntelliSense
             this.Controls.Add(this.labelDna);
             this.DoubleBuffered = true;
             this.ForeColor = System.Drawing.Color.DimGray;
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Name = "ToolTipForm";
             this.ShowInTaskbar = false;
             this.ResumeLayout(false);

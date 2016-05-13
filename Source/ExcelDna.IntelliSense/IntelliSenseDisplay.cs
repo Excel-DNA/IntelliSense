@@ -320,7 +320,7 @@ namespace ExcelDna.IntelliSense
                 {
                     _descriptionToolTip.ShowToolTip(
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
-                        left: (int)selectedItemBounds.Right + 25,
+                        left: (int)selectedItemBounds.Right + 21,
                         top: (int)selectedItemBounds.Top);
                     return;
                 }
@@ -332,7 +332,7 @@ namespace ExcelDna.IntelliSense
         
         void FunctionListMove(Rect selectedItemBounds)
         {
-            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + 25, (int)selectedItemBounds.Top);
+            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + 21, (int)selectedItemBounds.Top);
         }
 
         // TODO: Performance / efficiency - cache these somehow
