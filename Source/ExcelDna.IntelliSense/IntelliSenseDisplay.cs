@@ -309,7 +309,7 @@ namespace ExcelDna.IntelliSense
         // Runs on the main thread
         void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds)
         {
-            Debug.Print($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+            Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
 
             IntelliSenseFunctionInfo functionInfo;
             if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))

@@ -430,7 +430,7 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            Logger.WindowWatcher.Verbose("FormulaEdit Disposing");
+            Logger.WindowWatcher.Verbose("FormulaEdit Dispose Begin");
             XlCall.ShutdownStarted();
 
             // Not sure we need this:
@@ -438,27 +438,16 @@ namespace ExcelDna.IntelliSense
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
 //            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
 
-            _formulaPollingTimer?.Dispose();
-            _formulaPollingTimer = null;
-
+            // Forcing cleanup on the automation thread - not sure we need to ....
             _syncContextAuto.Send(delegate 
             {
-                if (_formulaBar != null)
-                {
-                    UninstallTextChangeMonitor(_formulaBar);
-                    _formulaBar = null;
-                }
-                if (_inCellEdit != null)
-                {
-                    UninstallTextChangeMonitor(_inCellEdit);
-                    _inCellEdit = null;
-                }
-                //if (_mainWindow != null)
-                //{
-                //    Automation.RemoveAutomationPropertyChangedEventHandler(_mainWindow, LocationChanged);
-                //    _mainWindow = null;
-                //}
+                _enableFormulaPolling = false;
+                _formulaPollingTimer?.Dispose();
+                _formulaPollingTimer = null;
+                _formulaBar = null;
+                _inCellEdit = null;
             }, null);
+            Logger.WindowWatcher.Verbose("FormulaEdit Dispose End");
         }
     }
 }

@@ -365,7 +365,7 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            Logger.WindowWatcher.Info($"PopupList Dispose");
+            Logger.WindowWatcher.Info($"PopupList Dispose Begin");
             _windowWatcher.PopupListWindowChanged -= _windowWatcher_PopupListWindowChanged;
             _windowWatcher = null;
 
@@ -374,11 +374,12 @@ namespace ExcelDna.IntelliSense
                 Debug.Print("Disposing PopupListWatcher - In Automation context");
                 if (_popupList != null)
                 {
-                    Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupList, PopupListElementSelectedHandler);
-                    Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
+                    //Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupList, PopupListElementSelectedHandler);
+                    //Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
                     _popupList = null;
                 }
             }, null);
+            Logger.WindowWatcher.Info($"PopupList Dispose End");
         }
     }
 }

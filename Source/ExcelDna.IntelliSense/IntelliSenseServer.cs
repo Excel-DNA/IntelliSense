@@ -47,7 +47,7 @@ namespace ExcelDna.IntelliSense
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "0.0.4";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "0.0.5";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -121,7 +121,7 @@ namespace ExcelDna.IntelliSense
             {
                 Deactivate();
             }
-            Logger.Initialization.Verbose("IntelliSenseServer PrcessExit End");
+            Logger.Initialization.Verbose("IntelliSenseServer ProcessExit End");
             
         }
 

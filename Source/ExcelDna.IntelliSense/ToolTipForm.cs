@@ -18,6 +18,8 @@ namespace ExcelDna.IntelliSense
         ToolTip tipDna;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
+        int _left;
+        int _top;
 
         public ToolTipForm(IntPtr hwndOwner)
         {
@@ -71,15 +73,15 @@ namespace ExcelDna.IntelliSense
                 Debug.Print($"Invalidating ToolTipForm: {_text.ToString()}");
                 Invalidate();
             }
-            Left = left;
-            Top = top;
+            _left = left;
+            _top = top;
         }
 
         public void MoveToolTip(int left, int top)
         {
             Invalidate();
-            Left = left;
-            Top = top;
+            _left = left;
+            _top = top;
         }
 
         public IntPtr OwnerHandle
@@ -194,7 +196,8 @@ namespace ExcelDna.IntelliSense
                 }
             }
 
-            Size = new Size(lineWidths.Max() + widthPadding, totalHeight + heightPadding);
+            SetBounds(_left, _top, lineWidths.Max() + widthPadding, totalHeight + heightPadding);
+//            Size = new Size(lineWidths.Max() + widthPadding, totalHeight + heightPadding);
         }
 
         void DrawString(Graphics g, Brush brush, ref Rectangle rect, out Size used,

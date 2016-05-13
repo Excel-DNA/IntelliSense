@@ -621,12 +621,16 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            Logger.Monitor.Info($"UIMonitor Dispose Begin");
+
             if (_syncContextAuto == null)
                 return;
 
             // Send is not supported on _syncContextAuto
             _syncContextAuto.Send(delegate
                 {
+                    // Remove all event handlers ASAP
+                    Automation.RemoveAllEventHandlers();
                     if (_windowWatcher != null)
                     {
 //                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
@@ -646,8 +650,6 @@ namespace ExcelDna.IntelliSense
                         _popupListWatcher.Dispose();
                         _popupListWatcher = null;
                     }
-                    // Try to clean up any stray event handlers too...
-                    Automation.RemoveAllEventHandlers();
 
                 }, null);
 
@@ -658,7 +660,7 @@ namespace ExcelDna.IntelliSense
                 _syncContextAuto.Complete();
                 _syncContextAuto = null;
             }, null);
-
+            Logger.Monitor.Info($"UIMonitor Dispose End");
         }
     }
 }
