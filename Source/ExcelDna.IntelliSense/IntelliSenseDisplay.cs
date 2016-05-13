@@ -244,7 +244,6 @@ namespace ExcelDna.IntelliSense
         void FormulaEditMove(Rect editWindowBounds, Rect excelTooltipBounds)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditMove");
-            Debug.Assert(_argumentsToolTip != null);
             if (_argumentsToolTip == null)
             {
                 Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");

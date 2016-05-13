@@ -15,14 +15,13 @@ namespace ExcelDna.IntelliSense
     {
         FormattedText _text;
         Label label;
-        Label labelDna;
-        ToolTip tipDna;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
         int _left;
         int _top;
         Brush _textBrush;
         Pen _borderPen;
+        private ToolTip tipDna;
         Dictionary<FontStyle, Font> _fonts;
 
         public ToolTipForm(IntPtr hwndOwner)
@@ -295,7 +294,6 @@ namespace ExcelDna.IntelliSense
         {
             this.components = new System.ComponentModel.Container();
             this.label = new System.Windows.Forms.Label();
-            this.labelDna = new System.Windows.Forms.Label();
             this.tipDna = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
             // 
@@ -309,15 +307,6 @@ namespace ExcelDna.IntelliSense
             this.label.TabIndex = 0;
             this.label.Text = "Some long label text.";
             // 
-            // labelDna
-            // 
-            this.labelDna.BackColor = System.Drawing.Color.CornflowerBlue;
-            this.labelDna.Location = new System.Drawing.Point(0, 0);
-            this.labelDna.Name = "labelDna";
-            this.labelDna.Size = new System.Drawing.Size(2, 2);
-            this.labelDna.TabIndex = 0;
-            this.tipDna.SetToolTip(this.labelDna, "IntelliSense by Excel-DNA");
-            // 
             // tipDna
             // 
             this.tipDna.ShowAlways = true;
@@ -328,12 +317,12 @@ namespace ExcelDna.IntelliSense
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(114, 20);
             this.ControlBox = false;
-            this.Controls.Add(this.labelDna);
             this.DoubleBuffered = true;
             this.ForeColor = System.Drawing.Color.DimGray;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Name = "ToolTipForm";
             this.ShowInTaskbar = false;
+            this.tipDna.SetToolTip(this, "IntelliSense by Excel-DNA");
             this.ResumeLayout(false);
 
         }
