@@ -483,9 +483,20 @@ namespace ExcelDna.IntelliSense
         public void Dispose()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Dispose");
-            var xlApp = (Application)ExcelDnaUtil.Application;
-            xlApp.WorkbookOpen -= Excel_WorkbookOpen;
-            xlApp.WorkbookBeforeClose -= Excel_WorkbookBeforeClose;
+            try
+            {
+                var xlApp = (Application)ExcelDnaUtil.Application;
+                // might fail, e.g. if the process is exiting
+                if (xlApp != null)
+                {
+                    xlApp.WorkbookOpen -= Excel_WorkbookOpen;
+                    xlApp.WorkbookBeforeClose -= Excel_WorkbookBeforeClose;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Dispose Error {ex}");
+            }
         }
     }
 

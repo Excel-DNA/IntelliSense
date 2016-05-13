@@ -60,6 +60,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="ExcelDna.IntelliSense.Host-AddIn.xll.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

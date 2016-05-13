@@ -101,6 +101,7 @@ namespace ExcelDna.IntelliSense
         }
 
         #region IDisposable Support
+        // CONSIDER: We might not need the finalizer support ...
         private bool disposedValue = false; // To detect redundant calls
 
         protected virtual void Dispose(bool disposing)
