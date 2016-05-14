@@ -44,9 +44,9 @@ Future direction
 The first step is to stabilize the current implementation.
 For the first release, we hope to add:
 
-    * support for 64-bit Excel,
-    * support for UDFs from VBA add-ins,
-    * support for integrated deployment (as a library deployed in an Excel-DNA add-in) .
+  * support for 64-bit Excel,
+  * support for UDFs from VBA add-ins,
+  * support for integrated deployment (as a library deployed in an Excel-DNA add-in) .
 
 Once a basic implementation is working, there is scope for quite a lot of enhancement. For example, we could add support for:
 
