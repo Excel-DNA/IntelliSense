@@ -150,15 +150,15 @@ namespace ExcelDna.IntelliSense
                     // TODO: TEMP
                     _functionListWindow = fls.FunctionListWindow;
                     FunctionListShow();
-                    FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds);
+                    FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds, fls.HasScrollBar);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListMove:
                     var flm = (UIState.FunctionList)update.NewState;
-                    FunctionListMove(flm.SelectedItemBounds);
+                    FunctionListMove(flm.SelectedItemBounds, flm.HasScrollBar);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListSelectedItemChange:
                     var fl = (UIState.FunctionList)update.NewState;
-                    FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds);
+                    FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds, fl.HasScrollBar);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListHide:
                     FunctionListHide();
@@ -306,9 +306,9 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds)
+        void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds, bool hasScrollBar)
         {
-            Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText}, Thread {Thread.CurrentThread.ManagedThreadId}");
+            Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText} ({(hasScrollBar ? "Scroll" : "NoScroll")})");
 
             IntelliSenseFunctionInfo functionInfo;
             if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
@@ -317,9 +317,10 @@ namespace ExcelDna.IntelliSense
                 var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
                 if (descriptionLines != null)
                 {
+                    var leftMargin = hasScrollBar ? 21 : 4;
                     _descriptionToolTip.ShowToolTip(
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
-                        left: (int)selectedItemBounds.Right + 21,
+                        left: (int)selectedItemBounds.Right + leftMargin,
                         top: (int)selectedItemBounds.Top);
                     return;
                 }
@@ -329,9 +330,10 @@ namespace ExcelDna.IntelliSense
             _descriptionToolTip.Hide();
         }
         
-        void FunctionListMove(Rect selectedItemBounds)
+        void FunctionListMove(Rect selectedItemBounds, bool hasScrollBar)
         {
-            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + 21, (int)selectedItemBounds.Top);
+            var leftMargin = hasScrollBar ? 21 : 4;
+            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + leftMargin, (int)selectedItemBounds.Top);
         }
 
         // TODO: Performance / efficiency - cache these somehow

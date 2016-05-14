@@ -20,6 +20,7 @@ namespace ExcelDna.IntelliSense
         public bool IsVisible{ get; set; } = false;
         public string SelectedItemText { get; set; } = string.Empty;
         public Rect SelectedItemBounds { get; set; } = Rect.Empty;
+        public bool HasVerticalScrollBar { get; set; } = false;
         public IntPtr PopupListHandle => _hwndPopupList;
 
         SynchronizationContext _syncContextAuto;
@@ -85,7 +86,7 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     Logger.WindowWatcher.Verbose($"PopupList window hide");
                     IsVisible = false;
-                    UpdateSelectedItem(_selectedItem);
+                    UpdateSelectedItem(_selectedItem, false);
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
@@ -128,7 +129,8 @@ namespace ExcelDna.IntelliSense
             if (IsVisible && _selectedItem != null)
             {
                 // Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-                UpdateSelectedItem(_selectedItem);
+                // We assume the scroll bar presence has not changed
+                UpdateSelectedItem(_selectedItem, HasVerticalScrollBar);
             }
 
             //_syncContextAuto.Post(delegate
@@ -165,7 +167,12 @@ namespace ExcelDna.IntelliSense
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
             Logger.WindowWatcher.Verbose($"PopupList PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
-            UpdateSelectedItem(sender as AutomationElement);
+            var selectedItem = (AutomationElement)sender;
+            // CONSIDER: Maybe monitor changes to scrollbar as an event? (for performance)
+            var walker = TreeWalker.ControlViewWalker;
+            var list = walker.GetParent(walker.GetParent(selectedItem));
+            var hasVerticalScrollBar = (bool)list.GetCurrentPropertyValue(AutomationElement.IsScrollPatternAvailableProperty);
+            UpdateSelectedItem(selectedItem, hasVerticalScrollBar);
         }
 
         // Runs on our automation thread
@@ -202,12 +209,14 @@ namespace ExcelDna.IntelliSense
             if (listElement != null)
             {
                 var selectionPattern = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
+                // CONSIDER: We might dig in a big more (e.g. is horizontal scrolling possible?)
+                var hasVerticalScrollBar = (bool)listElement.GetCurrentPropertyValue(AutomationElement.IsScrollPatternAvailableProperty);
                 var currentSelection = selectionPattern.Current.GetSelection();
                 if (currentSelection.Length > 0)
                 {
                     try
                     {
-                        UpdateSelectedItem(currentSelection[0]);
+                        UpdateSelectedItem(currentSelection[0], hasVerticalScrollBar);
                     }
                     catch (Exception ex)
                     {
@@ -221,98 +230,9 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        //// TODO: This should be exposed as an event and popup resize should be elsewhere
-        //// Runs on an automation event thread
-        //void PopupListStructureChangedHandler(object sender, StructureChangedEventArgs e)
-        //{
-        //    Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler ({e.StructureChangeType}) on thread {Thread.CurrentThread.ManagedThreadId}");
-        //    // Debug.WriteLine($">>> PopupList structure changed - {e.StructureChangeType}");
-        //    // CONSIDER: Others too?
-        //    if (e.StructureChangeType == StructureChangeType.ChildAdded)
-        //    {
-        //        var functionList = sender as AutomationElement;
-
-        //        //var listRect = (Rect)functionList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-
-        //        var listElement = functionList.FindFirst(TreeScope.Children, Condition.TrueCondition);
-        //        if (listElement != null)
-        //        {
-        //            // Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler Post - Children Found !!!");
-
-        //            _popupListList = listElement;
-
-        //            // TODO: Move this code!
-        //            // TestMoveWindow(_popupListList, (int)listRect.X, (int)listRect.Y);
-        //            // TestMoveWindow(functionList, 0, 0);
-
-        //            // If the _popupListList automation element is no plonger valid then we seem to get a InvalidPattern exception here.
-        //            var selPat = _popupListList.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
-        //            Debug.Assert(selPat != null);
-
-        //            // CONSIDER: Send might be a bit disruptive here / might not be necessary...
-        //            // _syncContextAuto.Send( _ =>
-        //            //{
-        //                try
-        //                {
-        //                    Debug.Print("POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER ADDED");
-        //                    Automation.AddAutomationEventHandler(
-        //                        SelectionItemPattern.ElementSelectedEvent, _popupListList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
-        //                }
-        //                catch (Exception ex)
-        //                {
-        //                    Debug.Print("Error during AddAutomationEventHandler! " + ex);
-        //                }
-        //            //}, null);
-
-        //            // Update the current selection, if any
-        //            var curSel = selPat.Current.GetSelection();
-        //            if (curSel.Length > 0)
-        //            {
-        //                try
-        //                {
-        //                    UpdateSelectedItem(curSel[0]);
-        //                }
-        //                catch (Exception ex)
-        //                {
-        //                    Debug.Print("Error during UpdateSelected! " + ex);
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            Debug.Print($">>>> PopupListWatcher.PopupListStructureChangedHandler Post - No Children Found ??? ");
-        //            Debug.WriteLine("ERROR!!! Structure changed but no children anymore.");
-        //        }
-        //    }
-        //    else if (e.StructureChangeType == StructureChangeType.ChildRemoved)
-        //    {
-        //        if (_popupListList != null)
-        //        {
-        //            var selPat = _popupListList.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
-        //            Debug.Assert(selPat != null);
-        //            // CONSIDER: Send might be a bit disruptive here / might not be necessary...
-        //            //_syncContextAuto.Send( _ =>
-        //            //{
-        //                try
-        //                {
-        //                    Debug.Print("POPUPLISTWATCHER WINDOW SELECTION EVENT HANDLER REMOVED");
-        //                    Automation.RemoveAutomationEventHandler(SelectionItemPattern.ElementSelectedEvent, _popupListList, PopupListElementSelectedHandler);
-        //                }
-        //                catch (Exception ex)
-        //                {
-        //                    Debug.Print("Error during RemoveAutomationEventHandler! " + ex);
-        //                }
-        //            //}, null);
-        //            _popupListList = null;
-        //        }
-        //        _selectedItem = null;
-        //        OnSelectedItemChanged();
-        //    }
-        //}
-
         // Can run on our automation thread or on any automation event thread (which is also allowed to read properties)
         // But might fail, if the newSelectedItem is already gone by the time we run...
-        void UpdateSelectedItem(AutomationElement newSelectedItem)
+        void UpdateSelectedItem(AutomationElement newSelectedItem, bool hasVerticalScrollBar)
         {
             // Debug.Print($"POPUPLISTWATCHER WINDOW CURRENT SELECTION {newSelectedItem}");
 
@@ -353,13 +273,14 @@ namespace ExcelDna.IntelliSense
                 SelectedItemBounds = selectedItemBounds;
                 // Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
             }
+            HasVerticalScrollBar = hasVerticalScrollBar;
             OnSelectedItemChanged();
         }
 
         // Raises the event on the automation thread (but the SyncContext.Post here is redundant)
         void OnSelectedItemChanged()
         {
-            Logger.WindowWatcher.Verbose($"PopupList SelectedItemChanged {SelectedItemText}");
+            Logger.WindowWatcher.Verbose($"PopupList SelectedItemChanged {SelectedItemText} ({(HasVerticalScrollBar ? "Scroll" : "NoScroll")})");
             _syncContextAuto.Post(_ => SelectedItemChanged(this, EventArgs.Empty), null);
         }
 

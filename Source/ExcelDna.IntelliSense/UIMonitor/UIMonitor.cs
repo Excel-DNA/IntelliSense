@@ -61,6 +61,7 @@ namespace ExcelDna.IntelliSense
             public IntPtr FunctionListWindow;
             public string SelectedItemText;
             public Rect SelectedItemBounds;
+            public bool HasScrollBar;
 
             public override FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
@@ -73,7 +74,8 @@ namespace ExcelDna.IntelliSense
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
-                    SelectedItemBounds = this.SelectedItemBounds
+                    SelectedItemBounds = this.SelectedItemBounds,
+                    HasScrollBar = this.HasScrollBar
                 };
             }
 
@@ -88,7 +90,8 @@ namespace ExcelDna.IntelliSense
 
                     FunctionListWindow = newFunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
-                    SelectedItemBounds = this.SelectedItemBounds
+                    SelectedItemBounds = this.SelectedItemBounds,
+                    HasScrollBar = this.HasScrollBar
                 };
             }
 
@@ -103,7 +106,8 @@ namespace ExcelDna.IntelliSense
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
-                    SelectedItemBounds = this.SelectedItemBounds
+                    SelectedItemBounds = this.SelectedItemBounds,
+                    HasScrollBar = this.HasScrollBar
                 };
             }
 
@@ -118,11 +122,12 @@ namespace ExcelDna.IntelliSense
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
-                    SelectedItemBounds = this.SelectedItemBounds
+                    SelectedItemBounds = this.SelectedItemBounds,
+                    HasScrollBar = this.HasScrollBar
                 };
             }
 
-            public virtual FunctionList WithSelectedItem(string selectedItemText, Rect selectedItemBounds)
+            public virtual FunctionList WithSelectedItem(string selectedItemText, Rect selectedItemBounds, bool hasScrollBar)
             {
                 return new FunctionList
                 {
@@ -133,7 +138,8 @@ namespace ExcelDna.IntelliSense
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = selectedItemText,
-                    SelectedItemBounds = selectedItemBounds
+                    SelectedItemBounds = selectedItemBounds,
+                    HasScrollBar = hasScrollBar
                 };
             }
 
@@ -346,7 +352,8 @@ namespace ExcelDna.IntelliSense
                 oldState = (FunctionList)tempState;
             }
             if (oldState.SelectedItemText != newState.SelectedItemText ||
-                oldState.SelectedItemBounds != newState.SelectedItemBounds)
+                oldState.SelectedItemBounds != newState.SelectedItemBounds ||
+                oldState.HasScrollBar != newState.HasScrollBar)
             {
                 yield return new UIStateUpdate(oldState, newState, UIStateUpdate.UpdateType.FunctionListSelectedItemChange);
             }
@@ -483,7 +490,9 @@ namespace ExcelDna.IntelliSense
 
             if (CurrentState is UIState.FunctionList && _popupListWatcher.IsVisible)
             {
-                var newState = ((UIState.FunctionList)CurrentState).WithSelectedItem(_popupListWatcher.SelectedItemText, _popupListWatcher.SelectedItemBounds);
+                var newState = ((UIState.FunctionList)CurrentState).WithSelectedItem(_popupListWatcher.SelectedItemText, 
+                                                                                     _popupListWatcher.SelectedItemBounds,
+                                                                                     _popupListWatcher.HasVerticalScrollBar);
                 OnStateChanged(newState);
             }
             else
@@ -524,6 +533,7 @@ namespace ExcelDna.IntelliSense
                     FunctionListWindow = _popupListWatcher.PopupListHandle,
                     SelectedItemText = _popupListWatcher.SelectedItemText,
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
+                    HasScrollBar = _popupListWatcher.HasVerticalScrollBar,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
                 };
