@@ -3,7 +3,7 @@ Excel-DNA IntelliSense
 Excel-DNA - see http://excel-dna.net - is an independent project to integrate .NET with Excel.
 With Excel-DNA you can make native (.xll) add-ins for Excel using C#, Visual Basic.NET or F#, providing high-performance user-defined functions (UDFs), custom ribbon interfaces and more.
 
-This project adds in-sheet IntelliSense for Excel UDFs as part of an Excel-DNA add-in.
+This project adds in-sheet IntelliSense for Excel UDFs, either through an independently deployed add-in or as part of an Excel-DNA add-in.
 
 Overview
 --------
@@ -11,7 +11,7 @@ Excel has no known support for user-defined functions to display as part of the 
 
 Current status
 --------------
-The project is under activate development, and at a very early preview stage.
+The project is under activate development, and at a preview stage.
 As a proof of concept we have the following.
 
 For an Excel-DNA function defined like this:
@@ -34,18 +34,24 @@ and when selecting the function, we get argument help
 
 ![Argument Help](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/ArgumentHelp.PNG)
 
+The current test versions can be found on the [Releases](https://github.com/Excel-DNA/IntelliSense/releases) tab.
+
+Currently only the 32-bit version of Excel is supported, and in the configuration where the IntelliSense support is loaded as a separate add-in.
+
 Future direction
 ----------------
 
-The first step is to stabilize the current implementation, and resolve how the feature will be distributed. Since the IntelliSense extension can onyl be provided by one add-in loaded into Excel, different add-ins providing the service will have to cooperate.
+The first step is to stabilize the current implementation.
+For the first release, we hope to add:
+    * support for 64-bit Excel,
+    * support for UDFs from VBA add-ins,
+    * support for integrated deployment (as a library deployed in an Excel-DNA add-in) .
 
 Once a basic implementation is working, there is scope for quite a lot of enhancement. For example, we could add support for:
 
   * enum lists and other parameter selection and validation
   * links to forms or hyperlinks to help
   * enhanced argument selection controls, like a date selector
-
-The intention is also that the Excel-DNA IntelliSense helper could be used both to add IntelliSense help for UDFs defined in Excel-DNA based add-ins, and for VBA-based functions. We'd need to use some kind of definition file or registration function to allow the VBA function to register the descriptions.
 
 Support and participation
 -------------------------
@@ -65,5 +71,5 @@ This project is published under the standard MIT license.
   
   govert@icon.co.za
   
-  17 April 2015
+  14 May 2016
   
