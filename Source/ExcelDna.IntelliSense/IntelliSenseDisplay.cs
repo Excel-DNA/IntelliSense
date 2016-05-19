@@ -42,6 +42,8 @@ namespace ExcelDna.IntelliSense
         IntPtr _formulaEditWindow;
         IntPtr _functionListWindow;
         
+        const int DescriptionLeftMargin = 3;
+
         public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor)
         {
             // We expect this to be running in a macro context on the main Excel thread (ManagedThreadId = 1).
@@ -150,15 +152,15 @@ namespace ExcelDna.IntelliSense
                     // TODO: TEMP
                     _functionListWindow = fls.FunctionListWindow;
                     FunctionListShow();
-                    FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds, fls.HasScrollBar);
+                    FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds, fls.FunctionListBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListMove:
                     var flm = (UIState.FunctionList)update.NewState;
-                    FunctionListMove(flm.SelectedItemBounds, flm.HasScrollBar);
+                    FunctionListMove(flm.SelectedItemBounds, flm.FunctionListBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListSelectedItemChange:
                     var fl = (UIState.FunctionList)update.NewState;
-                    FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds, fl.HasScrollBar);
+                    FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds, fl.FunctionListBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListHide:
                     FunctionListHide();
@@ -306,9 +308,9 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds, bool hasScrollBar)
+        void FunctionListSelectedItemChange(string selectedItemText, Rect selectedItemBounds, Rect listBounds)
         {
-            Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - New text - {selectedItemText} ({(hasScrollBar ? "Scroll" : "NoScroll")})");
+            Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - {selectedItemText} List/Item Bounds: {listBounds} / {selectedItemBounds}");
 
             IntelliSenseFunctionInfo functionInfo;
             if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
@@ -317,11 +319,10 @@ namespace ExcelDna.IntelliSense
                 var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
                 if (descriptionLines != null)
                 {
-                    var leftMargin = hasScrollBar ? 21 : 4;
                     _descriptionToolTip.ShowToolTip(
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
-                        left: (int)selectedItemBounds.Right + leftMargin,
-                        top: (int)selectedItemBounds.Top);
+                        left: (int)listBounds.Right + DescriptionLeftMargin,
+                        top: (int)selectedItemBounds.Bottom - 18);
                     return;
                 }
             }
@@ -330,10 +331,9 @@ namespace ExcelDna.IntelliSense
             _descriptionToolTip.Hide();
         }
         
-        void FunctionListMove(Rect selectedItemBounds, bool hasScrollBar)
+        void FunctionListMove(Rect selectedItemBounds, Rect listBounds)
         {
-            var leftMargin = hasScrollBar ? 21 : 4;
-            _descriptionToolTip.MoveToolTip((int)selectedItemBounds.Right + leftMargin, (int)selectedItemBounds.Top);
+            _descriptionToolTip.MoveToolTip((int)listBounds.Right + DescriptionLeftMargin, (int)selectedItemBounds.Bottom - 18);
         }
 
         // TODO: Performance / efficiency - cache these somehow

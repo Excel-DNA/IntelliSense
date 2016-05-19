@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
@@ -21,6 +20,7 @@ namespace ExcelDna.IntelliSense
         int _top;
         Brush _textBrush;
         Pen _borderPen;
+        Pen _borderLightPen;
         private ToolTip tipDna;
         Dictionary<FontStyle, Font> _fonts;
 
@@ -40,7 +40,8 @@ namespace ExcelDna.IntelliSense
 
             };
             _textBrush = new SolidBrush(Color.FromArgb(68, 68, 68));
-            _borderPen = new Pen(Color.FromArgb(205, 205, 205));
+            _borderPen = new Pen(Color.FromArgb(195, 195, 195));
+            _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
             //Win32Helper.SetParent(this.Handle, hwndOwner);
 
             // _owner = new NativeWindow();
@@ -175,7 +176,7 @@ namespace ExcelDna.IntelliSense
             const int leftPadding = 6;
             const int linePadding = 2;
             const int widthPadding = 10;
-            const int heightPadding = 3;
+            const int heightPadding = 2;
 
             base.OnPaint(e);
             List<int> lineWidths = new List<int>();
@@ -187,7 +188,7 @@ namespace ExcelDna.IntelliSense
             {
                 int layoutLeft = ClientRectangle.Location.X + leftPadding;
                 int layoutTop = ClientRectangle.Location.Y;
-                Rectangle layoutRect = new Rectangle(layoutLeft, layoutTop, 1000, 500);
+                Rectangle layoutRect = new Rectangle(layoutLeft, layoutTop - 1, 1000, 500);
 
                 format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
                 Size textSize;
@@ -214,26 +215,8 @@ namespace ExcelDna.IntelliSense
 
             var width = lineWidths.Max() + widthPadding;
             var height = totalHeight + heightPadding;
-            //if (Left != _left ||
-            //    Top != _top ||
-            //    Width != width ||
-            //    Height != height)
-            //{
-                //var pRegion = Win32Helper.CreateRoundRectRgn(0, 0, width - 1, height - 1, 2, 2);
-                //try
-                //{
-                //    Region = Region.FromHrgn(pRegion);
-                //}
-                //finally
-                //{
-                //    Win32Helper.DeleteObject(pRegion);
-                //}
-                SetBounds(_left, _top, width, height);
-            //}
-
+            SetBounds(_left, _top, width, height);
             DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
-
-//            Size = new Size(lineWidths.Max() + widthPadding, totalHeight + heightPadding);
         }
 
         void DrawString(Graphics g, Brush brush, ref Rectangle rect, out Size used,
@@ -264,29 +247,14 @@ namespace ExcelDna.IntelliSense
         public void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
         {
             var oldMode = g.SmoothingMode;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.SmoothingMode = SmoothingMode.None;
 
-            // Draw the truncated rectangle in white.
-            using (GraphicsPath path = new GraphicsPath())
-            {
-                path.StartFigure();
+            g.DrawRectangle(_borderLightPen, new Rectangle((int)r.X, (int)r.Y, 1, 1));
+            g.DrawRectangle(_borderLightPen, new Rectangle((int)(r.X + r.Width - 1), (int)r.Y, 1, 1));
+            g.DrawRectangle(_borderLightPen, new Rectangle((int)(r.X + r.Width - 1), (int)(r.Y + r.Height - 1), 1, 1));
+            g.DrawRectangle(_borderLightPen, new Rectangle((int)(r.X), (int)(r.Y + r.Height - 1), 1, 1));
+            g.DrawRectangle(_borderPen, new Rectangle((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height));
 
-//                if (radiusX <= 0.0F || radiusY <= 0.0F)
-                {
-                    path.AddRectangle(r);
-                }
-                //else
-                {
-                    //arcs work with diameters (radius * 2)
-                    PointF d = new PointF(Math.Min(radiusX * 2, r.Width), Math.Min(radiusY * 2, r.Height));
-                    path.AddArc(r.X, r.Y, d.X, d.Y, 180, 90);
-                    path.AddArc(r.Right - d.X, r.Y, d.X, d.Y, 270, 90);
-                    path.AddArc(r.Right - d.X, r.Bottom - d.Y, d.X, d.Y, 0, 90);
-                    path.AddArc(r.X, r.Bottom - d.Y, d.X, d.Y, 90, 90);
-                }
-                path.CloseFigure();
-                g.DrawPath(_borderPen, path);
-            }
             g.SmoothingMode = oldMode;
         }
 
@@ -327,8 +295,6 @@ namespace ExcelDna.IntelliSense
 
         }
 
-        
-        
         class Win32Window : IWin32Window
         {
             public IntPtr Handle

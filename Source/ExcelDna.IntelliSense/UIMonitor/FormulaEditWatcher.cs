@@ -274,25 +274,6 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Breaks the PopupList SelectedItemChange event handler ... !?
-        //// Expected on some automation event handler thread
-        //void FocusChangedEventHandler(object sender, AutomationFocusChangedEventArgs e)
-        //{
-        //    return;
-        //    Logger.WindowWatcher.Verbose($"++++> Focus Changed! ({_formulaEditFocus})");
-        //    if (_formulaEditFocus == FormulaEditFocus.None)
-        //        return;
-
-        //    var formulaPrefix = XlCall.GetFormulaEditPrefix();
-        //    if (formulaPrefix == null)
-        //    {
-        //        // We need to update
-        //        _formulaEditFocus = FormulaEditFocus.None;
-        //        UpdateFormulaPolling();
-        //        UpdateEditState();
-        //    }
-        //}
-
         // Threading... ???
         void UpdateFormulaPolling()
         {

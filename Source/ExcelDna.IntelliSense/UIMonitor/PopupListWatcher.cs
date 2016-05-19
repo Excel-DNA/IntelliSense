@@ -20,7 +20,7 @@ namespace ExcelDna.IntelliSense
         public bool IsVisible{ get; set; } = false;
         public string SelectedItemText { get; set; } = string.Empty;
         public Rect SelectedItemBounds { get; set; } = Rect.Empty;
-        public bool HasVerticalScrollBar { get; set; } = false;
+        public Rect ListBounds { get; set; } = Rect.Empty;
         public IntPtr PopupListHandle => _hwndPopupList;
 
         SynchronizationContext _syncContextAuto;
@@ -86,7 +86,7 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     Logger.WindowWatcher.Verbose($"PopupList window hide");
                     IsVisible = false;
-                    UpdateSelectedItem(_selectedItem, false);
+                    UpdateSelectedItem(_selectedItem);
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
@@ -126,12 +126,11 @@ namespace ExcelDna.IntelliSense
         // This runs on an automation event handler thread
         void PopupListBoundsChanged(object sender, AutomationPropertyChangedEventArgs e)
         {
-            if (IsVisible && _selectedItem != null)
-            {
-                // Debug.Print($">>>> PopupListWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-                // We assume the scroll bar presence has not changed
-                UpdateSelectedItem(_selectedItem, HasVerticalScrollBar);
-            }
+            Debug.Print($"##### PopupList BoundsChanged: {e.NewValue}");
+            if (e.NewValue != null)
+                ListBounds = (Rect)e.NewValue;
+
+            // We don't have to trigger the update
 
             //_syncContextAuto.Post(delegate
             //{
@@ -168,11 +167,7 @@ namespace ExcelDna.IntelliSense
         {
             Logger.WindowWatcher.Verbose($"PopupList PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
             var selectedItem = (AutomationElement)sender;
-            // CONSIDER: Maybe monitor changes to scrollbar as an event? (for performance)
-            var walker = TreeWalker.ControlViewWalker;
-            var list = walker.GetParent(walker.GetParent(selectedItem));
-            var hasVerticalScrollBar = (bool)list.GetCurrentPropertyValue(AutomationElement.IsScrollPatternAvailableProperty);
-            UpdateSelectedItem(selectedItem, hasVerticalScrollBar);
+            UpdateSelectedItem(selectedItem);
         }
 
         // Runs on our automation thread
@@ -184,8 +179,8 @@ namespace ExcelDna.IntelliSense
                 Automation.AddAutomationEventHandler(
                         SelectionItemPattern.ElementSelectedEvent, _popupList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
                 Logger.WindowWatcher.Verbose($"PopupList selection event handler added");
-                Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListBoundsChanged, AutomationElement.BoundingRectangleProperty);
-                Logger.WindowWatcher.Verbose($"PopupList bounds change event handler added");
+                //Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListBoundsChanged, AutomationElement.BoundingRectangleProperty);
+                //Logger.WindowWatcher.Verbose($"PopupList bounds change event handler added");
             }
             catch (Exception ex)
             {
@@ -209,14 +204,12 @@ namespace ExcelDna.IntelliSense
             if (listElement != null)
             {
                 var selectionPattern = listElement.GetCurrentPattern(SelectionPattern.Pattern) as SelectionPattern;
-                // CONSIDER: We might dig in a big more (e.g. is horizontal scrolling possible?)
-                var hasVerticalScrollBar = (bool)listElement.GetCurrentPropertyValue(AutomationElement.IsScrollPatternAvailableProperty);
                 var currentSelection = selectionPattern.Current.GetSelection();
                 if (currentSelection.Length > 0)
                 {
                     try
                     {
-                        UpdateSelectedItem(currentSelection[0], hasVerticalScrollBar);
+                        UpdateSelectedItem(currentSelection[0]);
                     }
                     catch (Exception ex)
                     {
@@ -232,9 +225,9 @@ namespace ExcelDna.IntelliSense
 
         // Can run on our automation thread or on any automation event thread (which is also allowed to read properties)
         // But might fail, if the newSelectedItem is already gone by the time we run...
-        void UpdateSelectedItem(AutomationElement newSelectedItem, bool hasVerticalScrollBar)
+        void UpdateSelectedItem(AutomationElement newSelectedItem)
         {
-            // Debug.Print($"POPUPLISTWATCHER WINDOW CURRENT SELECTION {newSelectedItem}");
+            Debug.Print($"POPUPLISTWATCHER WINDOW CURRENT SELECTION {newSelectedItem}");
 
             // TODO: Sometimes the IsVisble is not updated, but we are visible and the first selection is set
 
@@ -250,16 +243,20 @@ namespace ExcelDna.IntelliSense
                 _selectedItem = null;
                 SelectedItemText = string.Empty;
                 SelectedItemBounds = Rect.Empty;
+                ListBounds = Rect.Empty;
             }
             else
             {
                 string selectedItemText = string.Empty;
                 Rect selectedItemBounds = Rect.Empty;
+                Rect listBounds = Rect.Empty;
 
                 try
                 {
                     selectedItemText = (string)newSelectedItem.GetCurrentPropertyValue(AutomationElement.NameProperty);
                     selectedItemBounds = (Rect)newSelectedItem.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                    listBounds = (Rect)_popupList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                    Debug.Print($"#### PopupList Update - ListBounds: {listBounds} / SelectedItemBounds: {selectedItemBounds}");
                 }
                 catch (Exception ex)
                 {
@@ -269,19 +266,19 @@ namespace ExcelDna.IntelliSense
                 }
 
                 _selectedItem = newSelectedItem;
+                ListBounds = listBounds;
                 SelectedItemText = selectedItemText;
                 SelectedItemBounds = selectedItemBounds;
                 // Debug.Print($"SelectedItemBounds: {SelectedItemBounds}");
             }
-            HasVerticalScrollBar = hasVerticalScrollBar;
             OnSelectedItemChanged();
         }
 
         // Raises the event on the automation thread (but the SyncContext.Post here is redundant)
         void OnSelectedItemChanged()
         {
-            Logger.WindowWatcher.Verbose($"PopupList SelectedItemChanged {SelectedItemText} ({(HasVerticalScrollBar ? "Scroll" : "NoScroll")})");
-            _syncContextAuto.Post(_ => SelectedItemChanged(this, EventArgs.Empty), null);
+            Logger.WindowWatcher.Verbose($"PopupList SelectedItemChanged {SelectedItemText} ListBounds: {ListBounds}");
+            _syncContextAuto.Post(_ => SelectedItemChanged?.Invoke(this, EventArgs.Empty), null);
         }
 
         public void Dispose()
