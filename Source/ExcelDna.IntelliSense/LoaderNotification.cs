@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ExcelDna.IntelliSense
@@ -32,9 +33,9 @@ namespace ExcelDna.IntelliSense
 
             public static string ToString(IntPtr pUnicodeString)
             {
-                 short length = (short)Marshal.PtrToStructure(pUnicodeString, typeof(short));
-                 IntPtr buffer = Marshal.ReadIntPtr(pUnicodeString, 4);
-                 return Marshal.PtrToStringUni(buffer, length / 2);
+                short length = (short)Marshal.PtrToStructure(pUnicodeString, typeof(short));
+                IntPtr buffer = Marshal.ReadIntPtr(pUnicodeString, IntPtr.Size);  // The offset is determined by the natural size for the struct packing
+                return Marshal.PtrToStringUni(buffer, length / 2);
             }
         }
 
@@ -80,10 +81,11 @@ namespace ExcelDna.IntelliSense
         public LoaderNotification()
         {
             IntPtr context = IntPtr.Zero; // new IntPtr(12345);
-            _notificationDelegate = Notification;
+            _notificationDelegate = Notification; // To prevent GC of the delegate
             var status = LdrRegisterDllNotification(0, _notificationDelegate, context, out _cookie);
             if (status != 0)
             {
+                Debug.Print($"@@@@ LoaderNotification Result: {status}");
                 throw new InvalidOperationException($"Error in LdrRegisterDlLNotification. Result: {status}");
             }
         }
@@ -92,15 +94,13 @@ namespace ExcelDna.IntelliSense
         //          LoadNotification event handler must be very careful, not load any other managed library etc...
         void Notification(Reason notificationReason, IntPtr pNotificationData, IntPtr context)
         {
-            IntPtr pFullDllName = Marshal.ReadIntPtr(pNotificationData, 4);
-            string fullDllName = UnicodeString.ToString(pFullDllName);
-            NotificationEventArgs args = new NotificationEventArgs { Reason = notificationReason, FullDllName = fullDllName };
-            LoadNotification?.Invoke(this, args);
-
-            // Debug.Print($"@@@@ LdrNotification: {notificationReason} - {fullDllName}");
+                IntPtr pFullDllName = Marshal.ReadIntPtr(pNotificationData, IntPtr.Size); // The offset is determined by the natural size for the struct packing
+                string fullDllName = UnicodeString.ToString(pFullDllName);
+                NotificationEventArgs args = new NotificationEventArgs { Reason = notificationReason, FullDllName = fullDllName };
+                LoadNotification?.Invoke(this, args);
         }
 
-        #region IDisposable Support
+#region IDisposable Support
         // CONSIDER: We might not need the finalizer support ...
         private bool disposedValue = false; // To detect redundant calls
 
@@ -113,8 +113,11 @@ namespace ExcelDna.IntelliSense
                     // TODO: dispose managed state (managed objects).
                 }
 
-                var status = LdrUnregisterDllNotification(_cookie);
-                Logger.Initialization.Verbose($"LoaderNotification LdrUnregisterDllNotification Result: {status}");
+                if (_cookie != IntPtr.Zero)
+                {
+                    var status = LdrUnregisterDllNotification(_cookie);
+                    Logger.Initialization.Verbose($"LoaderNotification LdrUnregisterDllNotification Result: {status}");
+                }
                 disposedValue = true;
             }
         }
@@ -132,7 +135,7 @@ namespace ExcelDna.IntelliSense
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        #endregion
+#endregion
 
 
         /*
