@@ -72,11 +72,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FormattedText.cs" />
+    <Compile Include="Providers\ExcelDnaIntelliSenseProvider.cs" />
+    <Compile Include="Providers\WorkbookIntelliSenseProvider.cs" />
+    <Compile Include="Providers\XmlIntelliSenseProvider.cs" />
     <Compile Include="UIMonitor\FormulaEditWatcher.cs" />
     <Compile Include="UIMonitor\FormulaParser.cs" />
     <Compile Include="IntelliSenseDisplay.cs" />
     <Compile Include="IntelliSenseHelper.cs" />
-    <Compile Include="IntelliSenseProvider.cs" />
+    <Compile Include="Providers\IIntelliSenseProvider.cs" />
     <Compile Include="IntelliSenseServer.cs" />
     <Compile Include="Logging.cs" />
     <Compile Include="UIMonitor\PopupListWatcher.cs" />
@@ -88,7 +91,7 @@
     <Compile Include="UIMonitor\UIMonitor.cs" />
     <Compile Include="UIMonitor\WindowWatcher.cs" />
     <Compile Include="Win32Helper.cs" />
-    <Compile Include="LoaderNotification.cs" />
+    <Compile Include="Providers\LoaderNotification.cs" />
     <Compile Include="WindowResizer.cs" />
     <Compile Include="UIMonitor\WinEvents.cs" />
     <Compile Include="UIMonitor\XlCall.cs" />

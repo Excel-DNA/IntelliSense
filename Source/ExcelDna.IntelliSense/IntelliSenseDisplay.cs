@@ -7,19 +7,6 @@ using System.Windows;
 
 namespace ExcelDna.IntelliSense
 {
-    class IntelliSenseFunctionInfo
-    {
-        public class ArgumentInfo
-        {
-            public string ArgumentName;
-            public string Description;
-        }
-        public string FunctionName;
-        public string Description;
-        public List<ArgumentInfo> ArgumentList;
-        public string SourcePath; // XllPath for .xll, Workbook Name for Workbook
-    }
-
     // CONSIDER: Revisit UI Automation Threading: http://msdn.microsoft.com/en-us/library/windows/desktop/ee671692(v=vs.85).aspx
     //           And this threading sample using tlbimp version of Windows 7 native UIA: http://code.msdn.microsoft.com/Windows-7-UI-Automation-6390614a/sourcecode?fileId=21469&pathId=715901329
     // NOTE: TrackFocus example shows how to do a window 'natively'.
@@ -33,8 +20,8 @@ namespace ExcelDna.IntelliSense
         SynchronizationContext _syncContextMain;
         readonly UIMonitor _uiMonitor;
 
-        readonly Dictionary<string, IntelliSenseFunctionInfo> _functionInfoMap =
-            new Dictionary<string, IntelliSenseFunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
+        readonly Dictionary<string, FunctionInfo> _functionInfoMap =
+            new Dictionary<string, FunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
 
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
@@ -58,7 +45,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // TODO: Still not sure how to delete / unregister...
-        internal void UpdateFunctionInfos(IEnumerable<IntelliSenseFunctionInfo> functionInfos)
+        internal void UpdateFunctionInfos(IEnumerable<FunctionInfo> functionInfos)
         {
             foreach (var fi in functionInfos)
             {
@@ -262,7 +249,7 @@ namespace ExcelDna.IntelliSense
             int currentArgIndex;
             if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex))
             {
-                IntelliSenseFunctionInfo functionInfo;
+                FunctionInfo functionInfo;
                 if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
                 {
                     if (_argumentsToolTip != null)
@@ -312,7 +299,7 @@ namespace ExcelDna.IntelliSense
         {
             Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - {selectedItemText} List/Item Bounds: {listBounds} / {selectedItemBounds}");
 
-            IntelliSenseFunctionInfo functionInfo;
+            FunctionInfo functionInfo;
             if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
             {
                 // It's ours!
@@ -339,7 +326,7 @@ namespace ExcelDna.IntelliSense
         // TODO: Performance / efficiency - cache these somehow
         // TODO: Probably not a good place for LINQ !?
         static readonly string[] s_newLineStringArray = new string[] { Environment.NewLine };
-        IEnumerable<TextLine> GetFunctionDescriptionOrNull(IntelliSenseFunctionInfo functionInfo)
+        IEnumerable<TextLine> GetFunctionDescriptionOrNull(FunctionInfo functionInfo)
         {
             var description = functionInfo.Description;
             if (string.IsNullOrEmpty(description))
@@ -355,12 +342,12 @@ namespace ExcelDna.IntelliSense
                                     }});
         }
 
-        FormattedText GetFunctionIntelliSense(IntelliSenseFunctionInfo functionInfo, int currentArgIndex)
+        FormattedText GetFunctionIntelliSense(FunctionInfo functionInfo, int currentArgIndex)
         {
-            var nameLine = new TextLine { new TextRun { Text = functionInfo.FunctionName + "(" } };
+            var nameLine = new TextLine { new TextRun { Text = functionInfo.Name + "(" } };
             if (functionInfo.ArgumentList.Count > 0)
             {
-                var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.ArgumentName).ToArray();
+                var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
                 if (argNames.Length >= 1)
                 {
                     nameLine.Add(new TextRun { Text = string.Join(", ", argNames) });
@@ -378,11 +365,11 @@ namespace ExcelDna.IntelliSense
 
                     nameLine.Add(new TextRun
                     {
-                        Text = functionInfo.ArgumentList[currentArgIndex].ArgumentName,
+                        Text = functionInfo.ArgumentList[currentArgIndex].Name,
                         Style = System.Drawing.FontStyle.Bold
                     });
 
-                    argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.ArgumentName).ToArray();
+                    argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.Name).ToArray();
                     if (argNames.Length >= 1)
                     {
                         nameLine.Add(new TextRun {Text = ", " + string.Join(", ", argNames)});
@@ -403,13 +390,13 @@ namespace ExcelDna.IntelliSense
             return formattedText;
         }
 
-        TextLine GetArgumentDescription(IntelliSenseFunctionInfo.ArgumentInfo argumentInfo)
+        TextLine GetArgumentDescription(FunctionInfo.ArgumentInfo argumentInfo)
         {
             return new TextLine { 
                     new TextRun
                     {
                         Style = System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic,
-                        Text = argumentInfo.ArgumentName + ": "
+                        Text = argumentInfo.Name + ": "
                     },
                     new TextRun
                     {
@@ -442,24 +429,24 @@ namespace ExcelDna.IntelliSense
 
         // TODO: Think about case again
         // TODO: Consider locking...
-        public void RegisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
+        public void RegisterFunctionInfo(FunctionInfo functionInfo)
         {
             // TODO : Dictionary from KeyLookup
-            IntelliSenseFunctionInfo oldFunctionInfo;
-            if (!_functionInfoMap.TryGetValue(functionInfo.FunctionName, out oldFunctionInfo))
+            FunctionInfo oldFunctionInfo;
+            if (!_functionInfoMap.TryGetValue(functionInfo.Name, out oldFunctionInfo))
             {
-                _functionInfoMap.Add(functionInfo.FunctionName, functionInfo);
+                _functionInfoMap.Add(functionInfo.Name, functionInfo);
             }
             else
             {
                 // Update  against the function name
-                _functionInfoMap[functionInfo.FunctionName] = functionInfo;
+                _functionInfoMap[functionInfo.Name] = functionInfo;
             }
         }
 
-        public void UnregisterFunctionInfo(IntelliSenseFunctionInfo functionInfo)
+        public void UnregisterFunctionInfo(FunctionInfo functionInfo)
         {
-            _functionInfoMap.Remove(functionInfo.FunctionName);
+            _functionInfoMap.Remove(functionInfo.Name);
         }
     }
 }

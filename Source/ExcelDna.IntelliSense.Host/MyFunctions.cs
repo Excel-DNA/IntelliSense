@@ -8,7 +8,7 @@
         // These functions - are just here for testing...
         public class MyFunctions
         {
-            [ExcelFunction(Description = "Returns the sum of two particular numbers that are given")]
+            [ExcelFunction(Description = "Returns the sum of two particular numbers that are given\r\n(As a test, of course)")]
             public static double AddThem(
                 [ExcelArgument(Name = "Augend", Description = "is the first number, to which will be added")] double v1,
                 [ExcelArgument(Name = "Addend", Description = "is the second number that will be added")]     double v2)
@@ -18,7 +18,7 @@
 
             [ExcelFunction(Description = "--------------------")]
             public static double AdxThem(
-                [ExcelArgument(Name = "Augend", Description = "is the first number, to which will be added")] double v1,
+                [ExcelArgument(Name = "tag", Description = "is the first number, to which will be added")] double v1,
                 [ExcelArgument(Name = "Addend", Description = "is the second number that will be added")]     double v2)
             {
                 return v1 + v2;
