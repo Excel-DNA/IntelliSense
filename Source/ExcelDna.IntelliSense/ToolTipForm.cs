@@ -196,7 +196,7 @@ namespace ExcelDna.IntelliSense
                 foreach (var line in _text)
                 {
                     totalHeight += linePadding;
-                    int lineHeight = 12;
+                    int lineHeight = 16;
                     foreach (var run in line)
                     {
                         var font = _fonts[run.Style];
