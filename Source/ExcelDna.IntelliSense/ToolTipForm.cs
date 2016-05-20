@@ -174,8 +174,8 @@ namespace ExcelDna.IntelliSense
             Debug.Assert(_left != 0 || _top != 0);
             Logger.Display.Verbose($"ToolTipForm OnPaint: {_text.ToString()} @ ({_left},{_top})");
             const int leftPadding = 6;
-            const int linePadding = 2;
-            const int widthPadding = 10;
+            const int linePadding = 0;
+            const int widthPadding = 12;
             const int heightPadding = 2;
 
             base.OnPaint(e);
@@ -195,7 +195,8 @@ namespace ExcelDna.IntelliSense
 
                 foreach (var line in _text)
                 {
-                    int lineHeight = 0;
+                    totalHeight += linePadding;
+                    int lineHeight = 12;
                     foreach (var run in line)
                     {
                         var font = _fonts[run.Style];
@@ -209,10 +210,9 @@ namespace ExcelDna.IntelliSense
                     lineWidths.Add(totalWidth);
                     totalWidth = 0;
                     totalHeight += lineHeight;
-                    layoutRect = new Rectangle(layoutLeft, layoutTop + totalHeight + linePadding, 1000, 500);
+                    layoutRect = new Rectangle(layoutLeft, layoutTop + totalHeight - 1, 1000, 500);
                 }
             }
-
             var width = lineWidths.Max() + widthPadding;
             var height = totalHeight + heightPadding;
             SetBounds(_left, _top, width, height);
