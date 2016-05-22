@@ -8,6 +8,7 @@ using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
+    // CONSIDER: Maybe some ideas from here: http://codereview.stackexchange.com/questions/55916/lightweight-rich-link-label
 
     // TODO: Drop shadow: http://stackoverflow.com/questions/16493698/drop-shadow-on-a-borderless-winform
     class ToolTipForm  : Form
@@ -19,10 +20,14 @@ namespace ExcelDna.IntelliSense
         int _left;
         int _top;
         Brush _textBrush;
+        Brush _linkBrush;
         Pen _borderPen;
         Pen _borderLightPen;
-        private ToolTip tipDna;
+        ToolTip tipDna;
         Dictionary<FontStyle, Font> _fonts;
+        Rectangle _linkRect;
+        bool _linkActive;
+        string _linkAddress;
 
         public ToolTipForm(IntPtr hwndOwner)
         {
@@ -40,6 +45,7 @@ namespace ExcelDna.IntelliSense
 
             };
             _textBrush = new SolidBrush(Color.FromArgb(68, 68, 68));
+            _linkBrush = new SolidBrush(Color.Blue);
             _borderPen = new Pen(Color.FromArgb(195, 195, 195));
             _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
             //Win32Helper.SetParent(this.Handle, hwndOwner);
@@ -144,6 +150,7 @@ namespace ExcelDna.IntelliSense
         
         // Sometimes has Invalid Handle error when calling base.CreateParams (called from Invalidate() for some reason)
         CreateParams _createParams;
+
         protected override CreateParams CreateParams
         {
             get
@@ -199,11 +206,32 @@ namespace ExcelDna.IntelliSense
                     int lineHeight = 16;
                     foreach (var run in line)
                     {
-                        var font = _fonts[run.Style];
+                        // We support only a single link, for now
+
+                        Font font;
+                        Brush brush;
+                        if (run.IsLink && _linkActive)
+                        {
+                            font = _fonts[FontStyle.Underline];
+                            brush = _linkBrush;
+                        }
+                        else
+                        {
+                            font = _fonts[run.Style];
+                            brush = _textBrush;
+                        }
+
                         // TODO: Empty strings are a problem....
                         var text = run.Text == "" ? " " : run.Text;
 
-                        DrawString(e.Graphics, _textBrush, ref layoutRect, out textSize, format, text, font);
+                        DrawString(e.Graphics, brush, ref layoutRect, out textSize, format, text, font);
+
+                        if (run.IsLink)
+                        {
+                            _linkRect = new Rectangle(layoutRect.X - textSize.Width, layoutRect.Y, textSize.Width, textSize.Height);
+                            _linkAddress = run.LinkAddress;
+                        }
+
                         totalWidth += textSize.Width;
                         lineHeight = Math.Max(lineHeight, textSize.Height);
                     }
@@ -291,6 +319,8 @@ namespace ExcelDna.IntelliSense
             this.Name = "ToolTipForm";
             this.ShowInTaskbar = false;
             this.tipDna.SetToolTip(this, "IntelliSense by Excel-DNA");
+            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.ToolTipForm_MouseClick);
+            this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.ToolTipForm_MouseMove);
             this.ResumeLayout(false);
 
         }
@@ -307,6 +337,37 @@ namespace ExcelDna.IntelliSense
             {
                 Handle = handle;
             }
+        }
+
+        void ToolTipForm_MouseMove(object sender, MouseEventArgs e)
+        {
+            var inLink = _linkRect.Contains(e.Location);
+            if ((inLink && !_linkActive) ||
+                (!inLink && _linkActive))
+            {
+                _linkActive = !_linkActive;
+                Invalidate();
+            }
+        }
+
+        void ToolTipForm_MouseClick(object sender, MouseEventArgs e)
+        {
+            var inLink = _linkRect.Contains(e.Location);
+            if (inLink)
+            {
+                LaunchLink(_linkAddress);
+            }
+        }
+
+        void LaunchLink(string address)
+        {
+            // Check : 
+            // http://stackoverflow.com/questions/11076952/open-chm-file-at-specific-page-topic-using-command-line-arguments
+            // http://stackoverflow.com/questions/27556808/excel-2010-help-on-this-function-does-not-launch-hh-exe-with-mapid-parameter/27571805#27571805
+            // http://www.help-info.de/en/Help_Info_HTMLHelp/hh_command.htm
+            // https://support.microsoft.com/en-us/kb/224816
+
+            Process.Start(address);
         }
     }
 }

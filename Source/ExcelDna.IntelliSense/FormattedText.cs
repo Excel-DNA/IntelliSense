@@ -70,7 +70,8 @@ namespace ExcelDna.IntelliSense
     {
         public string Text { get; set; }
         public FontStyle Style { get; set; }    
-        // CONSIDER: Maybe allow links?
+        public string LinkAddress { get; set; }
+        public bool IsLink { get { return !string.IsNullOrEmpty(LinkAddress); } }
     }
 
 }

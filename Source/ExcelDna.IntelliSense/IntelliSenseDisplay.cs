@@ -344,7 +344,8 @@ namespace ExcelDna.IntelliSense
 
         FormattedText GetFunctionIntelliSense(FunctionInfo functionInfo, int currentArgIndex)
         {
-            var nameLine = new TextLine { new TextRun { Text = functionInfo.Name + "(" } };
+            var nameLine = new TextLine { new TextRun { Text = functionInfo.Name, LinkAddress = FixHelpTopic(functionInfo.HelpTopic) } };
+            nameLine.Add(new TextRun { Text = "(" });
             if (functionInfo.ArgumentList.Count > 0)
             {
                 var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
@@ -425,6 +426,14 @@ namespace ExcelDna.IntelliSense
             //        }
             //    }, null);
             _syncContextMain = null;
+        }
+
+        // Removes the !0 that we add to make Excel happy
+        string FixHelpTopic(string helpTopic)
+        {
+            if (helpTopic != null && helpTopic.EndsWith("!0"))
+                return helpTopic.Substring(0, helpTopic.Length - 2);
+            return helpTopic;
         }
 
         // TODO: Think about case again
