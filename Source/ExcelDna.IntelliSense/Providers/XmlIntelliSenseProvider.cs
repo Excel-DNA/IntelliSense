@@ -9,6 +9,7 @@ using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
+    // CONSIDER: Support regular .NET XML documentation, either as files or packed?
     class XmlIntelliSenseProvider : IIntelliSenseProvider
     {
         public class XmlRegistrationInfo
@@ -184,7 +185,6 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
-            throw new NotImplementedException();
         }
     }
 

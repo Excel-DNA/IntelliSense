@@ -137,13 +137,13 @@ namespace ExcelDna.IntelliSense
             {
                 foreach (Workbook wb in xlApp.Workbooks)
                 {
-                    var path = wb.FullName;
-                    if (!_workbookRegistrationInfos.ContainsKey(path))
+                    var name = wb.Name;
+                    if (!_workbookRegistrationInfos.ContainsKey(name))
                     {
-                        WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(path);
-                        _workbookRegistrationInfos[path] = regInfo;
+                        WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
+                        _workbookRegistrationInfos[name] = regInfo;
 
-                        RegisterWithXmlProvider(wb, path);
+                        RegisterWithXmlProvider(wb);
 
                         regInfo.Refresh();
                     }
@@ -175,32 +175,32 @@ namespace ExcelDna.IntelliSense
 
         #endregion
 
-        void Excel_WorkbookOpen(Workbook Wb)
+        void Excel_WorkbookOpen(Workbook wb)
         {
-            var path = Wb.FullName;
-            var regInfo = new WorkbookRegistrationInfo(path);
+            var name = wb.Name;
+            var regInfo = new WorkbookRegistrationInfo(name);
             lock (_workbookRegistrationInfos)
             {
-                _workbookRegistrationInfos[path] = regInfo;
-                RegisterWithXmlProvider(Wb, path);
+                _workbookRegistrationInfos[name] = regInfo;
+                RegisterWithXmlProvider(wb);
                 OnInvalidate();
             }
         }
 
-        void Excel_WorkbookBeforeClose(Workbook Wb, ref bool Cancel)
+        void Excel_WorkbookBeforeClose(Workbook wb, ref bool cancel)
         {
             // Do we have to worry about renaming / Save As?
             // Do we have to worry about other BeforeClose handlers cancelling the close?
             lock (_workbookRegistrationInfos)
             {
-                var path = Wb.FullName;
-                _workbookRegistrationInfos.Remove(path);
-                UnregisterWithXmlProvider(Wb, path);
+                _workbookRegistrationInfos.Remove(wb.Name);
+                UnregisterWithXmlProvider(wb);
             }
         }
 
-        void RegisterWithXmlProvider(Workbook wb, string path)
+        void RegisterWithXmlProvider(Workbook wb)
         {
+            var path = wb.FullName;
             var xmlPath = GetXmlPath(path);
             _xmlProvider.RegisterXmlFunctionInfo(xmlPath);  // Will check if file exists
 
@@ -212,8 +212,9 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        void UnregisterWithXmlProvider(Workbook wb, string path)
+        void UnregisterWithXmlProvider(Workbook wb)
         {
+            var path = wb.FullName;
             var xmlPath = GetXmlPath(path);
             _xmlProvider.UnregisterXmlFunctionInfo(xmlPath);
             _xmlProvider.UnregisterXmlFunctionInfo(path);
