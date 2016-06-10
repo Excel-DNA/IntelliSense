@@ -1,0 +1,9 @@
+<IntelliSense xmlns="http://schemas.excel-dna.net/intellisense/1.0">
+  <FunctionInfo>
+    <Function Name="MyVBAFunction" Description="A function described by an external XML file"
+              HelpTopic="http://www.bing.com" >
+      <Argument Name="FirstArg" Description="Whatever you want to put in here" />
+      <Argument Name="AnotherArg" Description="Actually the second arg" />
+    </Function>
+  </FunctionInfo>
+</IntelliSense>

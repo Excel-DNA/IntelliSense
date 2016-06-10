@@ -11,8 +11,7 @@ Excel has no known support for user-defined functions to display as part of the 
 
 Current status
 --------------
-The project is under activate development, and at a preview stage.
-As a proof of concept we have the following.
+The project is under activate development, and ready for intial testing.
 
 For an Excel-DNA function defined like this:
 ```C#
@@ -34,19 +33,22 @@ and when selecting the function, we get argument help
 
 ![Argument Help](https://raw.github.com/Excel-DNA/IntelliSense/master/Screenshots/ArgumentHelp.PNG)
 
-The current test versions can be found on the [Releases](https://github.com/Excel-DNA/IntelliSense/releases) tab.
 
-Currently only the 32-bit version of Excel is supported, and in the configuration where the IntelliSense support is loaded as a separate add-in.
+User-defined functions written in VBA (either in an add-in or regular Workbook) can also provide IntelliSense descriptions, either by embedding descriptions in the Workbook, or in an external file.
+
+The first configuration being tested now, is where the IntelliSense display server is loaded as a separate add-in.
+
+Getting Started
+---------------
+
+See the [Getting Started](https://github.com/Excel-DNA/IntelliSense/wiki/Getting-Started) page for more detail.
 
 Future direction
 ----------------
 
 The first step is to stabilize the current implementation.
-For the first release, we hope to add:
-
-  * support for 64-bit Excel,
-  * support for UDFs from VBA add-ins,
-  * support for integrated deployment (as a library deployed in an Excel-DNA add-in) .
+For the first release, we still hope to add support for integrated deployment (as a library deployed in an Excel-DNA add-in).
+Otherwise the library is feature complete for the first version.
 
 Once a basic implementation is working, there is scope for quite a lot of enhancement. For example, we could add support for:
 
@@ -72,5 +74,5 @@ This project is published under the standard MIT license.
   
   govert@icon.co.za
   
-  14 May 2016
+  11 June 2016
   
