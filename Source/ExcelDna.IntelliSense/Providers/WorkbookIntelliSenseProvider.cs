@@ -204,10 +204,10 @@ namespace ExcelDna.IntelliSense
             var xmlPath = GetXmlPath(path);
             _xmlProvider.RegisterXmlFunctionInfo(xmlPath);  // Will check if file exists
 
-            var customXmlParts = wb.CustomXMLParts.SelectByNamespace(XmlIntelliSenseProvider.XmlRegistrationInfo.XmlIntelliSense.Namespace);
+            var customXmlParts = wb.CustomXMLParts.SelectByNamespace(XmlIntelliSense.Namespace);
             if (customXmlParts.Count > 0)
             {
-                // We just take the first one - register against the workbook name
+                // We just take the first one - register against the Bworkbook name
                 _xmlProvider.RegisterXmlFunctionInfo(path, customXmlParts[1].XML);
             }
         }

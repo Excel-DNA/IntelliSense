@@ -1,4 +1,4 @@
-<IntelliSense xmlns="http://excel-dna.net/intellisense/1.0/">
+<IntelliSense xmlns="http://schemas.excel-dna.net/intellisense/1.0">
   <FunctionInfo>
     <Function Name="MyVBAFunction" Description="A function described by an external XML file"
               HelpTopic="http://www.bing.com" >

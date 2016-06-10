@@ -39,6 +39,14 @@ namespace ExcelDna.IntelliSense
                         xml = File.ReadAllText(_fileName);
                     }
                     _intelliSense = XmlIntelliSense.Parse(xml);
+                    if (_intelliSense?.XmlFunctionInfo?.FunctionsList != null)
+                    {
+                        // Fix up SourcePath (is this used?)
+                        foreach (var func in _intelliSense.XmlFunctionInfo.FunctionsList)
+                        {
+                            func.SourcePath = _fileName;
+                        }
+                    }
                 }
                 catch // (Exception ex)
                 {
@@ -55,50 +63,6 @@ namespace ExcelDna.IntelliSense
                 return _intelliSense.XmlFunctionInfo.FunctionsList;
             }
 
-            #region Serialized Xml structure
-            [Serializable]
-            [XmlType(AnonymousType = true)]
-            [XmlRoot("IntelliSense", Namespace = XmlIntelliSense.Namespace, IsNullable = false)]
-            public class XmlIntelliSense
-            {
-                [XmlElement("FunctionInfo")]
-                public XmlFunctionInfo XmlFunctionInfo;
-
-                // returns XmlIntelliSense.Empty on failure
-                public static XmlIntelliSense Parse(string xmlFunctionInfo)
-                {
-                    Initialize();
-                    try
-                    {
-                        using (var stringReader = new StringReader(xmlFunctionInfo))
-                        {
-                            return (XmlIntelliSense)_serializer.Deserialize(stringReader);
-                        }
-                    }
-                    catch // (Exception ex)
-                    {
-                        // TODO: Log errors
-                        return Empty;
-                    }
-                }
-
-                public static void Initialize()
-                {
-                    if (_serializer == null)
-                        _serializer = new XmlSerializer(typeof(XmlIntelliSense));
-                }
-                static XmlSerializer _serializer;
-                public static XmlIntelliSense Empty { get; } = new XmlIntelliSense { XmlFunctionInfo = new XmlFunctionInfo { FunctionsList = new List<FunctionInfo>() } };
-                public const string Namespace = "http://schemas.excel-dna.net/intellisense/";
-            }
-
-            public class XmlFunctionInfo
-            {
-                [XmlElement("Function", typeof(FunctionInfo))]
-                public List<FunctionInfo> FunctionsList;
-            }
-
-            #endregion
 
         }
 
@@ -134,11 +98,12 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Safe to call it wasn't registered
+        // Safe to call even if it wasn't registered
         public void UnregisterXmlFunctionInfo(string fileName)
         {
             if (_xmlRegistrationInfos.Remove(fileName))
                 _isDirty = true;
+            // Not Invalidating - we're not really worried about keeping the extra information around a bit longer
         }
 
         public void Initialize()
@@ -188,4 +153,49 @@ namespace ExcelDna.IntelliSense
         }
     }
 
+    #region Serialized Xml structure
+    [Serializable]
+    [XmlType(AnonymousType = true)]
+    [XmlRoot("IntelliSense", Namespace = XmlIntelliSense.Namespace, IsNullable = false)]
+    public class XmlIntelliSense
+    {
+        [XmlElement("FunctionInfo")]
+        public XmlFunctionInfo XmlFunctionInfo;
+
+        // returns XmlIntelliSense.Empty on failure
+        public static XmlIntelliSense Parse(string xmlFunctionInfo)
+        {
+            Initialize();
+            try
+            {
+                using (var stringReader = new StringReader(xmlFunctionInfo))
+                {
+                    return (XmlIntelliSense)_serializer.Deserialize(stringReader);
+                }
+            }
+            catch // (Exception ex)
+            {
+                // TODO: Log errors
+                return Empty;
+            }
+        }
+
+        public static void Initialize()
+        {
+            if (_serializer == null)
+                _serializer = new XmlSerializer(typeof(XmlIntelliSense));
+        }
+        static XmlSerializer _serializer;
+        public static XmlIntelliSense Empty { get; } = new XmlIntelliSense { XmlFunctionInfo = new XmlFunctionInfo { FunctionsList = new List<FunctionInfo>() } };
+        public const string Namespace = "http://schemas.excel-dna.net/intellisense/1.0";
+    }
+
+    [Serializable]
+    public class XmlFunctionInfo
+    {
+        [XmlElement("Function", typeof(FunctionInfo))]
+        public List<FunctionInfo> FunctionsList;
+    }
+
+    #endregion
 }

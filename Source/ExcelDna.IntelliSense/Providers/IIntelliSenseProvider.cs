@@ -44,17 +44,22 @@ namespace ExcelDna.IntelliSense
     {
         public class ArgumentInfo
         {
+            [XmlAttribute]
             public string Name;
+            [XmlAttribute]
             public string Description;
-            public string HelpTopic;
         }
 
+        [XmlAttribute]
         public string Name;
+        [XmlAttribute]
         public string Description;
+        [XmlAttribute]
         public string HelpTopic;
         [XmlElement("Argument", typeof(ArgumentInfo))]
         public List<ArgumentInfo> ArgumentList;
-        public string SourcePath; // XllPath for .xll, Workbook Name for Workbook
+        [XmlIgnore]
+        public string SourcePath; // XllPath for .xll, Workbook Name for Workbook, .xml file path for Xml file
     }
 
 }
