@@ -361,13 +361,25 @@ namespace ExcelDna.IntelliSense
 
         void LaunchLink(string address)
         {
-            // Check : 
-            // http://stackoverflow.com/questions/11076952/open-chm-file-at-specific-page-topic-using-command-line-arguments
-            // http://stackoverflow.com/questions/27556808/excel-2010-help-on-this-function-does-not-launch-hh-exe-with-mapid-parameter/27571805#27571805
-            // http://www.help-info.de/en/Help_Info_HTMLHelp/hh_command.htm
-            // https://support.microsoft.com/en-us/kb/224816
-
-            Process.Start(address);
+            if (address.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                Process.Start(address);
+            }
+            else
+            {
+                var parts = address.Split('!');
+                if (parts.Length == 2)
+                {
+                    // (This is the expected case)
+                    // Assume we have a filename!topicid
+                    Help.ShowHelp(null, parts[0], HelpNavigator.TopicId, parts[1]);
+                }
+                else
+                {
+                    // Just show the file ...?
+                    Help.ShowHelp(null, address);
+                }
+            }
         }
     }
 }
