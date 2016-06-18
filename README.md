@@ -41,14 +41,18 @@ The first configuration being tested now, is where the IntelliSense display serv
 Getting Started
 ---------------
 
+For existing Excel-DNA add-ins (v0.32 or later):
+  * Download and load the latest ExcelDna.IntelliSense.xll or ExcelDna.IntelliSense64.xll from the [Releases](https://github.com/Excel-DNA/IntelliSense/releases) page.
+  * IntelliSense should work automatically for functions that have descriptions in [ExcelFunction] and [ExcelArgument] attributes.
+
+For VBA workbooks or add-ins:
+  * Download and load the latest ExcelDna.IntelliSense.xll or ExcelDna.IntelliSense64.xll from the [Releases](https://github.com/Excel-DNA/IntelliSense/releases) page.
+  * Either add a sheet with the IntelliSense function descriptions, or a separate xml file.
+
 See the [Getting Started](https://github.com/Excel-DNA/IntelliSense/wiki/Getting-Started) page for more detail.
 
 Future direction
 ----------------
-
-The first step is to stabilize the current implementation.
-For the first release, we still hope to add support for integrated deployment (as a library deployed in an Excel-DNA add-in).
-Otherwise the library is feature complete for the first version.
 
 Once a basic implementation is working, there is scope for quite a lot of enhancement. For example, we could add support for:
 
@@ -74,5 +78,5 @@ This project is published under the standard MIT license.
   
   govert@icon.co.za
   
-  11 June 2016
+  18 June 2016
   
