@@ -28,7 +28,7 @@ namespace ExcelDna.IntelliSense
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "0.1.1";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "0.1.2";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -423,7 +423,7 @@ namespace ExcelDna.IntelliSense
 
         static void RegisterControlMacro()
         {
-            var method = typeof(IntelliSenseServer).GetMethod(nameof(IntelliSenseServerControl), BindingFlags.Static | BindingFlags.Public);
+            var method = typeof(IntelliSenseServer).GetMethod(nameof(IntelliSenseServerControl), BindingFlags.Static | BindingFlags.NonPublic);
             var name = RegistrationInfo.GetControlMacroName(_serverId);
             ExcelIntegration.RegisterMethods(new List<MethodInfo> { method }, 
                                              new List<object> { new ExcelCommandAttribute { Name = name } }, // Macros in .xlls are always hidden
@@ -432,7 +432,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // NOTE: The name here is used by Reflection above (when registering the method with Excel)
-        public static object IntelliSenseServerControl(object control)
+        static object IntelliSenseServerControl(object control)
         {
             if (control is string && (string)control == ControlMessageActivate)
             {
