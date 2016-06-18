@@ -1,10 +1,12 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30602.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense", "ExcelDna.IntelliSense\ExcelDna.IntelliSense.csproj", "{E0A7432F-3F7E-4E71-80BB-8263637F9686}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense.Host", "ExcelDna.IntelliSense.Host\ExcelDna.IntelliSense.Host.csproj", "{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelDna.IntelliSense.Tools", "ExcelDna.IntelliSense.Tools\ExcelDna.IntelliSense.Tools.csproj", "{136CAA79-037B-476F-B1A5-0E2A3BEC4BEE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +22,10 @@ Global
 		{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7D55D6F-B9BD-4CFD-853C-484CDB60538A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{136CAA79-037B-476F-B1A5-0E2A3BEC4BEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{136CAA79-037B-476F-B1A5-0E2A3BEC4BEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{136CAA79-037B-476F-B1A5-0E2A3BEC4BEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{136CAA79-037B-476F-B1A5-0E2A3BEC4BEE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -12,12 +12,10 @@ namespace ExcelDna.IntelliSense
     // and/or the scope of some provider (e.g. add support for enums).
     // No provision is made at the moment for user-created providers or an external provider API.
 
-    // The server, upon activation and at other times (when? when ExcelDna.IntelliSense.Refresh is called ?) will call the provider to get the IntelliSense info.
-    // Maybe the provider can also raise an Invalidate event, to prod the server into reloading the IntelliSense info for that provider
+    // Upon activation the server will call the provider to get the IntelliSense info.
+    // The provider can also raise an Invalidate event, to prod the server into reloading the IntelliSense info for that provider
     // (a bit like the ribbon Invalidate works).
-    // E.g. the XmlProvider might read from a file, and put a FileWatcher on the file so that whenever the file changes, 
-    // the server calls back to get the updated info.
-
+ 
     // A major concern is the context in which the provider is called from the server.
     // We separate the Refresh call from the calls to get the info:
     // The Refresh calls are always in a macro context, from the main Excel thread and should be as fast as possible.
@@ -26,11 +24,11 @@ namespace ExcelDna.IntelliSense
 
     // We expect the server to hook some Excel events to provide the entry points... (not sure what this means anymore...?)
 
-    // TODO: Consider interaction with Application.MacroOptions. (or not?)
+    // CONSIDER: Is there a way to get the register info from calls to Application.MacroOptions?
 
     // TODO: We might relax the threading rules, to say that Refresh runs on the same thread as Invalidate 
     // TODO: We might get rid of Refresh (since that runs in the Invalidate context)
-    // TODO: The two providers have been refactored to work very similarly - maybe be can extract out a base class...
+    // CONSIDER: The two providers have been refactored to work very similarly - maybe be can extract out a base class...
     interface IIntelliSenseProvider : IDisposable
     {
         void Initialize();  // Executed in a macro context, on the main Excel thread

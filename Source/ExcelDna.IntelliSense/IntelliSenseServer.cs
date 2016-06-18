@@ -9,7 +9,7 @@ using ExcelDna.Integration;
 
 namespace ExcelDna.IntelliSense
 {
-    // This class implements the registration and activation of this add-in as an IntelliSense Server.
+    // This class implements the registration and activation of the calling add-in as an IntelliSense Server.
     //
     // Among different add-ins that are loaded into an Excel process, at most one IntelliSenseServer can be Active.
     // This should always be the IntelliSenseServer with the greatest version number among those registered.
@@ -25,29 +25,10 @@ namespace ExcelDna.IntelliSense
     // This is against a unique GUID-based name for every registered server, so that the Activate call can be made on an inactive server.
     // (To be called in a macro context only, e.g. from AutoOpen.)
 
-    // The Active Server also registers a macro with Excel under a well-know name (not the server-specific GUID), 
-    // which passes through to a specific provider.
-    // This is so that an add-in can tell (some provider in) the active server to update
-    // E.g. Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "VBA") , ActiveWorkbook.Name)
-    //      Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "XLL") , ExcelDnaUtil.XllPath)
-    //      Application.Run("ExcelDna.IntelliSense.Refresh", ' NOT WITH: "XML") , @"C:\Temp\MyInfo.xml")
-    //      XlCall.Excel(XlCall.xlcRun, "ExcelDna.IntelliSense.Refresh")
-    // NB: This can't be the only way a provider knows what to load, because we don't want to do a hand-over 
-    //     when a new Server becomes Active (there might not have been a server loaded at the start).
-    // So we want the provider to always be able to scan to get the info.
-    //     The Refresh call just allows a re-scan in a macro context (and of course would fail if no Server is Active)
-
-    // Now:
-    // When a Server becomes active it lets all the providers scan.
-    // When a new add-in is then loaded, it calls the ExcelDna.IntelliSense.Refresh macro to force a re-scan.
-    // When an add-in dynamically registers some more UDFs, it can call Update to force a rescan.
-    // So there is no way to say "listen to this .xml file".
-    // So the add-in should provide a discoverable way that a provider can call it to say "what files must I listen to?". 
-
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "0.0.10";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "0.0.11";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -82,7 +63,7 @@ namespace ExcelDna.IntelliSense
             if (IsDisabled())
                 return;
 
-            RegisterControlFunction();
+            RegisterControlMacro();
             PublishRegistration();
 
             bool shouldActivate = false;
@@ -102,11 +83,11 @@ namespace ExcelDna.IntelliSense
                 Logger.Initialization.Info($"IntelliSenseServer not being activated now. Active Version: {activeInfo.Version}");
             }
             // Else we're not activating - there is an active server and it is the same version or newer
-            // TODO: Tell it to load our UDFs somehow - maybe call a hidden macro?
 
-            if (shouldActivate)
+            if (shouldActivate  &&
+               (activeInfo == null || DeactivateServer(activeInfo)))
             {
-                var activated = Activate();
+                Activate();
             }
 
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
@@ -219,12 +200,12 @@ namespace ExcelDna.IntelliSense
             // Suppress errors if things go wrong, including unexpected return types.
             try
             {
-                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlfCall, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
+                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
                 return (bool)result;
             }
-            catch (Exception /*ex*/)
+            catch (Exception ex)
             {
-                // TODO: Log
+                Logger.Initialization.Error(ex, $"IntelliSenseServer {registrationInfo.ToRegistrationString()} could not be activated.");
                 return false;
             }
         }
@@ -236,12 +217,17 @@ namespace ExcelDna.IntelliSense
             // Suppress errors if things go wrong, including unexpected return types.
             try
             {
-                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlfCall, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
+                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
+                if (result is ExcelError)
+                {
+                    Logger.Initialization.Error($"IntelliSenseServer {registrationInfo.ToRegistrationString()} could not be deactivated.");
+                    return false;
+                }
                 return (bool)result;
             }
-            catch (Exception /*ex*/)
+            catch (Exception ex)
             {
-                // TODO: Log
+                Logger.Initialization.Error(ex, $"IntelliSenseServer Deactivate call for {registrationInfo.ToRegistrationString()} failed.");
                 return false;
             }
         }
@@ -285,9 +271,14 @@ namespace ExcelDna.IntelliSense
                 return CompareVersions(Version, other.Version);
             }
 
+            public static string GetControlMacroName(Guid serverId)
+            {
+                return "IntelliSenseServerControl_" + serverId.ToString("N");
+            }
+
             public string GetControlMacroName()
             {
-                return "IntelliSenseControl_" + ServerId.ToString("N");
+                return GetControlMacroName(ServerId);
             }
 
             // 1.2.0 is equal to 1.2
@@ -389,12 +380,15 @@ namespace ExcelDna.IntelliSense
             return version;
         }
 
-        // Version patterns are ","-joined lists of (dotted integer strings, with a possible trailing .* wildcard).
+        // Version patterns are either a single * (universal match) or a ","-joined lists of (dotted integer strings, with a possible trailing .* wildcard).
         // e.g. 1.2.*, which would be matched with regex 1\.2(\.\d+)*
         static bool IsVersionMatch(string version, string versionPattern)
         {
             if (string.IsNullOrEmpty(versionPattern))
                 return false;
+
+            if (versionPattern == "*")
+                return true;    // Universal pattern - matches all versions
 
             var regexParts = new List<string>();
             var parts = versionPattern.Split(',');
@@ -427,12 +421,12 @@ namespace ExcelDna.IntelliSense
 
         #region IntelliSense control function registered with Excel
 
-        static void RegisterControlFunction()
+        static void RegisterControlMacro()
         {
             var method = typeof(IntelliSenseServer).GetMethod(nameof(IntelliSenseServerControl), BindingFlags.Static | BindingFlags.Public);
-            var name = "IntelliSenseServerControl_" +_serverId.ToString("N");
+            var name = RegistrationInfo.GetControlMacroName(_serverId);
             ExcelIntegration.RegisterMethods(new List<MethodInfo> { method }, 
-                                             new List<object> { new ExcelCommandAttribute { Name = name } }, 
+                                             new List<object> { new ExcelCommandAttribute { Name = name } }, // Macros in .xlls are always hidden
                                              new List<List<object>> { new List<object> { null } });
             // No Unregistration - that will happen automatically (and is only needed) when we are unloaded.
         }

@@ -6,8 +6,6 @@ using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
-    // TODO: This is to be replaced by the Provider / Server info retrieval mechanism
-    // First version might run on a timer for updates.
     class IntelliSenseHelper : IDisposable
     {
         readonly SynchronizationContext _syncContextMain; // Main thread, not macro context
