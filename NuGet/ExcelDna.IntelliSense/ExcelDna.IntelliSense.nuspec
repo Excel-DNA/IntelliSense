@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>ExcelDna.IntelliSense</id>
-        <version>0.1.1-b1</version>
+        <version>0.1.1-beta1</version>
         <title>Excel-DNA IntelliSense Extension</title>
         <authors>Excel-DNA Contributors</authors>
         <owners>Excel-DNA Contributors</owners>
@@ -17,6 +17,6 @@
         </dependencies>
     </metadata>
     <files>
-        <file src="..\....\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
+        <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
     </files>
 </package>
