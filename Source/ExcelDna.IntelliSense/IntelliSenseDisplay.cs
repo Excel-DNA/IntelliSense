@@ -118,8 +118,9 @@ namespace ExcelDna.IntelliSense
             switch (update.Update)
             {
                 case UIStateUpdate.UpdateType.FormulaEditStart:
-                    UpdateFormulaEditWindow((update.NewState as UIState.FormulaEdit).FormulaEditWindow);
-                    FormulaEditStart();
+                    var fes = (UIState.FormulaEdit)update.NewState;
+                    UpdateFormulaEditWindow(fes.FormulaEditWindow);
+                    FormulaEditStart(fes.FormulaPrefix, fes.EditWindowBounds, fes.ExcelTooltipBounds);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditMove:
                     var fem = (UIState.FormulaEdit)update.NewState;
@@ -209,11 +210,20 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FormulaEditStart()
+        void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
         {
-            Debug.Print($"IntelliSenseDisplay - FormulaEditStart");
+            Debug.Print($"IntelliSenseDisplay - FormulaEditStart - FormulaEditWindow: {_formulaEditWindow}, ArgumentsToolTip: {_argumentsToolTip}");
+            // This might not be needed, as we already update the window in a previous call
             if (_formulaEditWindow != IntPtr.Zero && _argumentsToolTip == null)
+            {
+                Debug.Fail("We did need it!?");
                 _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
+            }
+
+            // Normally we would have no formula at this point.
+            // One exception is after mouse-click on the formula list, we then need to process it.
+            if (!string.IsNullOrEmpty(formulaPrefix))
+                FormulaEditTextChange(formulaPrefix, editWindowBounds, excelTooltipBounds);
         }
 
         // Runs on the main thread

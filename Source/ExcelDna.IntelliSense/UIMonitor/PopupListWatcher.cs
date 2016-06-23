@@ -64,7 +64,7 @@ namespace ExcelDna.IntelliSense
                     catch (Exception ex)
                     {
                         /// Too Late????
-                        Debug.Print($"PopupList Event Handler Remove Error: {ex.Message}");
+                        Logger.WindowWatcher.Verbose($"PopupList Event Handler Remove Error: {ex.Message}");
                     }
                     // Expected when closing
                     // Debug.Assert(false, "PopupList window destroyed...???");
