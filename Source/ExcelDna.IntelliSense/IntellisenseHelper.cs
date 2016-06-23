@@ -68,6 +68,16 @@ namespace ExcelDna.IntelliSense
             _display.UpdateFunctionInfos(functionInfos);
         }
 
+        // Must be called on the main thread, in a macro context
+        // TODO: Still not sure how to delete / unregister...
+        internal void RefreshProviders()
+        {
+            foreach (var provider in _providers)
+            {
+                RefreshProvider(provider);
+            }
+        }
+
         public void Dispose()
         {
             Logger.Initialization.Verbose("IntelliSenseHelper Dispose Start");

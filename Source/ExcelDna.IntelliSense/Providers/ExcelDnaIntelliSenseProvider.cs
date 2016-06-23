@@ -34,7 +34,7 @@ namespace ExcelDna.IntelliSense
                 if (regInfoResponse.Equals(ExcelError.ExcelErrorNA))
                 {
                     _regInfoNotAvailable = true;
-                    Logger.Provider.Verbose($"XllRegistrationInfo not available for {_xllPath}");
+                    Logger.Provider.Info($"XllRegistrationInfo not available for {_xllPath}");
                     return;
                 }
 
@@ -175,7 +175,7 @@ namespace ExcelDna.IntelliSense
 
         #endregion
 
-        // DANGER: Still subject to LoaderLock problem...
+        // DANGER: Still subject to LoaderLock warning ...
         // TODO: Consider Load/Unload done when AddIns is enumerated...
         void loaderNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
         {
@@ -185,6 +185,9 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread, in a macro context 
+        // WARNING: The sequence of calls here, between queued 
+        //          instances of ProcessLoadNotification, Refresh and OnInvalidate
+        //          is quite fragile.
         void ProcessLoadNotification(object state)
         {
             Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);

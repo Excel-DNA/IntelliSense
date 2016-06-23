@@ -42,6 +42,7 @@ namespace ExcelDna.IntelliSense
 
         const string ControlMessageActivate = "ACTIVATE";
         const string ControlMessageDeactivate = "DEACTIVATE";
+        const string ControlMessageRefresh = "REFRESH";
 
         // Info for registration
         // _serverId is a transient ID to identify this IntelliSense server - we could have used the ExcelDnaUtil.XllGuid one too,
@@ -93,6 +94,25 @@ namespace ExcelDna.IntelliSense
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
             Logger.Initialization.Info("IntelliSenseServer.Register End");
+        }
+
+        // Invokes a Refresh on the Active server (if there is on)
+        // Must be called from a macro context
+        // Appropriate for calling after registering extra methods in an add-in
+        public static void Refresh()
+        {
+            Logger.Initialization.Info($"IntelliSenseServer.Refresh Begin");
+            if (_isActive)
+            {
+                RefreshProviders();
+            }
+            else
+            {
+                RegistrationInfo registrationInfo = GetActiveRegistrationInfo();
+                if (registrationInfo != null)
+                    RefreshServer(registrationInfo);
+            }
+            Logger.Initialization.Info($"IntelliSenseServer.Refresh End");
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
@@ -170,6 +190,22 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Called directly from Refresh or via the control function
+        internal static void RefreshProviders()
+        {
+            Logger.Initialization.Info($"IntelliSenseServer.RefreshProviders");
+            try
+            {
+                Debug.Assert(_helper != null);
+                _helper.RefreshProviders();
+            }
+            catch (Exception ex)
+            {
+                // TODO: Log
+                Logger.Initialization.Error($"IntelliSenseServer.RefreshProviders error: {ex}");
+            }
+        }
+
         // NOTE: Please do not remove this safety mechanism in custom versions.
         //       The IntelliSense mechanism is co-operative between independent add-ins.
         //       Allowing a safe disable options is important to support future versions, and protect against problematic bugs.
@@ -200,7 +236,7 @@ namespace ExcelDna.IntelliSense
             // Suppress errors if things go wrong, including unexpected return types.
             try
             {
-                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
+                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageActivate);
                 return (bool)result;
             }
             catch (Exception ex)
@@ -218,6 +254,26 @@ namespace ExcelDna.IntelliSense
             try
             {
                 var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageDeactivate);
+                if (result is ExcelError)
+                {
+                    Logger.Initialization.Error($"IntelliSenseServer {registrationInfo.ToRegistrationString()} could not be deactivated.");
+                    return false;
+                }
+                return (bool)result;
+            }
+            catch (Exception ex)
+            {
+                Logger.Initialization.Error(ex, $"IntelliSenseServer Deactivate call for {registrationInfo.ToRegistrationString()} failed.");
+                return false;
+            }
+        }
+
+        static bool RefreshServer(RegistrationInfo registrationInfo)
+        {
+            // Suppress errors if things go wrong, including unexpected return types.
+            try
+            {
+                var result = ExcelDna.Integration.XlCall.Excel(ExcelDna.Integration.XlCall.xlUDF, registrationInfo.GetControlMacroName(), ControlMessageRefresh);
                 if (result is ExcelError)
                 {
                     Logger.Initialization.Error($"IntelliSenseServer {registrationInfo.ToRegistrationString()} could not be deactivated.");
@@ -434,15 +490,28 @@ namespace ExcelDna.IntelliSense
         // NOTE: The name here is used by Reflection above (when registering the method with Excel)
         static object IntelliSenseServerControl(object control)
         {
-            if (control is string && (string)control == ControlMessageActivate)
+            string controlMessage = control as string;
+            if (controlMessage == ControlMessageActivate)
             {
                 Debug.Print("IntelliSenseServer.Activate in AppDomain: " + AppDomain.CurrentDomain.FriendlyName);
-                return IntelliSenseServer.Activate();
+                return Activate();
             }
-            else if (control is string && (string)control == ControlMessageDeactivate)
+            else if (controlMessage == ControlMessageDeactivate)
             {
                 Debug.Print("IntelliSenseServer.Deactivate in AppDomain: " + AppDomain.CurrentDomain.FriendlyName);
-                return IntelliSenseServer.Deactivate();
+                return Deactivate();
+            }
+            else if (controlMessage == ControlMessageRefresh)
+            {
+                Debug.Print("IntelliSenseServer.Refresh in AppDomain: " + AppDomain.CurrentDomain.FriendlyName);
+                if (!_isActive)
+                {
+                    // Something went wrong...
+                    Logger.Initialization.Error("IntelliSenseServer Refresh call on inactive server.");
+                    return false;
+                }
+                RefreshProviders();
+                return true;
             }
             return false;
         }
