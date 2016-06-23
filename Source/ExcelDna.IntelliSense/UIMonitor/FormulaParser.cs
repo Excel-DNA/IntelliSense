@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace ExcelDna.IntelliSense
@@ -8,16 +9,28 @@ namespace ExcelDna.IntelliSense
         // Set from IntelliSenseDisplay.Initialize
         public static char ListSeparator = ',';
 
-        // TODO: This needs a proper implementation, considering subformulae
         internal static bool TryGetFormulaInfo(string formulaPrefix, out string functionName, out int currentArgIndex)
         {
-            var match = Regex.Match(formulaPrefix, @"^=(?<functionName>[\w|.]*)\(");
-            if (match.Success)
+            formulaPrefix = Regex.Replace(formulaPrefix, "(\"[^\"]*\")|(\\([^\\(\\)]*\\))| ", string.Empty);
+
+            while (Regex.IsMatch(formulaPrefix, "\\([^\\(\\)]*\\)"))
             {
-                functionName = match.Groups["functionName"].Value;
-                currentArgIndex = formulaPrefix.Count(c => c == ListSeparator);
-                return true;
+                formulaPrefix = Regex.Replace(formulaPrefix, "\\([^\\(\\)]*\\)", string.Empty);
             }
+
+            int lastOpeningParenthesis = formulaPrefix.LastIndexOf("(", formulaPrefix.Length - 1, StringComparison.Ordinal);
+
+            if (lastOpeningParenthesis > -1)
+            {
+                var match = Regex.Match(formulaPrefix.Substring(0, lastOpeningParenthesis), @"[^\w](?<functionName>\w*)$");
+                if (match.Success)
+                {
+                    functionName = match.Groups["functionName"].Value;
+                    currentArgIndex = formulaPrefix.Substring(lastOpeningParenthesis, formulaPrefix.Length - lastOpeningParenthesis).Count(c => c == ListSeparator);
+                    return true;
+                }
+            }
+
             functionName = null;
             currentArgIndex = -1;
             return false;
