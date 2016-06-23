@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Windows;
+using XlCallInt = ExcelDna.Integration.XlCall;
 
 namespace ExcelDna.IntelliSense
 {
@@ -28,6 +29,7 @@ namespace ExcelDna.IntelliSense
         ToolTipForm _argumentsToolTip;
         IntPtr _formulaEditWindow;
         IntPtr _functionListWindow;
+        string _argumentSeparator = ", ";
         
         const int DescriptionLeftMargin = 3;
 
@@ -42,6 +44,27 @@ namespace ExcelDna.IntelliSense
             _uiMonitor = uiMonitor;
             _uiMonitor.StateUpdatePreview += StateUpdatePreview;
             _uiMonitor.StateUpdate += StateUpdate;
+
+            InitializeOptions();
+        }
+        
+        // Runs on the main Excel thread in a macro context.
+        void InitializeOptions()
+        {
+            Logger.Display.Verbose("InitializeOptions");
+            string listSeparator = ",";
+            object result;
+            if (XlCallInt.TryExcel(XlCallInt.xlfGetWorkspace, out result, 37) == XlCallInt.XlReturn.XlReturnSuccess)
+            {
+                object[,] options = result as object[,];
+                if (options != null)
+                {
+                    listSeparator = (string)options[0, 4];
+                    Logger.Initialization.Verbose($"InitializeOptions - Set ListSeparator to {listSeparator}");
+                }
+            }
+            FormulaParser.ListSeparator = listSeparator[0];
+            _argumentSeparator = listSeparator + " ";
         }
 
         // TODO: Still not sure how to delete / unregister...
@@ -357,7 +380,7 @@ namespace ExcelDna.IntelliSense
                 var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
                 if (argNames.Length >= 1)
                 {
-                    nameLine.Add(new TextRun { Text = string.Join(", ", argNames) });
+                    nameLine.Add(new TextRun { Text = string.Join(_argumentSeparator, argNames) });
                 }
 
                 if (functionInfo.ArgumentList.Count > currentArgIndex)
@@ -366,7 +389,7 @@ namespace ExcelDna.IntelliSense
                     {
                         nameLine.Add(new TextRun
                         {
-                            Text = ", "
+                            Text = _argumentSeparator
                         });
                     }
 
@@ -379,7 +402,7 @@ namespace ExcelDna.IntelliSense
                     argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.Name).ToArray();
                     if (argNames.Length >= 1)
                     {
-                        nameLine.Add(new TextRun {Text = ", " + string.Join(", ", argNames)});
+                        nameLine.Add(new TextRun {Text = _argumentSeparator + string.Join(_argumentSeparator, argNames)});
                     }
                 }
             }
