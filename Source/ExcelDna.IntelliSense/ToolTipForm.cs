@@ -179,7 +179,7 @@ namespace ExcelDna.IntelliSense
         protected override void OnPaint(PaintEventArgs e)
         {
             Debug.Assert(_left != 0 || _top != 0);
-            Logger.Display.Verbose($"ToolTipForm OnPaint: {_text.ToString()} @ ({_left},{_top})");
+            Logger.Display.Verbose($"ToolTipForm OnPaint: {_text} @ ({_left},{_top})");
             const int leftPadding = 6;
             const int linePadding = 0;
             const int widthPadding = 12;
@@ -234,6 +234,10 @@ namespace ExcelDna.IntelliSense
 
                         totalWidth += textSize.Width;
                         lineHeight = Math.Max(lineHeight, textSize.Height);
+
+                        // Pad by one extra pixel between runs, until we figure out kerning between runs
+                        layoutRect.X += 1;
+                        totalWidth += 1;
                     }
                     lineWidths.Add(totalWidth);
                     totalWidth = 0;

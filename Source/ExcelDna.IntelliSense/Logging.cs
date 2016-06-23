@@ -162,11 +162,11 @@ namespace ExcelDna.IntelliSense
             _eventId = (int)traceEventId;
         }
 
-        void Log(TraceEventType eventType, string message, params object[] args)
+        void Log(TraceEventType eventType, string message)
         {
             try
             {
-                TraceLogger.IntelliSenseTraceSource.TraceEvent(eventType, _eventId, message, args);
+                TraceLogger.IntelliSenseTraceSource.TraceEvent(eventType, _eventId, message);
             }
             catch (Exception e)
             {
@@ -174,24 +174,56 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void Verbose(string message, params object[] args)
+        void Log(TraceEventType eventType, string format, params object[] args)
         {
-            Log(TraceEventType.Verbose, message, args);
+            try
+            {
+                TraceLogger.IntelliSenseTraceSource.TraceEvent(eventType, _eventId, format, args);
+            }
+            catch (Exception e)
+            {
+                Debug.Print("ExcelDna.IntelliSense - Logger.Log error: " + e.Message);
+            }
         }
 
-        public void Info(string message, params object[] args)
+        public void Verbose(string message)
         {
-            Log(TraceEventType.Information, message, args);
+            Log(TraceEventType.Verbose, message);
         }
 
-        public void Warn(string message, params object[] args)
+        public void Verbose(string format, params object[] args)
         {
-            Log(TraceEventType.Warning, message, args);
+            Log(TraceEventType.Verbose, format, args);
         }
 
-        public void Error(string message, params object[] args)
+        public void Info(string message)
         {
-            Log(TraceEventType.Error, message, args);
+            Log(TraceEventType.Information, message);
+        }
+
+        public void Info(string format, params object[] args)
+        {
+            Log(TraceEventType.Information, format, args);
+        }
+
+        public void Warn(string message)
+        {
+            Log(TraceEventType.Warning, message);
+        }
+
+        public void Warn(string format, params object[] args)
+        {
+            Log(TraceEventType.Warning, format, args);
+        }
+
+        public void Error(string message)
+        {
+            Log(TraceEventType.Error, message);
+        }
+
+        public void Error(string format, params object[] args)
+        {
+            Log(TraceEventType.Error, format, args);
         }
 
         public void Error(Exception ex, string message, params object[] args)

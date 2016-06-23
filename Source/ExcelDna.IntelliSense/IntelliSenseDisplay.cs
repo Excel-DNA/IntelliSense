@@ -213,12 +213,8 @@ namespace ExcelDna.IntelliSense
         void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditStart - FormulaEditWindow: {_formulaEditWindow}, ArgumentsToolTip: {_argumentsToolTip}");
-            // This might not be needed, as we already update the window in a previous call
             if (_formulaEditWindow != IntPtr.Zero && _argumentsToolTip == null)
-            {
-                Debug.Fail("We did need it!?");
                 _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
-            }
 
             // Normally we would have no formula at this point.
             // One exception is after mouse-click on the formula list, we then need to process it.
