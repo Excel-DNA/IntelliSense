@@ -8,6 +8,10 @@ namespace ExcelDna.IntelliSense
     {
         // Set from IntelliSenseDisplay.Initialize
         public static char ListSeparator = ',';
+        // TODO: What's the Unicode situation?
+        public static string forbiddenNameCharacters = @"\ /\-:;!@\#\$%\^&\*\(\)\+=,<>\[\]{}|'\""";
+        public static string functionNameRegex = "[" + forbiddenNameCharacters + "](?<functionName>[^" + forbiddenNameCharacters + "]*)$";
+        public static string functionNameGroupName = "functionName";
 
         internal static bool TryGetFormulaInfo(string formulaPrefix, out string functionName, out int currentArgIndex)
         {
@@ -22,10 +26,10 @@ namespace ExcelDna.IntelliSense
 
             if (lastOpeningParenthesis > -1)
             {
-                var match = Regex.Match(formulaPrefix.Substring(0, lastOpeningParenthesis), @"[^\w.](?<functionName>[\w.]*)$");
+                var match = Regex.Match(formulaPrefix.Substring(0, lastOpeningParenthesis), functionNameRegex);
                 if (match.Success)
                 {
-                    functionName = match.Groups["functionName"].Value;
+                    functionName = match.Groups[functionNameGroupName].Value;
                     currentArgIndex = formulaPrefix.Substring(lastOpeningParenthesis, formulaPrefix.Length - lastOpeningParenthesis).Count(c => c == ListSeparator);
                     return true;
                 }
