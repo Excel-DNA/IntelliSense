@@ -22,7 +22,7 @@ namespace ExcelDna.IntelliSense
 
             if (lastOpeningParenthesis > -1)
             {
-                var match = Regex.Match(formulaPrefix.Substring(0, lastOpeningParenthesis), @"[^\w](?<functionName>\w*)$");
+                var match = Regex.Match(formulaPrefix.Substring(0, lastOpeningParenthesis), @"[^\w.](?<functionName>[\w.]*)$");
                 if (match.Success)
                 {
                     functionName = match.Groups["functionName"].Value;
