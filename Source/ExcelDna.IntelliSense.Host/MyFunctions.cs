@@ -32,7 +32,7 @@
                 return "Howzit !";
             }
 
-            [ExcelFunction]
+            [ExcelFunction(Name ="a.test?d_.3")]
             public static object AnotherFunction( [Description("In and out")] object inout)
             {
                 return inout;
@@ -40,6 +40,12 @@
 
             [ExcelFunction(Name ="A.Non.Descript.Function")]
             public static object ANonDescriptFunction(object inout)
+            {
+                return inout;
+            }
+
+            [ExcelFunction(Name ="A.Descript.Function", Description = "Has a description")]
+            public static object ADescriptFunction(object inout)
             {
                 return inout;
             }

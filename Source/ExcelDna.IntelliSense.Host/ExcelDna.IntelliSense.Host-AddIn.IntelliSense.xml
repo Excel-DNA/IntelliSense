@@ -1,0 +1,9 @@
+﻿<IntelliSense xmlns="http://schemas.excel-dna.net/intellisense/1.0">
+  <FunctionInfo>
+    <Function Name="AdxThem" Description="A function described in XML"
+               HelpTopic="MyFile.chm!100" >
+      <Argument Name="tag" Description="Whatever you want to put in here" />
+      <Argument Name="Addend" Description="Actually the second arg" />
+    </Function>
+  </FunctionInfo>
+</IntelliSense>

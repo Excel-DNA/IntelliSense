@@ -58,6 +58,9 @@
     <Content Include="ExcelDna.IntelliSense.Host-AddIn.dna">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="ExcelDna.IntelliSense.Host-AddIn.IntelliSense.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <None Include="ExcelDna.IntelliSense.Host-AddIn.xll.config">
