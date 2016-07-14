@@ -56,7 +56,11 @@ namespace ExcelDna.IntelliSense
                 if (result != 0)
                 {
                     Logger.WindowWatcher.Warn($"LPenHelper Failed. Result: {result}");
-                    throw new InvalidOperationException("LPenHelper Failed. Result: " + result);
+                    // This exception is poorly handled when it happens in the SyncMacro
+                    // We only expect the error to happen during shutdown, in which case we might as well
+                    // handle this asif no formula is being edited
+                    // throw new InvalidOperationException("LPenHelper Failed. Result: " + result);
+                    return null;
                 }
                 if (fmlaInfo.wPointMode == xlModeReady)
                 {
@@ -72,8 +76,14 @@ namespace ExcelDna.IntelliSense
             }
             catch (AccessViolationException)
             {
-                Logger.WindowWatcher.Warn("LPenHelper Access Violation!");
+                Logger.WindowWatcher.Warn("LPenHelper - Access Violation!");
                 return null;
+            }
+            catch (Exception ex)
+            {
+                // Some unexpected error - for now we log as an error and re-throw
+                Logger.WindowWatcher.Error(ex, "LPenHelper - Unexpected Error");
+                throw;
             }
         }
     }
