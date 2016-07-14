@@ -8,9 +8,11 @@ using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
-
     // These are immutable representations of the state (reflecting only our interests)
     // We make a fresh a simplified state representation, so that we can make a matching state update representation.
+    //
+    // One shortcoming of our representation is that we don't track a second selection list and matching ExcelToolTip 
+    // that might pop up for an argument, e.g. VLOOKUP's TRUE/FALSE.
     abstract class UIState
     {
         public static UIState ReadyState = new Ready();
@@ -20,7 +22,7 @@ namespace ExcelDna.IntelliSense
             public IntPtr FormulaEditWindow;    // Window where text entry focus is - either the in-cell edit window, or the formula bar
             public string FormulaPrefix;
             public Rect EditWindowBounds;
-            public Rect ExcelTooltipBounds;
+            public IntPtr ExcelToolTipWindow;   // ExcelToolTipWindow is Zero or is _some_ visible tooltip (either for from the list or the function)
 
             public virtual FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
@@ -29,7 +31,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = newFormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds
+                    ExcelToolTipWindow = this.ExcelToolTipWindow
                 };
             }
 
@@ -40,18 +42,29 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = newFormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds
+                    ExcelToolTipWindow = this.ExcelToolTipWindow
                 };
             }
 
-            public virtual FormulaEdit WithBounds(Rect newEditWindowBounds, Rect newExcelTooltipBounds)
+            public virtual FormulaEdit WithBounds(Rect newEditWindowBounds)
             {
                 return new FormulaEdit
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = newEditWindowBounds,
-                    ExcelTooltipBounds = newExcelTooltipBounds
+                    ExcelToolTipWindow = this.ExcelToolTipWindow
+                };
+            }
+
+            public virtual FormulaEdit WithToolTipWindow(IntPtr newExcelToolTipWindow)
+            {
+                return new FormulaEdit
+                {
+                    FormulaEditWindow = this.FormulaEditWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = this.EditWindowBounds,
+                    ExcelToolTipWindow = newExcelToolTipWindow
                 };
             }
         }
@@ -62,6 +75,7 @@ namespace ExcelDna.IntelliSense
             public Rect FunctionListBounds;
             public string SelectedItemText;
             public Rect SelectedItemBounds;
+            // CONSIDER: Add a second ExcelToopTipWindow here, and try to keep track of the one shown for the list?
 
             public override FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
@@ -70,7 +84,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = newFormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+                    ExcelToolTipWindow = this.ExcelToolTipWindow,
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
@@ -86,7 +100,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+                    ExcelToolTipWindow = this.ExcelToolTipWindow,
 
                     FunctionListWindow = newFunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
@@ -102,7 +116,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = newFormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+                    ExcelToolTipWindow = this.ExcelToolTipWindow,
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
@@ -111,14 +125,30 @@ namespace ExcelDna.IntelliSense
                 };
             }
 
-            public override FormulaEdit WithBounds(Rect newEditWindowBounds, Rect newExcelTooltipBounds)
+            public override FormulaEdit WithBounds(Rect newEditWindowBounds)
             {
                 return new FunctionList
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = newEditWindowBounds,
-                    ExcelTooltipBounds = newExcelTooltipBounds,
+                    ExcelToolTipWindow = this.ExcelToolTipWindow,
+
+                    FunctionListWindow = this.FunctionListWindow,
+                    SelectedItemText = this.SelectedItemText,
+                    SelectedItemBounds = this.SelectedItemBounds,
+                    FunctionListBounds = this.FunctionListBounds
+                };
+            }
+
+            public override FormulaEdit WithToolTipWindow(IntPtr newExcelToolTipWindow)
+            {
+                return new FunctionList
+                {
+                    FormulaEditWindow = this.FormulaEditWindow,
+                    FormulaPrefix = this.FormulaPrefix,
+                    EditWindowBounds = this.EditWindowBounds,
+                    ExcelToolTipWindow = newExcelToolTipWindow,
 
                     FunctionListWindow = this.FunctionListWindow,
                     SelectedItemText = this.SelectedItemText,
@@ -134,7 +164,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = this.FormulaEditWindow,
                     FormulaPrefix = this.FormulaPrefix,
                     EditWindowBounds = this.EditWindowBounds,
-                    ExcelTooltipBounds = this.ExcelTooltipBounds,
+                    ExcelToolTipWindow = this.ExcelToolTipWindow,
 
                     FunctionListWindow = this.FunctionListWindow,
                     FunctionListBounds = listBounds,
@@ -150,7 +180,7 @@ namespace ExcelDna.IntelliSense
                         FormulaEditWindow = FormulaEditWindow,
                         FormulaPrefix = FormulaPrefix,
                         EditWindowBounds = EditWindowBounds,
-                        ExcelTooltipBounds = ExcelTooltipBounds,
+                        ExcelToolTipWindow = ExcelToolTipWindow,
                     };
             }
         }
@@ -308,11 +338,16 @@ namespace ExcelDna.IntelliSense
                 yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditWindowChange);
                 oldState = tempState;
             }
-            if (oldState.EditWindowBounds != newState.EditWindowBounds ||
-                oldState.ExcelTooltipBounds != newState.ExcelTooltipBounds)
+            if (oldState.EditWindowBounds != newState.EditWindowBounds)
             {
-                var tempState = oldState.WithBounds(newState.EditWindowBounds, newState.ExcelTooltipBounds);
+                var tempState = oldState.WithBounds(newState.EditWindowBounds);
                 yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMove);
+                oldState = tempState;
+            }
+            if (oldState.ExcelToolTipWindow != newState.ExcelToolTipWindow)
+            {
+                var tempState = oldState.WithToolTipWindow(newState.ExcelToolTipWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange);
                 oldState = tempState;
             }
             if (oldState.FormulaPrefix != newState.FormulaPrefix)
@@ -338,11 +373,16 @@ namespace ExcelDna.IntelliSense
                 yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FunctionListWindowChange);
                 oldState = tempState;
             }
-            if (oldState.EditWindowBounds != newState.EditWindowBounds ||
-                oldState.ExcelTooltipBounds != newState.ExcelTooltipBounds)
+            if (oldState.EditWindowBounds != newState.EditWindowBounds)
             {
-                var tempState = oldState.WithBounds(newState.EditWindowBounds, newState.ExcelTooltipBounds);
+                var tempState = oldState.WithBounds(newState.EditWindowBounds);
                 yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditMove);
+                oldState = (FunctionList)tempState;
+            }
+            if (oldState.ExcelToolTipWindow != newState.ExcelToolTipWindow)
+            {
+                var tempState = oldState.WithToolTipWindow(newState.ExcelToolTipWindow);
+                yield return new UIStateUpdate(oldState, tempState, UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange);
                 oldState = (FunctionList)tempState;
             }
             if (oldState.FormulaPrefix != newState.FormulaPrefix)
@@ -371,6 +411,7 @@ namespace ExcelDna.IntelliSense
                 FormulaEditMove,    // Includes moving between in-cell editing and the formula text box.
                 FormulaEditWindowChange, // Includes moving between in-cell editing and the formula text box.
                 FormulaEditTextChange,
+                FormulaEditExcelToolTipChange,
 
                 FunctionListShow,
                     FunctionListMove,
@@ -426,6 +467,8 @@ namespace ExcelDna.IntelliSense
         WindowWatcher _windowWatcher;
         FormulaEditWatcher _formulaEditWatcher;
         PopupListWatcher _popupListWatcher;
+        ExcelToolTipWatcher _excelToolTipWatcher;
+        IntPtr _lastExcelToolTipShown;  // Zero, if it has been hidden again
 
         public UIState CurrentState = UIState.ReadyState;
         public EventHandler<UIStateUpdate> StateUpdatePreview;   // Always called on the automation thread
@@ -454,19 +497,21 @@ namespace ExcelDna.IntelliSense
             _windowWatcher = new WindowWatcher(_syncContextAuto);
             _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
             _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
+            _excelToolTipWatcher = new ExcelToolTipWatcher(_windowWatcher, _syncContextAuto);
 
             // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
   //          _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
             // _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
             _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
             _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
+            _excelToolTipWatcher.ToolTipChanged += _excelToolTipWatcher_ToolTipChanged;
 
             _windowWatcher.TryInitialize();
 
             _syncContextAuto.RunOnCurrentThread();
         }
 
-#region Receive watcher events (all on the automation thread), and process
+        #region Receive watcher events (all on the automation thread), and process
         //// Runs on our automation thread
         //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         //{
@@ -520,9 +565,55 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        void _excelToolTipWatcher_ToolTipChanged(object sender, ExcelToolTipWatcher.ToolTipChangeEventArgs e)
+        {
+            // We assume the ExcelToolTip changes happen before the corresponding FunctionList / FormulaEdit changes
+            // So we keep track of the last shown one.
+            // This allows the FormulaEdit or transitions to pick it up, hopefully not getting confused with the FunctionList tooltip
+            // TODO: Check that the tooltip gets cleared from the CurrentState is it is hidden
+
+            Logger.Monitor.Verbose($"!> ExcelToolTip ToolTipChanged Received: {e} with state: {CurrentState.GetType().Name}");
+
+            if (e.ChangeType == ExcelToolTipWatcher.ToolTipChangeType.Show)
+            {
+                _lastExcelToolTipShown = e.Handle;
+            }
+            else if (e.ChangeType == ExcelToolTipWatcher.ToolTipChangeType.Hide)
+            {
+                if (_lastExcelToolTipShown == e.Handle)
+                    _lastExcelToolTipShown = IntPtr.Zero;
+
+                var fe = CurrentState as UIState.FormulaEdit;
+                if (fe != null)
+                {
+                    // Either a FormulaEdit or a FunctionList
+                    if (fe.ExcelToolTipWindow == e.Handle)
+                    {
+                        // OK - it's no longer valid
+                        // TODO: Manage the state update
+                        // This is a kind of pop.... is it right?
+                        var newState = fe.WithToolTipWindow(_lastExcelToolTipShown);
+                        OnStateChanged(newState);
+                    }
+                }
+            }
+
+           // _syncContextAuto.Post(ProcessExcelToolTipChange, e);
+        }
+
+//        void ProcessExcelToolTipChange(object /*ExcelToolTipWatcher.ToolTipChangeEventArgs*/ e)
+//        {
+//            var changeEventArgs = (ExcelToolTipWatcher.ToolTipChangeEventArgs)e;
+//            Logger.Monitor.Verbose($"!> ExcelToolTip ToolTipChanged Process: {changeEventArgs} with state: {CurrentState.GetType().Name}");
+////            if (CurrentState is UIState.FunctionList)
+////                CurrentState.Wi
+//        }
+
         // Runs on our automation thread
         UIState ReadCurrentState()
         {
+            // TODO: ExcelToolTipWindow?
+
             // The sequence here is important, since we use the hierarchy of UIState classes.
             // if (_selectDataSourceWatcher.
             if (_popupListWatcher.SelectedItemText != string.Empty)
@@ -545,6 +636,7 @@ namespace ExcelDna.IntelliSense
                     FormulaEditWindow = _formulaEditWatcher.FormulaEditWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
+                    ExcelToolTipWindow = _lastExcelToolTipShown
                 };
             }
             //if (_windowWatcher.IsSelectDataSourceWindowVisible)

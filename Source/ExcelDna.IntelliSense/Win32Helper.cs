@@ -77,6 +77,19 @@ namespace ExcelDna.IntelliSense
             public Rectangle rcCaret;
         }
 
+        // Different to Rectangle ...?
+        [StructLayout(LayoutKind.Sequential)]
+        struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll")]
+        static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
         [DllImport("user32.dll", SetLastError=true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
@@ -104,12 +117,27 @@ namespace ExcelDna.IntelliSense
             return IntPtr.Zero;
         }
 
-        public static Point GetClientCursorPos(IntPtr hWnd)
+        public static System.Drawing.Point GetClientCursorPos(IntPtr hWnd)
         {
             Point pt;
             bool ok = GetCursorPos(out pt);
             bool ok2 = ScreenToClient(hWnd, ref pt);
             return pt;
+        }
+
+        // We use System.Windows.Rect to be consistent with the UIAutomation we use elsewhere.
+        // Returns Rect.Empty if the Win32 call fails (Windows is not visible?)
+        public static System.Windows.Rect GetWindowBounds(IntPtr hWnd)
+        {
+            RECT rect; // Not sure if the struct layout is like Win32 RECT or System.Drawing.Rectangle (these are different)
+            if (GetWindowRect(hWnd, out rect))
+            {
+                return new System.Windows.Rect(rect.Left, rect.Right, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1);
+            }
+            else
+            {
+                return System.Windows.Rect.Empty;
+            }
         }
 
         public static string GetWindowTextRaw(IntPtr hwnd)

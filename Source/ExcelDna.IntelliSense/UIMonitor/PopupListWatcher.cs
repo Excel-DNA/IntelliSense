@@ -17,10 +17,10 @@ namespace ExcelDna.IntelliSense
         // NOTE: Event will always be raised on our automation thread
         public event EventHandler SelectedItemChanged;  // Either text or location
 
-        public bool IsVisible{ get; set; } = false;
-        public string SelectedItemText { get; set; } = string.Empty;
-        public Rect SelectedItemBounds { get; set; } = Rect.Empty;
-        public Rect ListBounds { get; set; } = Rect.Empty;
+        public bool IsVisible{ get; private set; } = false;
+        public string SelectedItemText { get; private set; } = string.Empty;
+        public Rect SelectedItemBounds { get; private set; } = Rect.Empty;
+        public Rect ListBounds { get; private set; } = Rect.Empty;
         public IntPtr PopupListHandle => _hwndPopupList;
 
         SynchronizationContext _syncContextAuto;

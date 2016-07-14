@@ -78,6 +78,7 @@ namespace ExcelDna.IntelliSense
         const string _formulaBarClass = "EXCEL<";
         const string _inCellEditClass = "EXCEL6";
         const string _popupListClass = "__XLACOOUTER";
+        const string _excelToolTipClass = "XLToolTip";
         const string _nuiDialogClass = "NUIDialog";
         const string _selectDataSourceTitle = "Select Data Source";     // TODO: How does localization work?
 
@@ -88,7 +89,6 @@ namespace ExcelDna.IntelliSense
         IntPtr _focusedWindowHandle;
         string _focusedWindowClassName;
 
-
 //        public IntPtr SelectDataSourceWindow { get; private set; }
 //        public bool IsSelectDataSourceWindowVisible { get; private set; }
 
@@ -97,6 +97,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<WindowChangedEventArgs> FormulaBarWindowChanged;
         public event EventHandler<WindowChangedEventArgs> InCellEditWindowChanged;
         public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;
+        public event EventHandler<WindowChangedEventArgs> ExcelToolTipWindowChanged;
 //        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
@@ -133,6 +134,7 @@ namespace ExcelDna.IntelliSense
                 return false;
             }
 
+            Debug.Assert(_focusedWindowClassName != _excelToolTipClass); // We don't expect the ToolTip to ever get the focus
             Logger.WindowWatcher.Verbose($"Focus lost by {_focusedWindowHandle} ({_focusedWindowClassName})");
             // It has changed - raise an event for the old window
             switch (_focusedWindowClassName)
@@ -199,6 +201,9 @@ namespace ExcelDna.IntelliSense
                 case _formulaBarClass:
                     FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
                     break;
+                case _excelToolTipClass:
+                    ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
+                     break;
                 //case _nuiDialogClass:
                 //    // Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                 //    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE)

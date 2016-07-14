@@ -143,20 +143,20 @@ namespace ExcelDna.IntelliSense
                 case UIStateUpdate.UpdateType.FormulaEditStart:
                     var fes = (UIState.FormulaEdit)update.NewState;
                     UpdateFormulaEditWindow(fes.FormulaEditWindow);
-                    FormulaEditStart(fes.FormulaPrefix, fes.EditWindowBounds, fes.ExcelTooltipBounds);
+                    FormulaEditStart(fes.FormulaPrefix, fes.EditWindowBounds, fes.ExcelToolTipWindow);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditMove:
                     var fem = (UIState.FormulaEdit)update.NewState;
-                    FormulaEditMove(fem.EditWindowBounds, fem.ExcelTooltipBounds);
+                    FormulaEditMove(fem.EditWindowBounds, fem.ExcelToolTipWindow);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditWindowChange:
                     var fewc = (UIState.FormulaEdit)update.NewState;
                     UpdateFormulaEditWindow(fewc.FormulaEditWindow);
-                    FormulaEditTextChange(fewc.FormulaPrefix, fewc.EditWindowBounds, fewc.ExcelTooltipBounds);
+                    FormulaEditTextChange(fewc.FormulaPrefix, fewc.EditWindowBounds, fewc.ExcelToolTipWindow);
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditTextChange:
                     var fetc = (UIState.FormulaEdit)update.NewState;
-                    FormulaEditTextChange(fetc.FormulaPrefix, fetc.EditWindowBounds, fetc.ExcelTooltipBounds);
+                    FormulaEditTextChange(fetc.FormulaPrefix, fetc.EditWindowBounds, fetc.ExcelToolTipWindow);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListShow:
                     var fls = (UIState.FunctionList)update.NewState;
@@ -233,7 +233,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
+        void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditStart - FormulaEditWindow: {_formulaEditWindow}, ArgumentsToolTip: {_argumentsToolTip}");
             if (_formulaEditWindow != IntPtr.Zero && _argumentsToolTip == null)
@@ -242,7 +242,7 @@ namespace ExcelDna.IntelliSense
             // Normally we would have no formula at this point.
             // One exception is after mouse-click on the formula list, we then need to process it.
             if (!string.IsNullOrEmpty(formulaPrefix))
-                FormulaEditTextChange(formulaPrefix, editWindowBounds, excelTooltipBounds);
+                FormulaEditTextChange(formulaPrefix, editWindowBounds, excelToolTipWindow);
         }
 
         // Runs on the main thread
@@ -259,7 +259,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FormulaEditMove(Rect editWindowBounds, Rect excelTooltipBounds)
+        void FormulaEditMove(Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditMove");
             if (_argumentsToolTip == null)
@@ -271,7 +271,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // Runs on the main thread
-        void FormulaEditTextChange(string formulaPrefix, Rect editWindowBounds, Rect excelTooltipBounds)
+        void FormulaEditTextChange(string formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {formulaPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
             string functionName;

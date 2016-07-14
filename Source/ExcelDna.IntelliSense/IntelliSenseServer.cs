@@ -117,6 +117,8 @@ namespace ExcelDna.IntelliSense
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
+            // CONSIDER: We get this quite late in the shutdown
+            //           We should try to find a way to identify Excel shutdown a lot earlier
             Logger.Initialization.Verbose("IntelliSenseServer ProcessExit Begin");
             if (_isActive)
             {
