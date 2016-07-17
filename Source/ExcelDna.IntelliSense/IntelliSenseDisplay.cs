@@ -179,6 +179,10 @@ namespace ExcelDna.IntelliSense
                 case UIStateUpdate.UpdateType.FormulaEditEnd:
                     FormulaEditEnd();
                     break;
+                case UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange:
+                    // No action (for now)
+                    // The ExcelToolTipWindow is hidden when we display our Arguments ToolTip
+                    break;
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
@@ -281,11 +285,31 @@ namespace ExcelDna.IntelliSense
                 FunctionInfo functionInfo;
                 if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
                 {
+                    // We have a function name and we want to show info
                     if (_argumentsToolTip != null)
                     {
-                        _argumentsToolTip.ShowToolTip(
-                            GetFunctionIntelliSense(functionInfo, currentArgIndex),
-                            (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+                        if (!_argumentsToolTip.Visible)
+                        {
+#if DEBUG
+                            // Fiddle a bit with the ExcelToolTip if it is already visible when we first show our FunctionEdit ToolTip
+                            if (excelToolTipWindow != IntPtr.Zero)
+                            {
+                                try
+                                {
+                                    Win32Helper.HideWindow(excelToolTipWindow);
+                                    //var currentBounds = Win32Helper.GetWindowBounds(excelToolTipWindow);
+                                    //Win32Helper.MoveWindow(excelToolTipWindow, (int)currentBounds.X, (int)currentBounds.Y + 100, (int)currentBounds.Width, (int)currentBounds.Height, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Debug.Print("!!!!!!!!!!!!XXXXXXXXXXXXXXXXXXXXX!!!!!!!!!!!!!!!!!!!!!!!! " + ex.ToString());
+                                }
+
+                            }
+#endif
+                        }
+                            var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
+                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
                     }
                     else
                     {

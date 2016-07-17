@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 
@@ -32,9 +33,9 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<ToolTipChangeEventArgs> ToolTipChanged;  // Either text or location
 
         // CONSIDER: What should this look like?
-        public IEnumerable<IntPtr> GetToolTips() => _toolTips;
+        public IntPtr GetLastToolTipOrZero() => _toolTips.Count > 0 ? _toolTips[_toolTips.Count - 1] : IntPtr.Zero;
         // CONSIDER: Rather a Stack? Check the assumption that Hide happens in reverse order
-        HashSet<IntPtr> _toolTips = new HashSet<IntPtr>();
+        List<IntPtr> _toolTips = new List<IntPtr>();
         SynchronizationContext _syncContextAuto; // Not used... 
         WindowWatcher _windowWatcher;
 
@@ -51,8 +52,11 @@ namespace ExcelDna.IntelliSense
             switch (e.Type)
             {
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
-                    if (_toolTips.Add(e.WindowHandle))
+                    if (!_toolTips.Contains(e.WindowHandle))
+                    {
+                        _toolTips.Add(e.WindowHandle);
                         ToolTipChanged?.Invoke(this, new ToolTipChangeEventArgs(ToolTipChangeType.Show, e.WindowHandle));
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:

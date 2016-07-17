@@ -149,7 +149,15 @@ namespace ExcelDna.IntelliSense
             return sb.ToString();
         }
 
-        static StringBuilder _buffer = new StringBuilder(65000);
+        const int SW_HIDE = 0;
+        
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        public static bool HideWindow(IntPtr hWnd)
+        {
+            return ShowWindow(hWnd, SW_HIDE);
+        }
 
         public static string GetXllName()
         {
@@ -166,6 +174,7 @@ namespace ExcelDna.IntelliSense
             return GetCurrentProcessId();
         }
 
+        static StringBuilder _buffer = new StringBuilder(65000);
         public static string GetClassName(IntPtr hWnd)
         {
             _buffer.Length = 0;

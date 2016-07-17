@@ -58,7 +58,8 @@ namespace ExcelDna.IntelliSense
             // Not in macro context - don't call Excel, could be any thread.
             public IEnumerable<FunctionInfo> GetFunctionInfos()
             {
-                
+                if (_intelliSense == null || _intelliSense.XmlFunctionInfo == null)
+                    return Enumerable.Empty<FunctionInfo>();
 
                 return _intelliSense.XmlFunctionInfo.FunctionsList;
             }

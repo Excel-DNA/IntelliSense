@@ -59,14 +59,66 @@ namespace ExcelDna.IntelliSense
         {
             const int WM_MOUSEACTIVATE = 0x21;
             const int MA_NOACTIVATE = 0x0003;
+            const int MA_NOACTIVATEANDEAT = 0x0004;
+            const int WM_NCACTIVATE = 0x86;
+            const int WM_NCHITTEST = 0x84;
+            const int HTCLIENT = 0x1;
+            const int HTCAPTION = 0x2;
+
+
+            /* you must intercept the appropriate messages received from system (WM_SIZING and WM_MOVING) and set the position of the form with SetWindowPos() - this will force it to move!
+
+In your Form's class:
+
+public const int WM_SIZING = 0x0214;
+public const int WM_MOVING = 0x0216;
+
+[StructLayout(LayoutKind.Sequential)]
+public struct RECT
+{
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+}
+
+[DllImport("user32.dll", SetLastError = true)]
+private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInstertAfter, int x, int y, int cx, int cy, uint flags);
+
+protected override void WndProc(ref Message m)
+{
+    if (m.Msg == WM_SIZING || m.Msg == WM_MOVING)
+    {
+        RECT rect = (RECT)Marshal.PtrToStructure(m.LParam, typeof(RECT));
+        SetWindowPos(this.Handle, IntPtr.Zero, rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top, 0);
+    }
+    else
+    {
+        base.WndProc(ref m);
+    }
+} */
+
 
             switch (m.Msg)
             {
-                case WM_MOUSEACTIVATE:
+                //case WM_NCHITTEST:
+                //    // Behave as if the whole form is the caption - allowing mouse to move it.
+                //    base.DefWndProc(ref m);
+	               // if ((int)m.Result == HTCLIENT)
+	               // m.Result = (IntPtr)HTCAPTION;
+	               // return;
+                //case WM_MOUSEACTIVATE:
+                //    m.Result = (IntPtr)MA_NOACTIVATEANDEAT;
+                //    base.DefWndProc(ref m); // Seems to still activate then...
+                //    return;
+                case WM_NCACTIVATE:
                     m.Result = (IntPtr)MA_NOACTIVATE;
+                    base.DefWndProc(ref m); // Seems to still activate then...
+                    return;
+                default:
+                    base.DefWndProc(ref m);
                     return;
             }
-            base.DefWndProc(ref m);
         }
 
         public void ShowToolTip()

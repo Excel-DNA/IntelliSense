@@ -127,9 +127,9 @@ namespace ExcelDna.IntelliSense
         void OnWinEventReceived(object winEventArgsObj)
         {
             var winEventArgs = (WinEventArgs)winEventArgsObj;
-#if DEBUG
-            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
-#endif
+//#if DEBUG
+//            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
+//#endif
             WinEventReceived?.Invoke(this, winEventArgs);
         }
 

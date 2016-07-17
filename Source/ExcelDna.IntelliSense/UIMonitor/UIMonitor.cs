@@ -581,7 +581,7 @@ namespace ExcelDna.IntelliSense
             else if (e.ChangeType == ExcelToolTipWatcher.ToolTipChangeType.Hide)
             {
                 if (_lastExcelToolTipShown == e.Handle)
-                    _lastExcelToolTipShown = IntPtr.Zero;
+                    _lastExcelToolTipShown = _excelToolTipWatcher.GetLastToolTipOrZero();
 
                 var fe = CurrentState as UIState.FormulaEdit;
                 if (fe != null)
@@ -597,17 +597,7 @@ namespace ExcelDna.IntelliSense
                     }
                 }
             }
-
-           // _syncContextAuto.Post(ProcessExcelToolTipChange, e);
         }
-
-//        void ProcessExcelToolTipChange(object /*ExcelToolTipWatcher.ToolTipChangeEventArgs*/ e)
-//        {
-//            var changeEventArgs = (ExcelToolTipWatcher.ToolTipChangeEventArgs)e;
-//            Logger.Monitor.Verbose($"!> ExcelToolTip ToolTipChanged Process: {changeEventArgs} with state: {CurrentState.GetType().Name}");
-////            if (CurrentState is UIState.FunctionList)
-////                CurrentState.Wi
-//        }
 
         // Runs on our automation thread
         UIState ReadCurrentState()
@@ -627,6 +617,7 @@ namespace ExcelDna.IntelliSense
                     FunctionListBounds = _popupListWatcher.ListBounds,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
                     FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
+                    ExcelToolTipWindow = _lastExcelToolTipShown // We also keep track here, since we'll by inferring the UIState change list using this too
                 };
             }
             if (_formulaEditWatcher.IsEditingFormula)
@@ -653,7 +644,7 @@ namespace ExcelDna.IntelliSense
         void OnStateChanged(UIState newStateOrNull = null)
         {
             var oldState = CurrentState;
-//            if (newStateOrNull == null)
+            if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
 
             // Debug.Print($"NEWSTATE: {newStateOrNull.ToString()}");
