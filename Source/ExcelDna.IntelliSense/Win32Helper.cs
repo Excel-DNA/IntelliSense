@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -156,7 +157,16 @@ namespace ExcelDna.IntelliSense
 
         public static bool HideWindow(IntPtr hWnd)
         {
-            return ShowWindow(hWnd, SW_HIDE);
+            // Happy to suppress any errors here
+            try
+            {
+                return ShowWindow(hWnd, SW_HIDE);
+            }
+            catch (Exception ex)
+            {
+                Debug.Print($"Win32Helper.HideWindow Error: {ex.ToString()}");
+                return false;
+            }
         }
 
         public static string GetXllName()

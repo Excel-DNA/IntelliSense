@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -15,6 +16,7 @@ namespace ExcelDna.IntelliSense
 
         internal static bool TryGetFormulaInfo(string formulaPrefix, out string functionName, out int currentArgIndex)
         {
+            Debug.Assert(formulaPrefix != null);
             formulaPrefix = Regex.Replace(formulaPrefix, "(\"[^\"]*\")|(\\([^\\(\\)]*\\))| ", string.Empty);
 
             while (Regex.IsMatch(formulaPrefix, "\\([^\\(\\)]*\\)"))

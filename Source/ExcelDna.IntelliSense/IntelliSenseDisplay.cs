@@ -93,6 +93,12 @@ namespace ExcelDna.IntelliSense
                 var fl = (UIState.FunctionList)update.NewState;
                 enable = ShouldProcessFunctionListSelectedItemChange(fl.SelectedItemText);
             }
+            else if (update.Update == UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange)
+            {
+                // If if has just been hidden, we need no extra processing and can skip the Main thread call
+                var fe = (UIState.FormulaEdit)update.NewState;
+                enable = fe.ExcelToolTipWindow != IntPtr.Zero;
+            }
             else
             {
                 enable = true; // allow the update event to be raised by default
@@ -180,8 +186,8 @@ namespace ExcelDna.IntelliSense
                     FormulaEditEnd();
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange:
-                    // No action (for now)
-                    // The ExcelToolTipWindow is hidden when we display our Arguments ToolTip
+                    //var fett = (UIState.FormulaEdit)update.NewState;
+                    //FormulaEditExcelToolTipShow(fett.ExcelToolTipWindow);
                     break;
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
@@ -288,28 +294,28 @@ namespace ExcelDna.IntelliSense
                     // We have a function name and we want to show info
                     if (_argumentsToolTip != null)
                     {
-                        if (!_argumentsToolTip.Visible)
-                        {
-#if DEBUG
-                            // Fiddle a bit with the ExcelToolTip if it is already visible when we first show our FunctionEdit ToolTip
-                            if (excelToolTipWindow != IntPtr.Zero)
-                            {
-                                try
-                                {
-                                    Win32Helper.HideWindow(excelToolTipWindow);
-                                    //var currentBounds = Win32Helper.GetWindowBounds(excelToolTipWindow);
-                                    //Win32Helper.MoveWindow(excelToolTipWindow, (int)currentBounds.X, (int)currentBounds.Y + 100, (int)currentBounds.Width, (int)currentBounds.Height, true);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Debug.Print("!!!!!!!!!!!!XXXXXXXXXXXXXXXXXXXXX!!!!!!!!!!!!!!!!!!!!!!!! " + ex.ToString());
-                                }
+                        // NOTE: Hiding just once doesn't help - the tooltip pops up again
+                        // TODO: Try to move it off-screen, behind or make invisible
+                        //if (!_argumentsToolTip.Visible)
+                        //{
+                        //    // Fiddle a bit with the ExcelToolTip if it is already visible when we first show our FunctionEdit ToolTip
+                        //    // At other times, the explicit UI update should catch and hide as appropriate
+                        //    if (excelToolTipWindow != IntPtr.Zero)
+                        //    {
+                        //        Win32Helper.HideWindow(excelToolTipWindow);
+                        //    }
+                        //}
 
-                            }
-#endif
+                        // For now we try to keep out of its way...
+                        int moveDown = 0;
+                        if (excelToolTipWindow != IntPtr.Zero)
+                        {
+                            // TODO: Maybe get its height...?
+                            moveDown = 18;
                         }
-                            var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+
+                        var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
+                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5 + moveDown);
                     }
                     else
                     {
@@ -329,6 +335,15 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        //void FormulaEditExcelToolTipShow(IntPtr excelToolTipWindow)
+        //{
+        //    // Excel tool tip has just been shown
+        //    // If we're showing the arguments dialog, hide the Excel tool tip
+        //    if (_argumentsToolTip != null && _argumentsToolTip.Visible)
+        //    {
+        //        Win32Helper.HideWindow(excelToolTipWindow);
+        //    }
+        //}
 
         // Runs on the main thread
         void FunctionListShow()

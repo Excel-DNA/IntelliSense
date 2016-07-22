@@ -20,7 +20,7 @@ namespace ExcelDna.IntelliSense
         public class FormulaEdit : UIState
         {
             public IntPtr FormulaEditWindow;    // Window where text entry focus is - either the in-cell edit window, or the formula bar
-            public string FormulaPrefix;
+            public string FormulaPrefix;        // Never null
             public Rect EditWindowBounds;
             public IntPtr ExcelToolTipWindow;   // ExcelToolTipWindow is Zero or is _some_ visible tooltip (either for from the list or the function)
 
@@ -40,7 +40,7 @@ namespace ExcelDna.IntelliSense
                 return new FormulaEdit
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
-                    FormulaPrefix = newFormulaPrefix,
+                    FormulaPrefix = newFormulaPrefix ?? "",
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelToolTipWindow = this.ExcelToolTipWindow
                 };
@@ -114,7 +114,7 @@ namespace ExcelDna.IntelliSense
                 return new FunctionList
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
-                    FormulaPrefix = newFormulaPrefix,
+                    FormulaPrefix = newFormulaPrefix ?? "",
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelToolTipWindow = this.ExcelToolTipWindow,
 
@@ -616,7 +616,7 @@ namespace ExcelDna.IntelliSense
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
                     FunctionListBounds = _popupListWatcher.ListBounds,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "",
                     ExcelToolTipWindow = _lastExcelToolTipShown // We also keep track here, since we'll by inferring the UIState change list using this too
                 };
             }
@@ -626,7 +626,7 @@ namespace ExcelDna.IntelliSense
                 {
                     FormulaEditWindow = _formulaEditWatcher.FormulaEditWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "", // TODO: Deal with nulls here... (we're not in FormulaEdit state anymore)
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "",
                     ExcelToolTipWindow = _lastExcelToolTipShown
                 };
             }
