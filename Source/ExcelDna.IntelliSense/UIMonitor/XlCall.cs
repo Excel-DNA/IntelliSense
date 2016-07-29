@@ -34,7 +34,7 @@ namespace ExcelDna.IntelliSense
         // Maybe helps with debugging...
         static bool _shutdownStarted = false;
         public static void ShutdownStarted()
-        {
+        { 
             _shutdownStarted = true;
         }
 

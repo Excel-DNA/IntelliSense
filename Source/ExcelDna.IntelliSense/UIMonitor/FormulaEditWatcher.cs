@@ -412,7 +412,6 @@ namespace ExcelDna.IntelliSense
         public void Dispose()
         {
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose Begin");
-            XlCall.ShutdownStarted();
 
             // Not sure we need this:
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
