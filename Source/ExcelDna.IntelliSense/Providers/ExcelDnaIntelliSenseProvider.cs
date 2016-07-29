@@ -108,12 +108,12 @@ namespace ExcelDna.IntelliSense
         bool _isDirty;
         public event EventHandler Invalidate;
 
-        public ExcelDnaIntelliSenseProvider(XmlIntelliSenseProvider xmlProvider)
+        public ExcelDnaIntelliSenseProvider()
         {
-            _xmlProvider = xmlProvider;
             _loaderNotification = new LoaderNotification();
             _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
             _syncContextExcel = new ExcelSynchronizationContext();
+            _xmlProvider = new XmlIntelliSenseProvider();
         }
 
         #region IIntelliSenseProvider implementation
@@ -123,6 +123,9 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize");
+
+            _xmlProvider.Initialize();
+
             lock (_xllRegistrationInfos)
             {
                 foreach (var xllPath in GetLoadedXllPaths())
@@ -133,7 +136,7 @@ namespace ExcelDna.IntelliSense
                         XllRegistrationInfo regInfo = new XllRegistrationInfo(xllPath);
                         _xllRegistrationInfos[xllPath] = regInfo;
 
-                       _xmlProvider.RegisterXmlFunctionInfo(GetXmlPath(xllPath));
+                        _xmlProvider.RegisterXmlFunctionInfo(GetXmlPath(xllPath));
                         
                         regInfo.Refresh();
                     }
@@ -152,6 +155,7 @@ namespace ExcelDna.IntelliSense
                 {
                     regInfo.Refresh();
                 }
+                _xmlProvider.Refresh();
                 _isDirty = false;
             }
         }
@@ -159,18 +163,22 @@ namespace ExcelDna.IntelliSense
         // May be called from any thread
         public IList<FunctionInfo> GetFunctionInfos()
         {
-            IList<FunctionInfo> functionInfos;
+            IList<FunctionInfo> excelDnaInfos;
             lock (_xllRegistrationInfos)
             {
-                functionInfos = _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+                excelDnaInfos = _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
             }
             Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos Begin");
-            foreach (var info in functionInfos)
+            foreach (var info in excelDnaInfos)
             {
                 Logger.Provider.Verbose($"\t{info.Name}({info.ArgumentList.Count}) - {info.Description} ");
             }
+
+            var xmlInfos = _xmlProvider.GetFunctionInfos();
+            var allInfos = excelDnaInfos.Concat(xmlInfos).ToList();
+
             Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos End");
-            return functionInfos;
+            return allInfos;
         }
 
         #endregion
@@ -215,6 +223,7 @@ namespace ExcelDna.IntelliSense
                             _isDirty = true;
                             _syncContextExcel.Post(OnInvalidate, null);
                         }
+
                     }
                 }
                 else if (notification.Reason == LoaderNotification.Reason.Unloaded)
@@ -222,7 +231,7 @@ namespace ExcelDna.IntelliSense
                     _xllRegistrationInfos.Remove(xllPath);
                     _xmlProvider.UnregisterXmlFunctionInfo(GetXmlPath(xllPath));
 
-                    // Not too worried about cleaning up
+                    // Not too eager when cleaning up
                     // OnInvalidate();
                 }
             }

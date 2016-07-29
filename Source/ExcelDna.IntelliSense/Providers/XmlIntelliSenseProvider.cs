@@ -10,6 +10,8 @@ using ExcelDna.Integration;
 namespace ExcelDna.IntelliSense
 {
     // CONSIDER: Support regular .NET XML documentation, either as files or packed?
+    // NOTE: There will be multiple instances of the XmlIntelliSenseProvider instantiated,
+    //       by the ExcelDna- and Workbook-providers
     class XmlIntelliSenseProvider : IIntelliSenseProvider
     {
         public class XmlRegistrationInfo

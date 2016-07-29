@@ -23,12 +23,10 @@ namespace ExcelDna.IntelliSense
             _uiMonitor = new UIMonitor(_syncContextMain);
             _display = new IntelliSenseDisplay(_syncContextMain, _uiMonitor);
 
-            var xmlProvider = new XmlIntelliSenseProvider();
             _providers = new List<IIntelliSenseProvider>
             {
-                new ExcelDnaIntelliSenseProvider(xmlProvider),
-                new WorkbookIntelliSenseProvider(xmlProvider),
-                xmlProvider
+                new ExcelDnaIntelliSenseProvider(),
+                new WorkbookIntelliSenseProvider(),
             };
 
             RegisterIntellisense();

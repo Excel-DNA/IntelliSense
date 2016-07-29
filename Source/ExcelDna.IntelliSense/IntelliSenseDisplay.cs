@@ -516,7 +516,7 @@ namespace ExcelDna.IntelliSense
             }
             else
             {
-                // Update  against the function name
+                // Update against the function name
                 _functionInfoMap[functionInfo.Name] = functionInfo;
             }
         }

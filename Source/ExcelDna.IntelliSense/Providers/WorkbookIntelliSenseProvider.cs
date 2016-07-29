@@ -115,14 +115,15 @@ namespace ExcelDna.IntelliSense
 
         #region IIntelliSenseProvider implementation
 
-        public WorkbookIntelliSenseProvider(XmlIntelliSenseProvider xmlProvider)
+        public WorkbookIntelliSenseProvider()
         {
-            _xmlProvider = xmlProvider;
+            _xmlProvider = new XmlIntelliSenseProvider();
         }
 
         public void Initialize()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
+            _xmlProvider.Initialize();
 
             // The events are just to keep track of the set of open workbooks, 
             var xlApp = (Application)ExcelDnaUtil.Application;
@@ -143,9 +144,9 @@ namespace ExcelDna.IntelliSense
                         WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
                         _workbookRegistrationInfos[name] = regInfo;
 
-                        RegisterWithXmlProvider(wb);
-
                         regInfo.Refresh();
+
+                        RegisterWithXmlProvider(wb);
                     }
                 }
             }
@@ -161,6 +162,7 @@ namespace ExcelDna.IntelliSense
                 {
                     regInfo.Refresh();
                 }
+                _xmlProvider.Refresh();
             }
         }
 
@@ -169,7 +171,9 @@ namespace ExcelDna.IntelliSense
         {
             lock (_workbookRegistrationInfos)
             {
-                return _workbookRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+                var workbookInfos = _workbookRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
+                var xmlInfos = _xmlProvider.GetFunctionInfos();
+                return workbookInfos.Concat(xmlInfos).ToList();
             }
         }
 
@@ -216,8 +220,8 @@ namespace ExcelDna.IntelliSense
         {
             var path = wb.FullName;
             var xmlPath = GetXmlPath(path);
-            _xmlProvider.UnregisterXmlFunctionInfo(xmlPath);
             _xmlProvider.UnregisterXmlFunctionInfo(path);
+            _xmlProvider.UnregisterXmlFunctionInfo(xmlPath);
         }
 
         //private void Excel_WorkbookAddinInstall(Workbook Wb)
