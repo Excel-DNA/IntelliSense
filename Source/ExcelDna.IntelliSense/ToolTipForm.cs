@@ -16,16 +16,6 @@ namespace ExcelDna.IntelliSense
         FormattedText _text;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
-        // We keep track of this, else Visibility seems to confuse things...
-        int _left;
-        int _top;
-        // Various graphics object cached
-        Brush _textBrush;
-        Brush _linkBrush;
-        Pen _borderPen;
-        Pen _borderLightPen;
-        Dictionary<FontStyle, Font> _fonts;
-        ToolTip tipDna;
         // Help Link
         Rectangle _linkClientRect;
         bool _linkActive;
@@ -34,6 +24,18 @@ namespace ExcelDna.IntelliSense
         bool _captured = false;
         Point _mouseDownScreenLocation;
         Point _mouseDownFormLocation;
+        // We keep track of this, else Visibility seems to confuse things...
+        int _left;
+        int _top;
+        int _showLeft;
+        int _showTop;
+        // Various graphics object cached
+        Brush _textBrush;
+        Brush _linkBrush;
+        Pen _borderPen;
+        Pen _borderLightPen;
+        Dictionary<FontStyle, Font> _fonts;
+        ToolTip tipDna;
 
         public ToolTipForm(IntPtr hwndOwner)
         {
@@ -108,18 +110,24 @@ namespace ExcelDna.IntelliSense
         public void ShowToolTip(FormattedText text, int left, int top)
         {
             _text = text;
-            _left = left;
-            _top = top;
+            if (left != _showLeft || top != _showTop)
+            {
+                // Update the start position and the current position
+                _left = left;
+                _top = top;
+                _showLeft = _left;
+                _showTop = _top;
+            }
             if (!Visible)
             {
-                Debug.Print($"Showing ToolTipForm: {_text.ToString()}");
+                Debug.Print($"ShowToolTip - Showing ToolTipForm: {_text.ToString()}");
                 // Make sure we're in the right position before we're first shown
                 SetBounds(_left, _top, 0, 0);
                 ShowToolTip();
             }
             else
             {
-                Debug.Print($"Invalidating ToolTipForm: {_text.ToString()}");
+                Debug.Print($"ShowToolTip - Invalidating ToolTipForm: {_text.ToString()}");
                 Invalidate();
             }
         }
@@ -127,8 +135,11 @@ namespace ExcelDna.IntelliSense
 
         public void MoveToolTip(int left, int top)
         {
+            // We might consider checking the new position against earlier mouse movements
             _left = left;
             _top = top;
+            _showLeft = _left;
+            _showTop = _top;
             Invalidate();
         }
 
