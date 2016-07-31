@@ -94,6 +94,12 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll", SetLastError=true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetCapture(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+
         // Returns the WindowHandle of the focused window, if that window is in our process.
         public static IntPtr GetFocusedWindowHandle()
         {

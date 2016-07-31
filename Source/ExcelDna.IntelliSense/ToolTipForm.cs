@@ -14,20 +14,26 @@ namespace ExcelDna.IntelliSense
     class ToolTipForm  : Form
     {
         FormattedText _text;
-        Label label;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
+        // We keep track of this, else Visibility seems to confuse things...
         int _left;
         int _top;
+        // Various graphics object cached
         Brush _textBrush;
         Brush _linkBrush;
         Pen _borderPen;
         Pen _borderLightPen;
-        ToolTip tipDna;
         Dictionary<FontStyle, Font> _fonts;
-        Rectangle _linkRect;
+        ToolTip tipDna;
+        // Help Link
+        Rectangle _linkClientRect;
         bool _linkActive;
         string _linkAddress;
+        // Mouse Capture information for moving        
+        bool _captured = false;
+        Point _mouseDownScreenLocation;
+        Point _mouseDownFormLocation;
 
         public ToolTipForm(IntPtr hwndOwner)
         {
@@ -48,85 +54,50 @@ namespace ExcelDna.IntelliSense
             _linkBrush = new SolidBrush(Color.Blue);
             _borderPen = new Pen(Color.FromArgb(195, 195, 195));
             _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
-            //Win32Helper.SetParent(this.Handle, hwndOwner);
-
-            // _owner = new NativeWindow();
-            // _owner.AssignHandle(hwndParent); (...with ReleaseHandle in Dispose)
+            SetStyle(ControlStyles.UserMouse | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
             Debug.Print($"Created ToolTipForm with owner {hwndOwner}");
         }
 
-        protected override void DefWndProc(ref Message m)
+        protected override void WndProc(ref Message m)
         {
             const int WM_MOUSEACTIVATE = 0x21;
+            const int WM_MOUSEMOVE = 0x0200;
+            const int WM_LBUTTONDOWN = 0x0201;
+            const int WM_LBUTTONUP = 0x0202;
+            const int WM_SETCURSOR = 0x20;
             const int MA_NOACTIVATE = 0x0003;
-            const int MA_NOACTIVATEANDEAT = 0x0004;
-            const int WM_NCACTIVATE = 0x86;
-            const int WM_NCHITTEST = 0x84;
-            const int HTCLIENT = 0x1;
-            const int HTCAPTION = 0x2;
-
-
-            /* you must intercept the appropriate messages received from system (WM_SIZING and WM_MOVING) and set the position of the form with SetWindowPos() - this will force it to move!
-
-In your Form's class:
-
-public const int WM_SIZING = 0x0214;
-public const int WM_MOVING = 0x0216;
-
-[StructLayout(LayoutKind.Sequential)]
-public struct RECT
-{
-    public int Left;
-    public int Top;
-    public int Right;
-    public int Bottom;
-}
-
-[DllImport("user32.dll", SetLastError = true)]
-private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInstertAfter, int x, int y, int cx, int cy, uint flags);
-
-protected override void WndProc(ref Message m)
-{
-    if (m.Msg == WM_SIZING || m.Msg == WM_MOVING)
-    {
-        RECT rect = (RECT)Marshal.PtrToStructure(m.LParam, typeof(RECT));
-        SetWindowPos(this.Handle, IntPtr.Zero, rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top, 0);
-    }
-    else
-    {
-        base.WndProc(ref m);
-    }
-} */
-
 
             switch (m.Msg)
             {
-                //case WM_NCHITTEST:
-                //    // Behave as if the whole form is the caption - allowing mouse to move it.
-                //    base.DefWndProc(ref m);
-	               // if ((int)m.Result == HTCLIENT)
-	               // m.Result = (IntPtr)HTCAPTION;
-	               // return;
-                //case WM_MOUSEACTIVATE:
-                //    m.Result = (IntPtr)MA_NOACTIVATEANDEAT;
-                //    base.DefWndProc(ref m); // Seems to still activate then...
-                //    return;
-                case WM_NCACTIVATE:
+                // Prevent activation by mouse interaction
+                case WM_MOUSEACTIVATE:
                     m.Result = (IntPtr)MA_NOACTIVATE;
-                    base.DefWndProc(ref m); // Seems to still activate then...
+                    return;
+                // We're never active, so we need to do our own mouse handling
+                case WM_LBUTTONDOWN:
+                    MouseButtonDown(GetMouseLocation(m.LParam));
+                    return;
+                case WM_MOUSEMOVE:
+                    MouseMoved(GetMouseLocation(m.LParam));
+                    return;
+                case WM_LBUTTONUP:
+                    MouseButtonUp(GetMouseLocation(m.LParam));
+                    return;
+                case WM_SETCURSOR:
+                    // We need to handle this message to prevent flicker (possibly because we're not 'active').
+                    m.Result = new IntPtr(1); //Signify that we dealt with the message.
                     return;
                 default:
-                    base.DefWndProc(ref m);
+                    base.WndProc(ref m);
                     return;
             }
         }
 
-        public void ShowToolTip()
+        void ShowToolTip()
         {
             try
             {
                 Show(_owner);
-                //Show();
             }
             catch (Exception e)
             {
@@ -142,8 +113,8 @@ protected override void WndProc(ref Message m)
             if (!Visible)
             {
                 Debug.Print($"Showing ToolTipForm: {_text.ToString()}");
-                Left = _left;
-                Top = _top;
+                // Make sure we're in the right position before we're first shown
+                SetBounds(_left, _top, 0, 0);
                 ShowToolTip();
             }
             else
@@ -153,11 +124,12 @@ protected override void WndProc(ref Message m)
             }
         }
 
+
         public void MoveToolTip(int left, int top)
         {
-            Invalidate();
             _left = left;
             _top = top;
+            Invalidate();
         }
 
         public IntPtr OwnerHandle
@@ -173,10 +145,10 @@ protected override void WndProc(ref Message m)
                 if (_owner == null || _owner.Handle != value)
                 {
                     _owner = new Win32Window(value);
-                    //Win32Helper.SetParent(this.Handle, value);
                     if (Visible)
                     {
-                        // CONSIDER: Rather just change Owner....
+                        // We want to change the owner.
+                        // That's hard, so we hide and re-show.
                         Hide();
                         ShowToolTip();
                     }
@@ -184,54 +156,93 @@ protected override void WndProc(ref Message m)
             }
         }
 
-        protected override bool ShowWithoutActivation
-        {
-            get { return true; }
-        }
-
-        //protected override void Dispose(bool disposing)
-        //{
-        //    base.Dispose(disposing);
-        //    if (_owner != null)
-        //    {
-        //        _owner.ReleaseHandle();
-        //        _owner = null;
-        //    }
-        //}
-
+        #region Mouse Handling
         
-        // Sometimes has Invalid Handle error when calling base.CreateParams (called from Invalidate() for some reason)
-        CreateParams _createParams;
-
-        protected override CreateParams CreateParams
+        void MouseButtonDown(Point screenLocation)
         {
-            get
+            if (!_linkClientRect.Contains(PointToClient(screenLocation)))
             {
-                //if (_createParams == null)
-                {
-                    const int CS_DROPSHADOW = 0x00020000;
-                    //const int WS_CHILD = 0x40000000;
-                    const int WS_EX_TOOLWINDOW = 0x00000080;
-                    const int WS_EX_NOACTIVATE = 0x08000000;
-                    // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
-                    _createParams = base.CreateParams;
-                    _createParams.ClassStyle |= CS_DROPSHADOW;
-                    // baseParams.Style |= WS_CHILD;
-                    _createParams.ExStyle |= (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
-                }
-                return _createParams;
+                _captured = true;
+                Win32Helper.SetCapture(Handle);
+                _mouseDownScreenLocation = screenLocation;
+                _mouseDownFormLocation = new Point(_left, _top);
             }
         }
 
-        protected override void OnHandleDestroyed(EventArgs e)
+        void MouseMoved(Point screenLocation)
         {
-            base.OnHandleDestroyed(e);
+            if (_captured)
+            {
+                int dx = screenLocation.X - _mouseDownScreenLocation.X;
+                int dy = screenLocation.Y - _mouseDownScreenLocation.Y;
+                _left = _mouseDownFormLocation.X + dx;
+                _top = _mouseDownFormLocation.Y + dy;
+                Invalidate();
+                return;
+            }
+            var inLink = _linkClientRect.Contains(PointToClient(screenLocation));
+            if ((inLink && !_linkActive) ||
+                (!inLink && _linkActive))
+            {
+                _linkActive = !_linkActive;
+                Invalidate();
+            }
+            if (inLink)
+                Cursor.Current = Cursors.Hand;
+            else
+                Cursor.Current = Cursors.SizeAll;
         }
 
+        void MouseButtonUp(Point screenLocation)
+        {
+            if (_captured)
+            {
+                _captured = false;
+                Win32Helper.ReleaseCapture();
+                return;
+            }
+
+            var inLink = _linkClientRect.Contains(PointToClient(screenLocation));
+            if (inLink)
+            {
+                LaunchLink(_linkAddress);
+            }
+        }
+
+        void LaunchLink(string address)
+        {
+            if (address.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                Process.Start(address);
+            }
+            else
+            {
+                var parts = address.Split('!');
+                if (parts.Length == 2)
+                {
+                    // (This is the expected case)
+                    // Assume we have a filename!topicid
+                    Help.ShowHelp(null, parts[0], HelpNavigator.TopicId, parts[1]);
+                }
+                else
+                {
+                    // Just show the file ...?
+                    Help.ShowHelp(null, address);
+                }
+            }
+        }
+        
+        Point GetMouseLocation(IntPtr lParam)
+        {
+            int x = (short)(unchecked((int)(long)lParam)  & 0xFFFF);
+            int y = (short)((unchecked((int)(long)lParam) >> 16) & 0xFFFF);
+            return PointToScreen(new Point(x, y));
+        }
+        #endregion
+
+        #region Painting
         protected override void OnPaint(PaintEventArgs e)
         {
-            Debug.Assert(_left != 0 || _top != 0);
-            Logger.Display.Verbose($"ToolTipForm OnPaint: {_text} @ ({_left},{_top})");
             const int leftPadding = 6;
             const int linePadding = 0;
             const int widthPadding = 12;
@@ -280,7 +291,7 @@ protected override void WndProc(ref Message m)
 
                         if (run.IsLink)
                         {
-                            _linkRect = new Rectangle(layoutRect.X - textSize.Width, layoutRect.Y, textSize.Width, textSize.Height);
+                            _linkClientRect = new Rectangle(layoutRect.X - textSize.Width, layoutRect.Y, textSize.Width, textSize.Height);
                             _linkAddress = run.LinkAddress;
                         }
 
@@ -328,7 +339,7 @@ protected override void WndProc(ref Message m)
         }
 
             
-        public void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
+        void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
         {
             var oldMode = g.SmoothingMode;
             g.SmoothingMode = SmoothingMode.None;
@@ -341,23 +352,33 @@ protected override void WndProc(ref Message m)
 
             g.SmoothingMode = oldMode;
         }
+        #endregion
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams createParams;
+                const int CS_DROPSHADOW = 0x00020000;
+                //const int WS_CHILD = 0x40000000;
+                const int WS_EX_TOOLWINDOW = 0x00000080;
+                const int WS_EX_NOACTIVATE = 0x08000000;
+                // NOTE: I've seen exception with invalid handle in the base.CreateParams call here...
+                createParams = base.CreateParams;
+                createParams.ClassStyle |= CS_DROPSHADOW;
+                // baseParams.Style |= WS_CHILD;
+                createParams.ExStyle |= (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+                return createParams;
+            }
+        }
+
+        protected override bool ShowWithoutActivation => true;
 
         void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.label = new System.Windows.Forms.Label();
             this.tipDna = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
-            // 
-            // label
-            // 
-            this.label.AutoSize = true;
-            this.label.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label.Location = new System.Drawing.Point(3, 3);
-            this.label.Name = "label";
-            this.label.Size = new System.Drawing.Size(105, 13);
-            this.label.TabIndex = 0;
-            this.label.Text = "Some long label text.";
             // 
             // tipDna
             // 
@@ -375,12 +396,10 @@ protected override void WndProc(ref Message m)
             this.Name = "ToolTipForm";
             this.ShowInTaskbar = false;
             this.tipDna.SetToolTip(this, "IntelliSense by Excel-DNA");
-            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.ToolTipForm_MouseClick);
-            this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.ToolTipForm_MouseMove);
             this.ResumeLayout(false);
 
         }
-
+        
         class Win32Window : IWin32Window
         {
             public IntPtr Handle
@@ -392,49 +411,6 @@ protected override void WndProc(ref Message m)
             public Win32Window(IntPtr handle)
             {
                 Handle = handle;
-            }
-        }
-
-        void ToolTipForm_MouseMove(object sender, MouseEventArgs e)
-        {
-            var inLink = _linkRect.Contains(e.Location);
-            if ((inLink && !_linkActive) ||
-                (!inLink && _linkActive))
-            {
-                _linkActive = !_linkActive;
-                Invalidate();
-            }
-        }
-
-        void ToolTipForm_MouseClick(object sender, MouseEventArgs e)
-        {
-            var inLink = _linkRect.Contains(e.Location);
-            if (inLink)
-            {
-                LaunchLink(_linkAddress);
-            }
-        }
-
-        void LaunchLink(string address)
-        {
-            if (address.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                Process.Start(address);
-            }
-            else
-            {
-                var parts = address.Split('!');
-                if (parts.Length == 2)
-                {
-                    // (This is the expected case)
-                    // Assume we have a filename!topicid
-                    Help.ShowHelp(null, parts[0], HelpNavigator.TopicId, parts[1]);
-                }
-                else
-                {
-                    // Just show the file ...?
-                    Help.ShowHelp(null, address);
-                }
             }
         }
     }
