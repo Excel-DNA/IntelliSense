@@ -17,6 +17,12 @@ namespace ExcelDna.IntelliSense
         internal static bool TryGetFormulaInfo(string formulaPrefix, out string functionName, out int currentArgIndex)
         {
             Debug.Assert(formulaPrefix != null);
+            
+            if (formulaPrefix.Count(c => c == '\"') % 2 != 0)
+            {
+                formulaPrefix = string.Concat(formulaPrefix, '\"');
+            }
+            
             formulaPrefix = Regex.Replace(formulaPrefix, "(\"[^\"]*\")|(\\([^\\(\\)]*\\))| ", string.Empty);
 
             while (Regex.IsMatch(formulaPrefix, "\\([^\\(\\)]*\\)"))
