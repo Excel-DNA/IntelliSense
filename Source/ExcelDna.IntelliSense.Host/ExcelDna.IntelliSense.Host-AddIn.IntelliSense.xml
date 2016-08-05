@@ -1,6 +1,6 @@
 ﻿<IntelliSense xmlns="http://schemas.excel-dna.net/intellisense/1.0">
   <FunctionInfo>
-    <Function Name="AdxThem" Description="A function described in XML"
+    <Function Name="AdxThem" Description="A function described in XML with a very long description that goes on and on for a very long time, until it scrolls off the screen no matter which side we pick to display it on."
                HelpTopic="MyFile.chm!100" >
       <Argument Name="tag" Description="Whatever you want to put in here" />
       <Argument Name="Addend" Description="Actually the second arg" />

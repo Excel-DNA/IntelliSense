@@ -277,7 +277,7 @@ namespace ExcelDna.IntelliSense
                 Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");
                 return;
             }
-            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5);
+            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, null);
         }
 
         // Runs on the main thread
@@ -315,7 +315,7 @@ namespace ExcelDna.IntelliSense
                         }
 
                         var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5 + moveDown);
+                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5 + moveDown, null);
                     }
                     else
                     {
@@ -377,7 +377,8 @@ namespace ExcelDna.IntelliSense
                     _descriptionToolTip.ShowToolTip(
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
                         left: (int)listBounds.Right + DescriptionLeftMargin,
-                        top: (int)selectedItemBounds.Bottom - 18);
+                        top: (int)selectedItemBounds.Bottom - 18,
+                        listLeft: (int)selectedItemBounds.Left);
                     return;
                 }
             }
@@ -388,7 +389,7 @@ namespace ExcelDna.IntelliSense
         
         void FunctionListMove(Rect selectedItemBounds, Rect listBounds)
         {
-            _descriptionToolTip.MoveToolTip((int)listBounds.Right + DescriptionLeftMargin, (int)selectedItemBounds.Bottom - 18);
+            _descriptionToolTip.MoveToolTip((int)listBounds.Right + DescriptionLeftMargin, (int)selectedItemBounds.Bottom - 18, (int)selectedItemBounds.Left);
         }
 
         // TODO: Performance / efficiency - cache these somehow

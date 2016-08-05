@@ -25,10 +25,11 @@ namespace ExcelDna.IntelliSense
         Point _mouseDownScreenLocation;
         Point _mouseDownFormLocation;
         // We keep track of this, else Visibility seems to confuse things...
-        int _left;
-        int _top;
+        int _currentLeft;
+        int _currentTop;
         int _showLeft;
         int _showTop;
+        int? _listLeft;
         // Various graphics object cached
         Brush _textBrush;
         Brush _linkBrush;
@@ -107,22 +108,23 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void ShowToolTip(FormattedText text, int left, int top)
+        public void ShowToolTip(FormattedText text, int left, int top, int? listLeft)
         {
             _text = text;
-            if (left != _showLeft || top != _showTop)
+            if (left != _showLeft || top != _showTop || listLeft != _listLeft)
             {
                 // Update the start position and the current position
-                _left = left;
-                _top = top;
-                _showLeft = _left;
-                _showTop = _top;
+                _currentLeft = left;
+                _currentTop = top;
+                _showLeft = left;
+                _showTop = top;
+                _listLeft = listLeft;
             }
             if (!Visible)
             {
                 Debug.Print($"ShowToolTip - Showing ToolTipForm: {_text.ToString()}");
                 // Make sure we're in the right position before we're first shown
-                SetBounds(_left, _top, 0, 0);
+                SetBounds(_currentLeft, _currentTop, 0, 0);
                 ShowToolTip();
             }
             else
@@ -133,13 +135,14 @@ namespace ExcelDna.IntelliSense
         }
 
 
-        public void MoveToolTip(int left, int top)
+        public void MoveToolTip(int left, int top, int? listLeft)
         {
             // We might consider checking the new position against earlier mouse movements
-            _left = left;
-            _top = top;
-            _showLeft = _left;
-            _showTop = _top;
+            _currentLeft = left;
+            _currentTop = top;
+            _showLeft = left;
+            _showTop = top;
+            _listLeft = listLeft;
             Invalidate();
         }
 
@@ -176,7 +179,7 @@ namespace ExcelDna.IntelliSense
                 _captured = true;
                 Win32Helper.SetCapture(Handle);
                 _mouseDownScreenLocation = screenLocation;
-                _mouseDownFormLocation = new Point(_left, _top);
+                _mouseDownFormLocation = new Point(_currentLeft, _currentTop);
             }
         }
 
@@ -186,8 +189,8 @@ namespace ExcelDna.IntelliSense
             {
                 int dx = screenLocation.X - _mouseDownScreenLocation.X;
                 int dy = screenLocation.Y - _mouseDownScreenLocation.Y;
-                _left = _mouseDownFormLocation.X + dx;
-                _top = _mouseDownFormLocation.Y + dy;
+                _currentLeft = _mouseDownFormLocation.X + dx;
+                _currentTop = _mouseDownFormLocation.Y + dy;
                 Invalidate();
                 return;
             }
@@ -321,7 +324,7 @@ namespace ExcelDna.IntelliSense
             }
             var width = lineWidths.Max() + widthPadding;
             var height = totalHeight + heightPadding;
-            SetBounds(_left, _top, width, height);
+            UpdateLocation(width, height);
             DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
         }
 
@@ -362,6 +365,33 @@ namespace ExcelDna.IntelliSense
             g.DrawRectangle(_borderPen, new Rectangle((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height));
 
             g.SmoothingMode = oldMode;
+        }
+
+        void UpdateLocation(int width, int height)
+        {
+            var workingArea = Screen.GetWorkingArea(new Point(_currentLeft, _currentTop));
+            bool tipFits = workingArea.Contains(new Rectangle(_currentLeft, _currentTop, width, height));
+            if (!tipFits && (_currentLeft == _showLeft && _currentTop == _showTop))
+            {
+                // It doesn't fit and it's still where we initially tried to show it 
+                // (so it probably hasn't been moved).
+                if (_listLeft == null)
+                {
+                    // Not in list selection mode - probably FormulaEdit
+                    _currentLeft = Math.Max(0, (_currentLeft + width) - workingArea.Right);
+                    // CONSIDER: Move up too???
+                }
+                else
+                {
+                    const int leftPadding = 4;
+                    // Check if it fits on the left
+                    if (width < _listLeft.Value - leftPadding)
+                    {
+                        _currentLeft = _listLeft.Value - width - leftPadding;
+                    }
+                }
+            }
+            SetBounds(_currentLeft, _currentTop, width, height);
         }
         #endregion
 
