@@ -80,8 +80,8 @@ namespace ExcelDna.IntelliSense
                         _popupList = AutomationElement.FromHandle(_hwndPopupList);
                         // We set up the structure changed handler so that we can catch the sub-list creation
                         InstallEventHandlers();
-                        UpdateSelectedItem();
                     }
+                    UpdateSelectedItem();
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     Logger.WindowWatcher.Verbose($"PopupList window hide");
