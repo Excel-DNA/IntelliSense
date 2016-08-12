@@ -91,6 +91,19 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll")]
         static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
 
+        enum GetAncestorFlags
+        {
+            // Retrieves the parent window. This does not include the owner, as it does with the GetParent function. 
+            GetParent = 1,
+            // Retrieves the root window by walking the chain of parent windows.
+            GetRoot = 2,
+            // Retrieves the owned root window by walking the chain of parent and owner windows returned by GetParent. 
+            GetRootOwner = 3
+        }
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetAncestor(IntPtr hwnd, GetAncestorFlags flags);
+
         [DllImport("user32.dll", SetLastError=true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
@@ -122,6 +135,12 @@ namespace ExcelDna.IntelliSense
                 return focusedWindow;
 
             return IntPtr.Zero;
+        }
+
+        // Should return null if there is no such ancestor
+        public static IntPtr GetRootAncestor(IntPtr hWnd)
+        {
+            return GetAncestor(hWnd, GetAncestorFlags.GetRoot);
         }
 
         public static System.Drawing.Point GetClientCursorPos(IntPtr hWnd)

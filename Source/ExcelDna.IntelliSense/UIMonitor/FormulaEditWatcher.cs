@@ -209,6 +209,7 @@ namespace ExcelDna.IntelliSense
                     try
                     {
                         UninstallTextChangeMonitor(element);
+                        UninstallLocationMonitor();
                         Logger.WindowWatcher.Verbose($"FormulaEdit Uninstalled event handlers for {hwnd}");
                     }
                     catch (Exception ex)
@@ -230,6 +231,8 @@ namespace ExcelDna.IntelliSense
             try
             {
                 InstallTextChangeMonitor(element);
+                if (IsEditingFormula)
+                    InstallLocationMonitor(GetTopLevelWindow(element));
                 Logger.WindowWatcher.Verbose($"FormulaEdit Installed event handlers for {newWindowHandle}");
             }
             catch (Exception ex)
@@ -317,6 +320,36 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        WindowLocationWatcher _windowLocationWatcher;
+
+        // Runs on our Automation thread
+        void InstallLocationMonitor(IntPtr hWnd)
+        {
+            if (_windowLocationWatcher != null)
+            {
+               _windowLocationWatcher.Dispose();
+            }
+            _windowLocationWatcher = new WindowLocationWatcher(hWnd, _syncContextAuto);
+            _windowLocationWatcher.LocationChanged += _windowLocationWatcher_LocationChanged;
+        }
+
+        // Runs on our Automation thread
+        void UninstallLocationMonitor()
+        {
+            if (_windowLocationWatcher != null)
+            {
+                _windowLocationWatcher.Dispose();
+                _windowLocationWatcher = null;
+            }
+        }
+
+        // Runs on our Automation thread
+        void _windowLocationWatcher_LocationChanged(object sender, EventArgs e)
+        {
+            UpdateEditState(moveOnly: true);
+            _windowWatcher.OnFormulaEditLocationChanged();
+        }
+
         // Runs on an Automation event thread
         // CONSIDER: With WinEvents we could get notified from main thread ... ?
         void TextChanged(object sender, AutomationEventArgs e)
@@ -326,15 +359,7 @@ namespace ExcelDna.IntelliSense
             UpdateFormula(textChangedOnly: true);
         }
 
-        // Runs on an Automation event thread
-        // CONSIDER: With WinEvents we could get notified from main thread ... ?
-        void LocationChanged(object sender, AutomationPropertyChangedEventArgs e)
-        {
-            // Debug.Print($">>>> FormulaEditWatcher.LocationChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-            Logger.WindowWatcher.Verbose($"FormulaEdit - Location changed");
-            UpdateEditState(true);
-        }
-
+        // Switches to our Automation thread, updates current state and raises StateChanged event
         void UpdateEditState(bool moveOnly = false)
         {
             Logger.WindowWatcher.Verbose("> FormulaEdit UpdateEditState - Posted");
@@ -368,6 +393,8 @@ namespace ExcelDna.IntelliSense
                         // Neither have the focus, so we don't update anything
                         Logger.WindowWatcher.Verbose("FormulaEdit UpdateEditState End formula editing");
                         CurrentPrefix = null;
+                        if (IsEditingFormula)
+                            UninstallLocationMonitor();
                         IsEditingFormula = false;
                         prefixChanged = true;
                         // Debug.Print("Don't have a focused text box to update.");
@@ -380,7 +407,10 @@ namespace ExcelDna.IntelliSense
 
                         var pt = Win32Helper.GetClientCursorPos(hwnd);
                         CaretPosition = new Point(pt.X, pt.Y);
+                        if (!IsEditingFormula)
+                            InstallLocationMonitor(GetTopLevelWindow(focusedEdit));
                         IsEditingFormula = true;
+
                         var newPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
                         if (CurrentPrefix != newPrefix)
                         {
@@ -391,7 +421,14 @@ namespace ExcelDna.IntelliSense
                     }
 
                     // TODO: Smarter notification...?
-                    OnStateChanged(new StateChangeEventArgs(((bool)moveOnlyObj && !prefixChanged) ? StateChangeType.Move : StateChangeType.Multiple));
+                    if ((bool)moveOnlyObj && !prefixChanged)
+                    {
+                        StateChanged?.Invoke(this, new StateChangeEventArgs(StateChangeType.Move));
+                    }
+                    else
+                    {
+                        OnStateChanged(new StateChangeEventArgs(StateChangeType.Multiple));
+                    }
                 }, moveOnly);
         }
 
@@ -428,6 +465,25 @@ namespace ExcelDna.IntelliSense
                 _inCellEdit = null;
             }, null);
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose End");
+        }
+
+
+        static IntPtr GetTopLevelWindow(AutomationElement element)
+        {
+            TreeWalker walker = TreeWalker.ControlViewWalker;
+            AutomationElement elementParent;
+            AutomationElement node = element;
+            if (node == AutomationElement.RootElement)
+                return node.NativeElement.CurrentNativeWindowHandle;
+            do
+            {
+                elementParent = walker.GetParent(node);
+                if (elementParent == AutomationElement.RootElement)
+                    break;
+                node = elementParent;
+            }
+            while (true);
+            return node.NativeElement.CurrentNativeWindowHandle;
         }
     }
 }

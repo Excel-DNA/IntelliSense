@@ -558,11 +558,26 @@ namespace ExcelDna.IntelliSense
             {
                 var newState = ((UIState.FormulaEdit)CurrentState).WithFormulaPrefix(_formulaEditWatcher.CurrentPrefix);
                 OnStateChanged(newState);
+                return;
             }
-            else
+
+            if (args.StateChangeType == FormulaEditWatcher.StateChangeType.Move)
             {
-                OnStateChanged();
+                if (CurrentState is UIState.FunctionList)
+                {
+                    // We'll update stuff in the PopupList change handler
+//                    var newState = ((UIState.FunctionList)CurrentState).WithBounds(_formulaEditWatcher.EditWindowBounds);
+//                    OnStateChanged(newState);
+                    return;
+                }
+                if (CurrentState is UIState.FormulaEdit)
+                {
+                    var newState = ((UIState.FormulaEdit)CurrentState).WithBounds(_formulaEditWatcher.EditWindowBounds);
+                    OnStateChanged(newState);
+                    return;
+                }
             }
+            OnStateChanged();
         }
 
         void _excelToolTipWatcher_ToolTipChanged(object sender, ExcelToolTipWatcher.ToolTipChangeEventArgs e)

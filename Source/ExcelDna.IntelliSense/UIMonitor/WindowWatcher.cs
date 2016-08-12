@@ -26,7 +26,8 @@ namespace ExcelDna.IntelliSense
                 Show = 3,
                 Hide = 4,
                 Focus = 5,
-                Unfocus = 6
+                Unfocus = 6,
+                LocationChange = 7
             }
 
             public readonly IntPtr WindowHandle;
@@ -58,6 +59,9 @@ namespace ExcelDna.IntelliSense
                     case WinEventHook.WinEvent.EVENT_OBJECT_FOCUS:
                         Type = ChangeType.Focus;
                         break;
+                    case WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE:
+                        Type = ChangeType.LocationChange;
+                        break;
                     default:
                         throw new ArgumentException("Unexpected WinEvent type", nameof(winEvent));
                 }
@@ -69,7 +73,8 @@ namespace ExcelDna.IntelliSense
                        winEvent == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
                        winEvent == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
                        winEvent == WinEventHook.WinEvent.EVENT_OBJECT_HIDE ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS;
+                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS ||
+                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE;   // Only for the on-demand hook
             }
         }
         
@@ -98,6 +103,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<WindowChangedEventArgs> InCellEditWindowChanged;
         public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;
         public event EventHandler<WindowChangedEventArgs> ExcelToolTipWindowChanged;
+        public event EventHandler FormulaEditLocationChanged;
 //        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
@@ -108,7 +114,7 @@ namespace ExcelDna.IntelliSense
 
             // Using WinEvents instead of Automation so that we can watch top-level window changes, but only from the right (current Excel) process.
             // TODO: We need to dramatically reduce the number of events we grab here...
-            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS, syncContextAuto);
+            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS, syncContextAuto, IntPtr.Zero);
 //            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_END, syncContextAuto);
 
             _windowStateChangeHook.WinEventReceived += _windowStateChangeHook_WinEventReceived;
@@ -239,6 +245,13 @@ namespace ExcelDna.IntelliSense
                     //InCellEditWindowChanged(this, EventArgs.Empty);
                     break;
             }
+        }
+
+        // Fired from the FormulaEditWatcher...
+        // CONSIDER: We might restructure the location watching, so that it happens here, rather than in the FormulaEdit
+        internal void OnFormulaEditLocationChanged()
+        {
+            FormulaEditLocationChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void Dispose()

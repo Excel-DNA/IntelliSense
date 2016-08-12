@@ -31,6 +31,7 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto = syncContextAuto;
             _windowWatcher = windowWatcher;
             _windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
+            _windowWatcher.FormulaEditLocationChanged += _windowWatcher_FormulaEditLocationChanged;
         }
 
         // Runs on our automation thread
@@ -58,8 +59,8 @@ namespace ExcelDna.IntelliSense
                     try
                     {
                         // DO we need to remove...?
-                        if (_popupList != null)
-                            Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
+                        //if (_popupList != null)
+                            //Automation.RemoveAutomationPropertyChangedEventHandler(_popupList, PopupListBoundsChanged);
                     }
                     catch (Exception ex)
                     {
@@ -97,6 +98,17 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Runs on our automation thread
+        void _windowWatcher_FormulaEditLocationChanged(object sender, EventArgs e)
+        {
+            if (IsVisible && _selectedItem != null)
+            {
+                SelectedItemBounds = (Rect)_selectedItem.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                ListBounds = (Rect)_popupList.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
+                OnSelectedItemChanged();
+            }
+        }
+
         //// Runs on our automation thread
         //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
         //{
@@ -130,7 +142,7 @@ namespace ExcelDna.IntelliSense
             if (e.NewValue != null)
                 ListBounds = (Rect)e.NewValue;
 
-            // We don't have to trigger the update
+            // We don't have to trigger the update, relying on the FormulaEdit to also have noticed the move...
 
             //_syncContextAuto.Post(delegate
             //{
@@ -179,6 +191,7 @@ namespace ExcelDna.IntelliSense
                 Automation.AddAutomationEventHandler(
                         SelectionItemPattern.ElementSelectedEvent, _popupList, TreeScope.Descendants /* was .Children */, PopupListElementSelectedHandler);
                 Logger.WindowWatcher.Verbose($"PopupList selection event handler added");
+                // NOTE: Using this event is pretty slow...
                 //Automation.AddAutomationPropertyChangedEventHandler(_popupList, TreeScope.Element, PopupListBoundsChanged, AutomationElement.BoundingRectangleProperty);
                 //Logger.WindowWatcher.Verbose($"PopupList bounds change event handler added");
             }

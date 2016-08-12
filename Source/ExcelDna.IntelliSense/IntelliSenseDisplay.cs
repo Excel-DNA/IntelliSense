@@ -294,7 +294,7 @@ namespace ExcelDna.IntelliSense
                     // We have a function name and we want to show info
                     if (_argumentsToolTip != null)
                     {
-                        // NOTE: Hiding just once doesn't help - the tooltip pops up again
+                        // NOTE: Hiding or moving just once doesn't help - the tooltip pops up in its original place again
                         // TODO: Try to move it off-screen, behind or make invisible
                         //if (!_argumentsToolTip.Visible)
                         //{

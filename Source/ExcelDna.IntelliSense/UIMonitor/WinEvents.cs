@@ -75,6 +75,9 @@ namespace ExcelDna.IntelliSense
             EVENT_OBJECT_TEXTSELECTIONCHANGED = 0x8014, // hwnd ID idChild is item w? test selection change
             EVENT_OBJECT_CONTENTSCROLLED = 0x8015,
             EVENT_SYSTEM_ARRANGMENTPREVIEW = 0x8016,
+            EVENT_SYSTEM_MOVESIZESTART = 0x000A, 
+            EVENT_SYSTEM_MOVESIZEEND = 0x000B,  // The movement or resizing of a window has finished. This event is sent by the system, never by servers.
+            // There are slso events about minimize / restore
             EVENT_OBJECT_END = 0x80FF,
             EVENT_AIA_START = 0xA000,
             EVENT_AIA_END = 0xAFFF,
@@ -84,13 +87,15 @@ namespace ExcelDna.IntelliSense
 
         readonly IntPtr _hWinEventHook;
         readonly SynchronizationContext _syncContextAuto;
+        readonly IntPtr _hWndFilterOrZero;    // If non-zero, only these window events are processed
         readonly WinEventDelegate _handleWinEventDelegate;  // Ensures delegate that we pass to SetWinEventHook is not GC'd
 
-        public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto)
+        public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto, IntPtr hWndFilterOrZero)
         {
             if (syncContextAuto == null)
                 throw new ArgumentNullException(nameof(syncContextAuto));
             _syncContextAuto = syncContextAuto;
+            _hWndFilterOrZero = hWndFilterOrZero;
             var xllModuleHandle = Win32Helper.GetXllModuleHandle();
             var excelProcessId = Win32Helper.GetExcelProcessId();
             _handleWinEventDelegate = HandleWinEvent;
@@ -111,6 +116,9 @@ namespace ExcelDna.IntelliSense
             try
             {
                 if (disposedValue)
+                    return;
+
+                if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 
                 // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
