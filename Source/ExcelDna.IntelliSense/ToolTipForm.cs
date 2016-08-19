@@ -29,6 +29,7 @@ namespace ExcelDna.IntelliSense
         int _currentTop;
         int _showLeft;
         int _showTop;
+        int _topOffset; // Might be trying to move the tooltip out of the way of Excel's tip - we track this extra offset here
         int? _listLeft;
         // Various graphics object cached
         Brush _textBrush;
@@ -109,23 +110,25 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void ShowToolTip(FormattedText text, int left, int top, int? listLeft)
+        public void ShowToolTip(FormattedText text, int left, int top, int topOffset, int? listLeft = null)
         {
+            Debug.Print($"@@@ ShowToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
             _text = text;
-            if (left != _showLeft || top != _showTop || listLeft != _listLeft)
+            if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft)
             {
                 // Update the start position and the current position
                 _currentLeft = left;
                 _currentTop = top;
                 _showLeft = left;
                 _showTop = top;
+                _topOffset = topOffset;
                 _listLeft = listLeft;
             }
             if (!Visible)
             {
                 Debug.Print($"ShowToolTip - Showing ToolTipForm: {_text.ToString()}");
                 // Make sure we're in the right position before we're first shown
-                SetBounds(_currentLeft, _currentTop, 0, 0);
+                SetBounds(_currentLeft, _currentTop + _topOffset, 0, 0);
                 ShowToolTip();
             }
             else
@@ -135,14 +138,15 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-
-        public void MoveToolTip(int left, int top, int? listLeft)
+        public void MoveToolTip(int left, int top, int topOffset, int? listLeft = null)
         {
+            Debug.Print($"@@@ MoveToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
             // We might consider checking the new position against earlier mouse movements
             _currentLeft = left;
             _currentTop = top;
             _showLeft = left;
             _showTop = top;
+            _topOffset = topOffset;
             _listLeft = listLeft;
             Invalidate();
         }
@@ -370,8 +374,8 @@ namespace ExcelDna.IntelliSense
 
         void UpdateLocation(int width, int height)
         {
-            var workingArea = Screen.GetWorkingArea(new Point(_currentLeft, _currentTop));
-            bool tipFits = workingArea.Contains(new Rectangle(_currentLeft, _currentTop, width, height));
+            var workingArea = Screen.GetWorkingArea(new Point(_currentLeft, _currentTop + _topOffset));
+            bool tipFits = workingArea.Contains(new Rectangle(_currentLeft, _currentTop + _topOffset, width, height));
             if (!tipFits && (_currentLeft == _showLeft && _currentTop == _showTop))
             {
                 // It doesn't fit and it's still where we initially tried to show it 
@@ -379,7 +383,7 @@ namespace ExcelDna.IntelliSense
                 if (_listLeft == null)
                 {
                     // Not in list selection mode - probably FormulaEdit
-                    _currentLeft = Math.Max(0, (_currentLeft + width) - workingArea.Right);
+                    _currentLeft -= Math.Max(0, (_currentLeft + width) - workingArea.Right);
                     // CONSIDER: Move up too???
                 }
                 else
@@ -392,7 +396,7 @@ namespace ExcelDna.IntelliSense
                     }
                 }
             }
-            SetBounds(_currentLeft, _currentTop, width, height);
+            SetBounds(_currentLeft, _currentTop + _topOffset, width, height);
         }
         #endregion
 

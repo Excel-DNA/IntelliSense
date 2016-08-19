@@ -164,6 +164,10 @@ namespace ExcelDna.IntelliSense
                     var fetc = (UIState.FormulaEdit)update.NewState;
                     FormulaEditTextChange(fetc.FormulaPrefix, fetc.EditWindowBounds, fetc.ExcelToolTipWindow);
                     break;
+                case UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange:
+                    var fett = (UIState.FormulaEdit)update.NewState;
+                    FormulaEditExcelToolTipShow(fett.EditWindowBounds, fett.ExcelToolTipWindow);
+                    break;
                 case UIStateUpdate.UpdateType.FunctionListShow:
                     var fls = (UIState.FunctionList)update.NewState;
                     // TODO: TEMP
@@ -185,10 +189,7 @@ namespace ExcelDna.IntelliSense
                 case UIStateUpdate.UpdateType.FormulaEditEnd:
                     FormulaEditEnd();
                     break;
-                case UIStateUpdate.UpdateType.FormulaEditExcelToolTipChange:
-                    //var fett = (UIState.FormulaEdit)update.NewState;
-                    //FormulaEditExcelToolTipShow(fett.ExcelToolTipWindow);
-                    break;
+
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
@@ -277,7 +278,8 @@ namespace ExcelDna.IntelliSense
                 Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");
                 return;
             }
-            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, null);
+            int topOffset = GetTopOffset(excelToolTipWindow);
+            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
         }
 
         // Runs on the main thread
@@ -305,17 +307,9 @@ namespace ExcelDna.IntelliSense
                         //        Win32Helper.HideWindow(excelToolTipWindow);
                         //    }
                         //}
-
-                        // For now we try to keep out of its way...
-                        int moveDown = 0;
-                        if (excelToolTipWindow != IntPtr.Zero)
-                        {
-                            // TODO: Maybe get its height...?
-                            moveDown = 18;
-                        }
-
+                        int topOffset = GetTopOffset(excelToolTipWindow);
                         var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5 + moveDown, null);
+                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
                     }
                     else
                     {
@@ -335,15 +329,29 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        //void FormulaEditExcelToolTipShow(IntPtr excelToolTipWindow)
-        //{
-        //    // Excel tool tip has just been shown
-        //    // If we're showing the arguments dialog, hide the Excel tool tip
-        //    if (_argumentsToolTip != null && _argumentsToolTip.Visible)
-        //    {
-        //        Win32Helper.HideWindow(excelToolTipWindow);
-        //    }
-        //}
+
+        // This helper just keeps us out of the Excel tooltip's way.
+        int GetTopOffset(IntPtr excelToolTipWindow)
+        {
+            // TODO: Maybe get its height...?
+            return (excelToolTipWindow == IntPtr.Zero) ? 0 : 18;
+        }
+
+        void FormulaEditExcelToolTipShow(Rect editWindowBounds, IntPtr excelToolTipWindow)
+        {
+            //    // Excel tool tip has just been shown
+            //    // If we're showing the arguments dialog, hide the Excel tool tip
+            //    if (_argumentsToolTip != null && _argumentsToolTip.Visible)
+            //    {
+            //        Win32Helper.HideWindow(excelToolTipWindow);
+            //    }
+
+            if (_argumentsToolTip != null && _argumentsToolTip.Visible)
+            {
+                int topOffset = GetTopOffset(excelToolTipWindow);
+                _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+            }
+        }
 
         // Runs on the main thread
         void FunctionListShow()
@@ -378,6 +386,7 @@ namespace ExcelDna.IntelliSense
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
                         left: (int)listBounds.Right + DescriptionLeftMargin,
                         top: (int)selectedItemBounds.Bottom - 18,
+                        topOffset: 0,
                         listLeft: (int)selectedItemBounds.Left);
                     return;
                 }
@@ -389,7 +398,11 @@ namespace ExcelDna.IntelliSense
         
         void FunctionListMove(Rect selectedItemBounds, Rect listBounds)
         {
-            _descriptionToolTip.MoveToolTip((int)listBounds.Right + DescriptionLeftMargin, (int)selectedItemBounds.Bottom - 18, (int)selectedItemBounds.Left);
+            _descriptionToolTip.MoveToolTip(
+               left: (int)listBounds.Right + DescriptionLeftMargin,
+               top: (int)selectedItemBounds.Bottom - 18, 
+               topOffset: 0, 
+               listLeft: (int)selectedItemBounds.Left);
         }
 
         // TODO: Performance / efficiency - cache these somehow

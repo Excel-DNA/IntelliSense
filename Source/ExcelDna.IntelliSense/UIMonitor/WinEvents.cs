@@ -77,7 +77,9 @@ namespace ExcelDna.IntelliSense
             EVENT_SYSTEM_ARRANGMENTPREVIEW = 0x8016,
             EVENT_SYSTEM_MOVESIZESTART = 0x000A, 
             EVENT_SYSTEM_MOVESIZEEND = 0x000B,  // The movement or resizing of a window has finished. This event is sent by the system, never by servers.
-            // There are slso events about minimize / restore
+            EVENT_SYSTEM_MINIMIZESTART = 0x0016,    // A window object is about to be minimized. 
+            EVENT_SYSTEM_MINIMIZEEND = 0x0017,      // A window object is about to be restored. 
+            EVENT_SYSTEM_END = 0x00FF,
             EVENT_OBJECT_END = 0x80FF,
             EVENT_AIA_START = 0xA000,
             EVENT_AIA_END = 0xAFFF,
