@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 
 namespace ExcelDna.IntelliSense
@@ -30,8 +28,7 @@ namespace ExcelDna.IntelliSense
 #if DEBUG
             Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
 #endif
-            if (winEventArgs.WindowHandle == _hWnd)
-                LocationChanged?.Invoke(this, EventArgs.Empty);
+            LocationChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void Dispose()
