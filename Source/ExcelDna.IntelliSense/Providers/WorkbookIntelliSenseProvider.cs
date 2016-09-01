@@ -118,6 +118,7 @@ namespace ExcelDna.IntelliSense
         public WorkbookIntelliSenseProvider()
         {
             _xmlProvider = new XmlIntelliSenseProvider();
+            _xmlProvider.Invalidate += ( sender, e) => OnInvalidate();
         }
 
         public void Initialize()

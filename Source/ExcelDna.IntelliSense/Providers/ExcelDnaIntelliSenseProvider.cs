@@ -114,6 +114,7 @@ namespace ExcelDna.IntelliSense
             _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
             _syncContextExcel = new ExcelSynchronizationContext();
             _xmlProvider = new XmlIntelliSenseProvider();
+            _xmlProvider.Invalidate += (sender, e) => OnInvalidate(null);
         }
 
         #region IIntelliSenseProvider implementation
