@@ -322,25 +322,10 @@ namespace ExcelDna.IntelliSense
                 }
             }
 
-            public string ToRegistrationString()
-            {
-                return string.Join(",", XllPath, ServerId.ToString("N"), Version);
-            }
-
-            public int CompareTo(RegistrationInfo other)
-            {
-                return CompareVersions(Version, other.Version);
-            }
-
-            public static string GetControlMacroName(Guid serverId)
-            {
-                return "IntelliSenseServerControl_" + serverId.ToString("N");
-            }
-
-            public string GetControlMacroName()
-            {
-                return GetControlMacroName(ServerId);
-            }
+            public string ToRegistrationString() => $"{XllPath},{ServerId:N},{Version}";
+            public int CompareTo(RegistrationInfo other) => CompareVersions(Version, other.Version);
+            public static string GetControlMacroName(Guid serverId) => $"IntelliSenseServerControl_{serverId:N}";
+            public string GetControlMacroName() => GetControlMacroName(ServerId);
 
             // 1.2.0 is equal to 1.2
             // Returns: -1 if version1 < version2
