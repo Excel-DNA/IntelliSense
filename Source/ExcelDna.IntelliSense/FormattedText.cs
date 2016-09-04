@@ -18,24 +18,19 @@ namespace ExcelDna.IntelliSense
             _lines = new List<TextLine>();
         }
 
-        public void Add(TextLine line) { _lines.Add(line); }
+        public void Add(TextLine line) => _lines.Add(line);
 
-        public void Add(IEnumerable<TextLine> lines) { if (lines != null) _lines.AddRange(lines); }
-
-        public IEnumerator<TextLine> GetEnumerator()
+        public void Add(IEnumerable<TextLine> lines)
         {
-            return _lines.GetEnumerator();
+            if (lines != null)
+                _lines.AddRange(lines);
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+        public IEnumerator<TextLine> GetEnumerator() => _lines.GetEnumerator();
 
-        public override string ToString()
-        {
-            return string.Join("\r\n", _lines.Select(l => l.ToString()));
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString() => string.Join("\r\n", _lines.Select(l => l.ToString()));
     }
 
     class TextLine : IEnumerable<TextRun>
@@ -47,23 +42,13 @@ namespace ExcelDna.IntelliSense
             _runs = new List<TextRun>();
         }
 
-        public void Add(TextRun run) { _runs.Add(run); }
+        public void Add(TextRun run) => _runs.Add(run);
 
+        public IEnumerator<TextRun> GetEnumerator() => _runs.GetEnumerator();
 
-        public IEnumerator<TextRun> GetEnumerator()
-        {
-            return _runs.GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public override string ToString()
-        {
-            return string.Concat(_runs.Select(r => r.Text));
-        }
+        public override string ToString() => string.Concat(_runs.Select(r => r.Text));
     }
 
     class TextRun
@@ -71,7 +56,7 @@ namespace ExcelDna.IntelliSense
         public string Text { get; set; }
         public FontStyle Style { get; set; }    
         public string LinkAddress { get; set; }
-        public bool IsLink { get { return !string.IsNullOrEmpty(LinkAddress); } }
+        public bool IsLink => !string.IsNullOrEmpty(LinkAddress);
     }
 
 }

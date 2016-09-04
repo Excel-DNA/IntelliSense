@@ -466,15 +466,19 @@ namespace ExcelDna.IntelliSense
             var formattedText = new FormattedText { nameLine, descriptionLines };
             if (functionInfo.ArgumentList.Count > currentArgIndex)
             {
-                var description = GetArgumentDescription(functionInfo.ArgumentList[currentArgIndex]);
-                formattedText.Add(description);
+                var description = GetArgumentDescriptionOrNull(functionInfo.ArgumentList[currentArgIndex]);
+                if (description != null)
+                    formattedText.Add(description);
             }
 
             return formattedText;
         }
 
-        TextLine GetArgumentDescription(FunctionInfo.ArgumentInfo argumentInfo)
+        TextLine GetArgumentDescriptionOrNull(FunctionInfo.ArgumentInfo argumentInfo)
         {
+            if (string.IsNullOrEmpty(argumentInfo.Description))
+                return null;
+
             return new TextLine { 
                     new TextRun
                     {
