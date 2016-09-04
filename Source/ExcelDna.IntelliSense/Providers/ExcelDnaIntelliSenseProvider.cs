@@ -101,20 +101,24 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        ExcelSynchronizationContext _syncContextExcel;
-        XmlIntelliSenseProvider _xmlProvider;
-        Dictionary<string, XllRegistrationInfo> _xllRegistrationInfos = new Dictionary<string, XllRegistrationInfo>();
+        readonly SynchronizationContext _syncContextMain; // Main thread, not macro context
+        readonly ExcelSynchronizationContext _syncContextExcel; // Proper macro context
+        readonly XmlIntelliSenseProvider _xmlProvider;
+        readonly Dictionary<string, XllRegistrationInfo> _xllRegistrationInfos = new Dictionary<string, XllRegistrationInfo>();
         LoaderNotification _loaderNotification;
         bool _isDirty;
+        SendOrPostCallback _processLoadNotification;
         public event EventHandler Invalidate;
 
-        public ExcelDnaIntelliSenseProvider()
+        public ExcelDnaIntelliSenseProvider(SynchronizationContext syncContextMain)
         {
             _loaderNotification = new LoaderNotification();
             _loaderNotification.LoadNotification += loaderNotification_LoadNotification;
+            _syncContextMain = syncContextMain;
             _syncContextExcel = new ExcelSynchronizationContext();
             _xmlProvider = new XmlIntelliSenseProvider();
             _xmlProvider.Invalidate += (sender, e) => OnInvalidate(null);
+            _processLoadNotification = ProcessLoadNotification;
         }
 
         #region IIntelliSenseProvider implementation
@@ -188,19 +192,17 @@ namespace ExcelDna.IntelliSense
         // TODO: Consider Load/Unload done when AddIns is enumerated...
         void loaderNotification_LoadNotification(object sender, LoaderNotification.NotificationEventArgs e)
         {
-            // Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
+            Debug.Print($"@>@>@>@> LoadNotification: {e.Reason} - {e.FullDllName}");
             if (e.FullDllName.EndsWith(".xll", StringComparison.OrdinalIgnoreCase))
-                _syncContextExcel.Post(ProcessLoadNotification, e);
+                _syncContextMain.Post(_processLoadNotification, e);
         }
 
-        // Runs on the main thread, in a macro context 
+        // Runs on the main thread, but not in a macro context 
         // WARNING: The sequence of calls here, between queued 
         //          instances of ProcessLoadNotification, Refresh and OnInvalidate
         //          is quite fragile.
         void ProcessLoadNotification(object state)
         {
-            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
-            // we might want to introduce a delay here, so that the .xll can complete loading...
             var notification = (LoaderNotification.NotificationEventArgs)state;
             var xllPath = notification.FullDllName;
 
@@ -222,7 +224,9 @@ namespace ExcelDna.IntelliSense
                         if (!_isDirty)
                         {
                             _isDirty = true;
-                            _syncContextExcel.Post(OnInvalidate, null);
+                            // This call would case trouble while Excel is shutting down.
+                            // CONSIDER: Is there a check we might do.... (and do we in fact get .xll loads during shutdown?)
+                           _syncContextExcel.Post(OnInvalidate, null);
                         }
 
                     }
@@ -259,8 +263,10 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Must be called on the main thread, in a macro context
         void OnInvalidate(object _unused_)
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             Invalidate?.Invoke(this, EventArgs.Empty);
         }
 

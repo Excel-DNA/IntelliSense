@@ -136,7 +136,7 @@ namespace ExcelDna.IntelliSense
         {
             if (windowHandle == _focusedWindowHandle)
             {
-                Debug.Assert(_focusedWindowClassName == windowClassName);
+                Debug.Assert(_focusedWindowClassName == windowClassName);   // I've seen this, with _focusedWindowClassName == "" and windowClassName == "EXCEL7".
                 return false;
             }
 
