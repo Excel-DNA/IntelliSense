@@ -130,11 +130,9 @@ namespace ExcelDna.IntelliSense
             var xlApp = (Application)ExcelDnaUtil.Application;
             xlApp.WorkbookOpen += Excel_WorkbookOpen;
             xlApp.WorkbookBeforeClose += Excel_WorkbookBeforeClose;
-            //xlApp.WorkbookAddinInstall += Excel_WorkbookAddinInstall;
-            //xlApp.WorkbookAddinUninstall += Excel_WorkbookAddinUninstall;
+            xlApp.WorkbookAddinInstall += Excel_WorkbookAddinInstall;
+            xlApp.WorkbookAddinUninstall += Excel_WorkbookAddinUninstall;
 
-            //var app = ExcelDnaUtil.Application;
-            // app.WorkbookLoaded...
             lock (_workbookRegistrationInfos)
             {
                 foreach (Workbook wb in xlApp.Workbooks)
@@ -148,6 +146,35 @@ namespace ExcelDna.IntelliSense
                         regInfo.Refresh();
 
                         RegisterWithXmlProvider(wb);
+                    }
+                }
+                if (ExcelDnaUtil.ExcelVersion >= 14.0)
+                {
+                    foreach (AddIn addIn in xlApp.AddIns2)
+                    {
+                        if (addIn.IsOpen && Path.GetExtension(addIn.FullName) != ".xll")
+                        {
+                            // Can it be "Open" and not be loaded?
+                            var name = addIn.Name;
+                            Workbook wbAddIn;
+                            try
+                            {
+                                // TODO: Log
+                                wbAddIn = xlApp.Workbooks[name];
+                            }
+                            catch
+                            {
+                                // TODO: Log
+                                continue;
+                            }
+
+                            WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
+                            _workbookRegistrationInfos[name] = regInfo;
+
+                            regInfo.Refresh();
+
+                            RegisterWithXmlProvider(wbAddIn);
+                        }
                     }
                 }
             }
@@ -203,6 +230,27 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        void Excel_WorkbookAddinInstall(Workbook wb)
+        {
+            var name = wb.Name;
+            var regInfo = new WorkbookRegistrationInfo(name);
+            lock (_workbookRegistrationInfos)
+            {
+                _workbookRegistrationInfos[name] = regInfo;
+                RegisterWithXmlProvider(wb);
+                OnInvalidate();
+            }
+        }
+
+        void Excel_WorkbookAddinUninstall(Workbook wb)
+        {
+            lock (_workbookRegistrationInfos)
+            {
+                _workbookRegistrationInfos.Remove(wb.Name);
+                UnregisterWithXmlProvider(wb);
+            }
+        }
+
         void RegisterWithXmlProvider(Workbook wb)
         {
             var path = wb.FullName;
@@ -225,16 +273,6 @@ namespace ExcelDna.IntelliSense
             _xmlProvider.UnregisterXmlFunctionInfo(xmlPath);
         }
 
-        //private void Excel_WorkbookAddinInstall(Workbook Wb)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //private void Excel_WorkbookAddinUninstall(Workbook Wb)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
         void OnInvalidate()
         {
             Invalidate?.Invoke(this, EventArgs.Empty);
@@ -251,6 +289,8 @@ namespace ExcelDna.IntelliSense
                 {
                     xlApp.WorkbookOpen -= Excel_WorkbookOpen;
                     xlApp.WorkbookBeforeClose -= Excel_WorkbookBeforeClose;
+                    xlApp.WorkbookAddinInstall -= Excel_WorkbookAddinInstall;
+                    xlApp.WorkbookAddinUninstall -= Excel_WorkbookAddinUninstall;
                 }
             }
             catch (Exception ex)
