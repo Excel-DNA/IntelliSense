@@ -92,6 +92,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UIMonitor\UIMonitor.cs" />
+    <Compile Include="UIMonitor\UIState.cs" />
     <Compile Include="UIMonitor\WindowLocationWatcher.cs" />
     <Compile Include="UIMonitor\WindowWatcher.cs" />
     <Compile Include="Win32Helper.cs" />
