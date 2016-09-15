@@ -77,5 +77,16 @@ namespace ExcelDna.IntelliSense
             currentArgIndex = -1;
             return false;
         }
+
+        internal static string GetLineBeforeFunctionName(string formulaPrefix, string functionName)
+        {
+            // TODO: This should be cleaned up - just added something for testing...
+            int lastFuncStart = formulaPrefix.LastIndexOf(functionName);
+            if (lastFuncStart < 0)
+                return "";
+
+            int lastLineStart = formulaPrefix.LastIndexOf('\n', lastFuncStart) + 1;
+            return formulaPrefix.Substring(lastLineStart, lastFuncStart - lastLineStart);
+        }
     }
 }

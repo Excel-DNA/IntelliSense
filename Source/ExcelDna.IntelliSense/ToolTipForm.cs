@@ -14,6 +14,7 @@ namespace ExcelDna.IntelliSense
     class ToolTipForm  : Form
     {
         FormattedText _text;
+        int _linePrefixWidth;
         System.ComponentModel.IContainer components;
         Win32Window _owner;
         // Help Link
@@ -110,10 +111,12 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void ShowToolTip(FormattedText text, int left, int top, int topOffset, int? listLeft = null)
+        public void ShowToolTip(FormattedText text, string linePrefix, int left, int top, int topOffset, int? listLeft = null)
         {
             Debug.Print($"@@@ ShowToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
             _text = text;
+            _linePrefixWidth = MeasureFormulaStringWidth(linePrefix);
+            left += _linePrefixWidth;
             if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft)
             {
                 // Update the start position and the current position
@@ -126,14 +129,14 @@ namespace ExcelDna.IntelliSense
             }
             if (!Visible)
             {
-                Debug.Print($"ShowToolTip - Showing ToolTipForm: {_text.ToString()}");
+                Debug.Print($"ShowToolTip - Showing ToolTipForm: {linePrefix} => {_text.ToString()}");
                 // Make sure we're in the right position before we're first shown
                 SetBounds(_currentLeft, _currentTop + _topOffset, 0, 0);
                 ShowToolTip();
             }
             else
             {
-                Debug.Print($"ShowToolTip - Invalidating ToolTipForm: {_text.ToString()}");
+                Debug.Print($"ShowToolTip - Invalidating ToolTipForm: {linePrefix} => {_text.ToString()}");
                 Invalidate();
             }
         }
@@ -141,6 +144,7 @@ namespace ExcelDna.IntelliSense
         public void MoveToolTip(int left, int top, int topOffset, int? listLeft = null)
         {
             Debug.Print($"@@@ MoveToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
+            left += _linePrefixWidth;
             // We might consider checking the new position against earlier mouse movements
             _currentLeft = left;
             _currentTop = top;
@@ -173,6 +177,17 @@ namespace ExcelDna.IntelliSense
                     }
                 }
             }
+        }
+
+        // TODO: Move or clean up or something...
+        Font StandardFont = new Font("Calibri", 11);
+        int MeasureFormulaStringWidth(string formulaString)
+        {
+            if (string.IsNullOrEmpty(formulaString))
+                return 0;
+
+            var size = TextRenderer.MeasureText(formulaString, StandardFont);
+            return size.Width;
         }
 
         #region Mouse Handling
@@ -329,6 +344,7 @@ namespace ExcelDna.IntelliSense
             }
             var width = lineWidths.Max() + widthPadding;
             var height = totalHeight + heightPadding;
+
             UpdateLocation(width, height);
             DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
         }

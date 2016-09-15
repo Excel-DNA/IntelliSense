@@ -45,7 +45,7 @@ namespace ExcelDna.IntelliSense
         // We don't really care whether it is the formula bar or in-cell, 
         // we just need to get the right window handle 
         public Rect EditWindowBounds { get; set; }
-        public Point CaretPosition { get; set; }
+
         public IntPtr FormulaEditWindow
         {
             get
@@ -406,7 +406,7 @@ namespace ExcelDna.IntelliSense
                         IntPtr hwnd = (IntPtr)(int)focusedEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
 
                         var pt = Win32Helper.GetClientCursorPos(hwnd);
-                        CaretPosition = new Point(pt.X, pt.Y);
+
                         if (!IsEditingFormula)
                             InstallLocationMonitor(GetTopLevelWindow(focusedEdit));
                         IsEditingFormula = true;
@@ -417,7 +417,7 @@ namespace ExcelDna.IntelliSense
                             CurrentPrefix = newPrefix;
                             prefixChanged = true;
                         }
-                        Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState Formula editing: CurrentPrefix {CurrentPrefix}, EditWindowBounds: {EditWindowBounds}, CaretPosition {CaretPosition}");
+                        Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState Formula editing: CurrentPrefix {CurrentPrefix}, EditWindowBounds: {EditWindowBounds}");
                     }
 
                     // TODO: Smarter notification...?

@@ -293,6 +293,7 @@ namespace ExcelDna.IntelliSense
                 FunctionInfo functionInfo;
                 if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
                 {
+                    var lineBeforeFunctionName = FormulaParser.GetLineBeforeFunctionName(formulaPrefix, functionName);
                     // We have a function name and we want to show info
                     if (_argumentsToolTip != null)
                     {
@@ -308,8 +309,8 @@ namespace ExcelDna.IntelliSense
                         //    }
                         //}
                         int topOffset = GetTopOffset(excelToolTipWindow);
-                        var infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        _argumentsToolTip.ShowToolTip(infoText, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                        FormattedText infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
+                        _argumentsToolTip.ShowToolTip(infoText, lineBeforeFunctionName, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
                     }
                     else
                     {
@@ -384,6 +385,7 @@ namespace ExcelDna.IntelliSense
                 {
                     _descriptionToolTip.ShowToolTip(
                         text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
+                        linePrefix: null,
                         left: (int)listBounds.Right + DescriptionLeftMargin,
                         top: (int)selectedItemBounds.Bottom - 18,
                         topOffset: 0,
