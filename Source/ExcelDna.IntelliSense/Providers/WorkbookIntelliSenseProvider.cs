@@ -26,6 +26,7 @@ namespace ExcelDna.IntelliSense
             readonly string _name;
             DateTime _lastUpdate;               // Version indicator to enumerate from scratch
             object[,] _regInfo = null;          // Default value
+            string _path;
 
             public WorkbookRegistrationInfo(string name)
             {
@@ -37,6 +38,7 @@ namespace ExcelDna.IntelliSense
             {
                 var app = (Application)ExcelDnaUtil.Application;
                 var wb = app.Workbooks[_name];
+                _path = wb.Path;
 
                 try
                 {
@@ -96,6 +98,8 @@ namespace ExcelDna.IntelliSense
                             });
                         }
                     }
+
+                    helpTopic = FunctionInfo.ExpandHelpTopic(_path, helpTopic);
 
                     yield return new FunctionInfo
                     {

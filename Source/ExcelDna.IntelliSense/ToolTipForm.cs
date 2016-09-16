@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -246,24 +247,48 @@ namespace ExcelDna.IntelliSense
 
         void LaunchLink(string address)
         {
-            if (address.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                Process.Start(address);
-            }
-            else
-            {
-                var parts = address.Split('!');
-                if (parts.Length == 2)
+                if (address.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
-                    // (This is the expected case)
-                    // Assume we have a filename!topicid
-                    Help.ShowHelp(null, parts[0], HelpNavigator.TopicId, parts[1]);
+                    Process.Start(address);
                 }
                 else
                 {
-                    // Just show the file ...?
-                    Help.ShowHelp(null, address);
+                    var parts = address.Split('!');
+                    if (parts.Length == 2)
+                    {
+                        // (This is the expected case)
+                        // Assume we have a filename!topicid
+                        var fileName = parts[0];
+                        var topicId = parts[1];
+                        if (File.Exists(fileName))
+                        {
+                            Help.ShowHelp(null, fileName, HelpNavigator.TopicId, topicId);
+                        }
+                        else
+                        {
+                            MessageBox.Show($"The help link could not be activated:\r\n\r\nThe file {fileName} could not be located.", "IntelliSense by Excel-DNA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    else
+                    {
+                        // Just show the file ...?
+                        if (File.Exists(address))
+                        {
+                            Help.ShowHelp(null, address, HelpNavigator.TableOfContents);
+                        }
+                        else
+                        {
+                            MessageBox.Show($"The help link could not be activated:\r\n\r\nThe file {address} could not be located.", "IntelliSense by Excel-DNA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"The help link could not be activated:\r\n\r\n{ex.Message}", "IntelliSense by Excel-DNA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // NOTE: In this case, the Excel process does not quit after closing Excel...
             }
         }
         

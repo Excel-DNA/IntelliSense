@@ -19,11 +19,13 @@ namespace ExcelDna.IntelliSense
             string _fileName;              // Might be .xml file or Workbook path. Use only if _xmlIntelliSense is null.
             string _xmlIntelliSense;       // Might be null
             XmlIntelliSense _intelliSense; // Might be null - lazy parsed
+            string _path;                  // Directory of file, used to expand HelpTopic
 
             public XmlRegistrationInfo(string fileName, string xmlIntelliSense)
             {
                 _fileName = fileName;
                 _xmlIntelliSense = xmlIntelliSense;
+                _path = Path.GetDirectoryName(fileName);
             }
 
             // Called in a macro context
@@ -43,10 +45,11 @@ namespace ExcelDna.IntelliSense
                     _intelliSense = XmlIntelliSense.Parse(xml);
                     if (_intelliSense?.XmlFunctionInfo?.FunctionsList != null)
                     {
-                        // Fix up SourcePath (is this used?)
+                        // Fix up SourcePath (is this used?) and HelpTopic
                         foreach (var func in _intelliSense.XmlFunctionInfo.FunctionsList)
                         {
                             func.SourcePath = _fileName;
+                            func.HelpTopic = FunctionInfo.ExpandHelpTopic(_path, func.HelpTopic);
                         }
                     }
                 }
@@ -65,7 +68,6 @@ namespace ExcelDna.IntelliSense
 
                 return _intelliSense.XmlFunctionInfo.FunctionsList;
             }
-
 
         }
 

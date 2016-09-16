@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml.Serialization;
 
 namespace ExcelDna.IntelliSense
@@ -58,6 +59,28 @@ namespace ExcelDna.IntelliSense
         public List<ArgumentInfo> ArgumentList;
         [XmlIgnore]
         public string SourcePath; // XllPath for .xll, Workbook Name for Workbook, .xml file path for Xml file
+
+        // Not sure where to put this...
+        internal static string ExpandHelpTopic(string path, string helpTopic)
+        {
+            if (string.IsNullOrEmpty(helpTopic))
+                return helpTopic;
+
+            if (helpTopic.StartsWith("http://") || helpTopic.StartsWith("https://") || helpTopic.StartsWith("file://"))
+            {
+                if (helpTopic.EndsWith("!0"))
+                {
+                    helpTopic = helpTopic.Substring(0, helpTopic.Length - 2);
+                }
+            }
+            else if (!Path.IsPathRooted(helpTopic))
+            {
+                helpTopic = Path.Combine(path, helpTopic);
+            }
+            return helpTopic;
+        }
+
+
     }
 
 }
