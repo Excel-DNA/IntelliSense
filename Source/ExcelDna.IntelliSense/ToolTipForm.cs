@@ -40,6 +40,8 @@ namespace ExcelDna.IntelliSense
         Dictionary<FontStyle, Font> _fonts;
         ToolTip tipDna;
 
+        static Font s_standardFont;
+
         public ToolTipForm(IntPtr hwndOwner)
         {
             Debug.Assert(hwndOwner != IntPtr.Zero);
@@ -180,13 +182,12 @@ namespace ExcelDna.IntelliSense
         }
 
         // TODO: Move or clean up or something...
-        Font StandardFont = new Font("Calibri", 11);
         int MeasureFormulaStringWidth(string formulaString)
         {
             if (string.IsNullOrEmpty(formulaString))
                 return 0;
 
-            var size = TextRenderer.MeasureText(formulaString, StandardFont);
+            var size = TextRenderer.MeasureText(formulaString, s_standardFont);
             return size.Width;
         }
 
@@ -461,7 +462,12 @@ namespace ExcelDna.IntelliSense
             this.ResumeLayout(false);
 
         }
-        
+
+        internal static void SetStandardFont(string standardFontName, double standardFontSize)
+        {
+            s_standardFont = new Font(standardFontName, (float)standardFontSize);
+        }
+
         class Win32Window : IWin32Window
         {
             public IntPtr Handle

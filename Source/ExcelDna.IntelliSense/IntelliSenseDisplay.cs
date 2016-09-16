@@ -53,6 +53,8 @@ namespace ExcelDna.IntelliSense
         {
             Logger.Display.Verbose("InitializeOptions");
             string listSeparator = ",";
+            string standardFontName = "Calibri";
+            double standardFontSize = 11.0;
             object result;
             if (XlCallInt.TryExcel(XlCallInt.xlfGetWorkspace, out result, 37) == XlCallInt.XlReturn.XlReturnSuccess)
             {
@@ -65,6 +67,20 @@ namespace ExcelDna.IntelliSense
             }
             FormulaParser.ListSeparator = listSeparator[0];
             _argumentSeparator = listSeparator + " ";
+
+            if (XlCallInt.TryExcel(XlCallInt.xlfGetWorkspace, out result, 56) == XlCallInt.XlReturn.XlReturnSuccess)
+            {
+                // Standard Font Name
+                standardFontName = (string)result;
+                Logger.Initialization.Verbose($"InitializeOptions - Set StandardFontName to {standardFontName}");
+            }
+            if (XlCallInt.TryExcel(XlCallInt.xlfGetWorkspace, out result, 57) == XlCallInt.XlReturn.XlReturnSuccess)
+            {
+                // Standard Font Size
+                standardFontSize = (double)result;
+                Logger.Initialization.Verbose($"InitializeOptions - Set StandardFontSize to {standardFontSize}");
+            }
+            ToolTipForm.SetStandardFont(standardFontName, standardFontSize);
         }
 
         // TODO: Still not sure how to delete / unregister...
