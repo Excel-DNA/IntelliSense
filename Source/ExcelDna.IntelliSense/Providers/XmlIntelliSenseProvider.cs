@@ -49,6 +49,7 @@ namespace ExcelDna.IntelliSense
                         foreach (var func in _intelliSense.XmlFunctionInfo.FunctionsList)
                         {
                             func.SourcePath = _fileName;
+                            func.Name = func.Name.Trim();
                             func.HelpTopic = FunctionInfo.ExpandHelpTopic(_path, func.HelpTopic);
                         }
                     }

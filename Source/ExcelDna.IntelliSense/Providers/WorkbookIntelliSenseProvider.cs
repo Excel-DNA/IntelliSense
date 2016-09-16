@@ -99,6 +99,8 @@ namespace ExcelDna.IntelliSense
                         }
                     }
 
+                    // Some cleanup and normalization
+                    functionName = functionName.Trim();
                     helpTopic = FunctionInfo.ExpandHelpTopic(_path, helpTopic);
 
                     yield return new FunctionInfo
