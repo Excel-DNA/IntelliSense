@@ -84,6 +84,9 @@ namespace ExcelDna.IntelliSense
                     string description = regInfo[i, 2] as string;
                     string helpTopic = regInfo[i, 3] as string;
 
+                    if (string.IsNullOrEmpty(functionName))
+                        continue;
+
                     List<FunctionInfo.ArgumentInfo> argumentInfos = new List<FunctionInfo.ArgumentInfo>();
                     for (int j = 4; j <= numCols - 1; j += 2)
                     {
@@ -216,44 +219,75 @@ namespace ExcelDna.IntelliSense
         void Excel_WorkbookOpen(Workbook wb)
         {
             var name = wb.Name;
-            var regInfo = new WorkbookRegistrationInfo(name);
-            lock (_workbookRegistrationInfos)
+            try
             {
-                _workbookRegistrationInfos[name] = regInfo;
-                RegisterWithXmlProvider(wb);
-                OnInvalidate();
+                var regInfo = new WorkbookRegistrationInfo(name);
+                lock (_workbookRegistrationInfos)
+                {
+                    _workbookRegistrationInfos[name] = regInfo;
+                    RegisterWithXmlProvider(wb);
+                    OnInvalidate();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Provider.Error(ex, $"Unhandled exception in {nameof(Excel_WorkbookOpen)}, Workbook: {name}");
             }
         }
 
         void Excel_WorkbookBeforeClose(Workbook wb, ref bool cancel)
         {
-            // Do we have to worry about renaming / Save As?
-            // Do we have to worry about other BeforeClose handlers cancelling the close?
-            lock (_workbookRegistrationInfos)
+            var name = wb.Name;
+            try
             {
-                _workbookRegistrationInfos.Remove(wb.Name);
-                UnregisterWithXmlProvider(wb);
+                // Do we have to worry about renaming / Save As?
+                // Do we have to worry about other BeforeClose handlers cancelling the close?
+                lock (_workbookRegistrationInfos)
+                {
+                    _workbookRegistrationInfos.Remove(name);
+                    UnregisterWithXmlProvider(wb);
+                }
             }
+            catch (Exception ex)
+            {
+                Logger.Provider.Error(ex, $"Unhandled exception in {nameof(Excel_WorkbookBeforeClose)}, Workbook: {name}");
+            }
+
         }
 
         void Excel_WorkbookAddinInstall(Workbook wb)
         {
             var name = wb.Name;
-            var regInfo = new WorkbookRegistrationInfo(name);
-            lock (_workbookRegistrationInfos)
+            try
             {
-                _workbookRegistrationInfos[name] = regInfo;
-                RegisterWithXmlProvider(wb);
-                OnInvalidate();
+                var regInfo = new WorkbookRegistrationInfo(name);
+                lock (_workbookRegistrationInfos)
+                {
+                    _workbookRegistrationInfos[name] = regInfo;
+                    RegisterWithXmlProvider(wb);
+                    OnInvalidate();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Provider.Error(ex, $"Unhandled exception in {nameof(Excel_WorkbookAddinInstall)}, Workbook: {name}");
             }
         }
 
         void Excel_WorkbookAddinUninstall(Workbook wb)
         {
-            lock (_workbookRegistrationInfos)
+            var name = wb.Name;
+            try
             {
-                _workbookRegistrationInfos.Remove(wb.Name);
-                UnregisterWithXmlProvider(wb);
+                lock (_workbookRegistrationInfos)
+                {
+                    _workbookRegistrationInfos.Remove(wb.Name);
+                    UnregisterWithXmlProvider(wb);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Provider.Error(ex, $"Unhandled exception in {nameof(Excel_WorkbookAddinUninstall)}, Workbook: {name}");
             }
         }
 
