@@ -42,7 +42,7 @@ namespace ExcelDna.IntelliSense
                     {
                         xml = File.ReadAllText(_fileName);
                     }
-                    _intelliSense = XmlIntelliSense.Parse(xml);
+                    _intelliSense = XmlIntelliSense.Parse(xml, _fileName);
                     if (_intelliSense?.XmlFunctionInfo?.FunctionsList != null)
                     {
                         // Fix up SourcePath (is this used?) and HelpTopic
@@ -54,9 +54,9 @@ namespace ExcelDna.IntelliSense
                         }
                     }
                 }
-                catch // (Exception ex)
+                catch (Exception ex)
                 {
-                    // TODO: Log errors
+                    Logger.Provider.Warn($"XmlIntelliSenseProvider - Loading IntelliSense from file {_fileName} failed:\r\n\t{ex.Message}");
                     _intelliSense = XmlIntelliSense.Empty;
                 }
             }
@@ -169,7 +169,7 @@ namespace ExcelDna.IntelliSense
         public XmlFunctionInfo XmlFunctionInfo;
 
         // returns XmlIntelliSense.Empty on failure
-        public static XmlIntelliSense Parse(string xmlFunctionInfo)
+        public static XmlIntelliSense Parse(string xmlFunctionInfo, string logInfo)
         {
             Initialize();
             try
@@ -179,9 +179,9 @@ namespace ExcelDna.IntelliSense
                     return (XmlIntelliSense)_serializer.Deserialize(stringReader);
                 }
             }
-            catch // (Exception ex)
+            catch (Exception ex)
             {
-                // TODO: Log errors
+                Logger.Provider.Warn($"XmlIntelliSense - Parsing Xml IntelliSense from {logInfo} failed:\r\n{ex.Message}");
                 return Empty;
             }
         }

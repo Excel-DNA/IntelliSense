@@ -73,7 +73,7 @@ namespace ExcelDna.IntelliSense
                 var idCheck = regInfo[1, 1] as string;
                 if (!functionInfoId.Equals(idCheck, StringComparison.OrdinalIgnoreCase))
                 {
-                    Logger.Provider.Info($"Workbook - Invalid FunctionInfo Identifier: ({idCheck})");
+                    Logger.Provider.Warn($"WorkbookIntelliSenseProvider - Invalid FunctionInfo Identifier: ({idCheck})");
                     yield break;
                 }
 
