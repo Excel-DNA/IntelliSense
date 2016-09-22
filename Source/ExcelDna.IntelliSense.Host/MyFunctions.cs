@@ -1,9 +1,10 @@
 #if DEBUG
-    using System;
-    using System.ComponentModel;
-    using ExcelDna.Integration;
+using System;
+using System.ComponentModel;
+using ExcelDna.Integration;
+using ExcelDna.Logging;
 
-    namespace ExcelDna.CustomAddin
+namespace ExcelDna.CustomAddin
     {
         // These functions - are just here for testing...
         public class MyFunctions
@@ -50,6 +51,11 @@
                 return inout;
             }
 
+            [ExcelCommand]
+            public static void dnaLogDisplayShow()
+            {
+                LogDisplay.Show();
+            }
         }
     }
 #endif
