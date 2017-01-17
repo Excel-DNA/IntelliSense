@@ -178,6 +178,15 @@ namespace ExcelDna.IntelliSense
         void PopupListElementSelectedHandler(object sender, AutomationEventArgs e)
         {
             Logger.WindowWatcher.Verbose($"PopupList PopupListElementSelectedHandler on thread {Thread.CurrentThread.ManagedThreadId}");
+            
+            // Ensure we really are never on the main thread
+            if (Thread.CurrentThread.ManagedThreadId == 1)
+            {
+                Logger.WindowWatcher.Warn($"PopupList PopupListElementSelectedHandler on main thread - scheduling on automation thread");
+                _syncContextAuto.Post(si => UpdateSelectedItem((AutomationElement)si), sender);
+                return;
+            }
+
             var selectedItem = (AutomationElement)sender;
             UpdateSelectedItem(selectedItem);
         }
