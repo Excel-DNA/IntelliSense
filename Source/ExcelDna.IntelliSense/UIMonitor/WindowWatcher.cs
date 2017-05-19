@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
-using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
@@ -30,16 +29,26 @@ namespace ExcelDna.IntelliSense
                 LocationChange = 7
             }
 
+            public enum ChangeObjectId
+            {
+                Unknown = -1,
+                Self = 1,
+                Client = 2,
+                Caret = 3,
+            }
+
             public readonly IntPtr WindowHandle;
             public readonly ChangeType Type;
+            public readonly ChangeObjectId ObjectId;
 
-            internal WindowChangedEventArgs(IntPtr windowHandle, ChangeType changeType)
+            internal WindowChangedEventArgs(IntPtr windowHandle, ChangeType changeType, ChangeObjectId objectId)
             {
                 WindowHandle = windowHandle;
                 Type = changeType;
+                ObjectId = objectId;
             }
 
-            internal WindowChangedEventArgs(IntPtr windowHandle, WinEventHook.WinEvent winEvent)
+            internal WindowChangedEventArgs(IntPtr windowHandle, WinEventHook.WinEvent winEvent, WinEventHook.WinEventObjectId objectId)
             {
                 WindowHandle = windowHandle;
                 switch (winEvent)
@@ -65,17 +74,25 @@ namespace ExcelDna.IntelliSense
                     default:
                         throw new ArgumentException("Unexpected WinEvent type", nameof(winEvent));
                 }
+                switch (objectId)
+                {
+                    case WinEventHook.WinEventObjectId.OBJID_SELF:
+                        ObjectId = ChangeObjectId.Self;
+                        break;
+                    case WinEventHook.WinEventObjectId.OBJID_CLIENT:
+                        ObjectId = ChangeObjectId.Client;
+                        break;
+                    case WinEventHook.WinEventObjectId.OBJID_CARET:
+                        ObjectId = ChangeObjectId.Caret;
+                        break;
+                    default:
+                        Debug.Fail("Unexpected ObjectId");
+                        ObjectId = ChangeObjectId.Unknown;
+                        break;
+                }
             }
 
-            internal static bool IsSupportedWinEvent(WinEventHook.WinEvent winEvent)
-            {
-                return winEvent == WinEventHook.WinEvent.EVENT_OBJECT_CREATE ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_DESTROY ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_SHOW ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_HIDE ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS ||
-                       winEvent == WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE;   // Only for the on-demand hook
-            }
+
         }
         
         const string _mainWindowClass = "XLMAIN";
@@ -123,7 +140,7 @@ namespace ExcelDna.IntelliSense
         // Runs on the Automation thread (before syncContextAuto starts pumping)
         public void TryInitialize()
         {
-            // Debug.Print("### WindowWatcher TryInitialize on thread: " + Thread.CurrentThread.ManagedThreadId);
+            Debug.Print("### WindowWatcher TryInitialize on thread: " + Thread.CurrentThread.ManagedThreadId);
             var focusedWindowHandle = Win32Helper.GetFocusedWindowHandle();
             string className = null;
             if (focusedWindowHandle != IntPtr.Zero)
@@ -146,13 +163,13 @@ namespace ExcelDna.IntelliSense
             switch (_focusedWindowClassName)
             {
                 case _popupListClass:
-                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus, WindowChangedEventArgs.ChangeObjectId.Self));
                     break;
                 case _inCellEditClass:
-                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus, WindowChangedEventArgs.ChangeObjectId.Self));
                     break;
                 case _formulaBarClass:
-                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus));
+                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(_focusedWindowHandle, WindowChangedEventArgs.ChangeType.Unfocus, WindowChangedEventArgs.ChangeObjectId.Self));
                     break;
                 //case _nuiDialogClass:
                 default:
@@ -174,9 +191,6 @@ namespace ExcelDna.IntelliSense
         // CONSIDER: Performance optimisation would keep a list of window handles we know about, preventing the class name check every time
         void _windowStateChangeHook_WinEventReceived(object sender, WinEventHook.WinEventArgs e)
         {
-            if (!WindowChangedEventArgs.IsSupportedWinEvent(e.EventType))
-                return;
-
             var className = Win32Helper.GetClassName(e.WindowHandle);
             if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
             {
@@ -199,16 +213,16 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //    break;
                 case _popupListClass:
-                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
+                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
                     break;
                 case _inCellEditClass:
-                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
+                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
                     break;
                 case _formulaBarClass:
-                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
+                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
                     break;
                 case _excelToolTipClass:
-                    ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType));
+                    ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
                      break;
                 //case _nuiDialogClass:
                 //    // Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");

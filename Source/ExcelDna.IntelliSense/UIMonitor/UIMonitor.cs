@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using System.Windows.Automation;
+//using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
@@ -53,8 +53,6 @@ namespace ExcelDna.IntelliSense
             _excelToolTipWatcher = new ExcelToolTipWatcher(_windowWatcher, _syncContextAuto);
 
             // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
-  //          _windowWatcher.MainWindowChanged += _windowWatcher_MainWindowChanged;
-            // _windowWatcher.SelectDataSourceWindowChanged += _windowWatcher_SelectDataSourceWindowChanged;
             _popupListWatcher.SelectedItemChanged += _popupListWatcher_SelectedItemChanged;
             _formulaEditWatcher.StateChanged += _formulaEditWatcher_StateChanged;
             _excelToolTipWatcher.ToolTipChanged += _excelToolTipWatcher_ToolTipChanged;
@@ -65,14 +63,6 @@ namespace ExcelDna.IntelliSense
         }
 
         #region Receive watcher events (all on the automation thread), and process
-        //// Runs on our automation thread
-        //void _windowWatcher_MainWindowChanged(object sender, EventArgs args)
-        //{
-        //    Logger.Monitor.Verbose("!> MainWindowChanged");
-        //    Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
-        //    OnStateChanged();
-        //}
-
         // Runs on our automation thread
         void _windowWatcher_SelectDataSourceWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs args)
         {
@@ -103,7 +93,7 @@ namespace ExcelDna.IntelliSense
         // CONSIDER: We might want to do some batching of the text edits?
         void _formulaEditWatcher_StateChanged(object sender, FormulaEditWatcher.StateChangeEventArgs args)
         {
-            Logger.Monitor.Verbose($"!> FormulaEdit StateChanged ({args.StateChangeType})");
+            Logger.Monitor.Verbose($"!> FormulaEdit StateChanged ({args.StateChangeType}) - Thread {Thread.CurrentThread.ManagedThreadId}");
             //Logger.Monitor.Verbose("!> " + ReadCurrentState().ToString());
 
             if (args.StateChangeType == FormulaEditWatcher.StateChangeType.TextChange &&
@@ -173,7 +163,6 @@ namespace ExcelDna.IntelliSense
             // TODO: ExcelToolTipWindow?
 
             // The sequence here is important, since we use the hierarchy of UIState classes.
-            // if (_selectDataSourceWatcher.
             if (_popupListWatcher.SelectedItemText != string.Empty)
             {
                 return new UIState.FunctionList
@@ -205,7 +194,7 @@ namespace ExcelDna.IntelliSense
             //        SelectDataSourceWindow = _windowWatcher.SelectDataSourceWindow
             //    };
             //}
-            return new UIState.Ready();
+            return UIState.ReadyState;
         }
 
         // Filter the states changes (on the automation thread) and then raise changes (on the main thread)
@@ -215,7 +204,7 @@ namespace ExcelDna.IntelliSense
             if (newStateOrNull == null)
                 newStateOrNull = ReadCurrentState();
 
-            // Debug.Print($"NEWSTATE: {newStateOrNull.ToString()}");
+            // Debug.Print($"NEWSTATE: {newStateOrNull.ToString()} // {(newStateOrNull is UIState.Ready ? Environment.StackTrace : string.Empty)}");
 
             CurrentState = newStateOrNull;
 
@@ -291,11 +280,9 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto.Send(delegate
                 {
                     // Remove all event handlers ASAP
-                    Automation.RemoveAllEventHandlers();
+                    // Automation.RemoveAllEventHandlers();
                     if (_windowWatcher != null)
                     {
-//                        _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
-                        // _windowWatcher.SelectDataSourceWindowChanged -= _windowWatcher_SelectDataSourceWindowChanged;
                         _windowWatcher.Dispose();
                         _windowWatcher = null;
                     }

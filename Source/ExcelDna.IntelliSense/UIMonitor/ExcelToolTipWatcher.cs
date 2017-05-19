@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
-using System.Windows;
 
 namespace ExcelDna.IntelliSense
 {
@@ -77,11 +75,6 @@ namespace ExcelDna.IntelliSense
             Logger.WindowWatcher.Info($"ExcelToolTip Dispose Begin");
             _windowWatcher.ExcelToolTipWindowChanged -= _windowWatcher_ExcelToolTipWindowChanged;
             _windowWatcher = null;
-
-            //_syncContextAuto.Send(delegate
-            //{
-            //    Debug.Print("Disposing ExcelToolTipWatcher - In Automation context");
-            //}, null);
             Logger.WindowWatcher.Info($"ExcelToolTip Dispose End");
         }
     }

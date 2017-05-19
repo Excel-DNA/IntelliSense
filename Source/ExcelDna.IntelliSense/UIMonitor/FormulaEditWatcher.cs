@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows;
-using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
@@ -36,6 +36,10 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        readonly static StateChangeEventArgs s_stateChangeMultiple = new StateChangeEventArgs(StateChangeType.Multiple);
+        readonly static StateChangeEventArgs s_stateChangeMove = new StateChangeEventArgs(StateChangeType.Move);
+        readonly static StateChangeEventArgs s_stateChangeTextChange = new StateChangeEventArgs(StateChangeType.TextChange);
+
         // NOTE: Our event will always be raised on the _syncContextAuto thread (CONSIDER: Does this help?)
         public event EventHandler<StateChangeEventArgs> StateChanged;
 
@@ -68,12 +72,7 @@ namespace ExcelDna.IntelliSense
 
         IntPtr            _hwndFormulaBar;
         IntPtr            _hwndInCellEdit;
-        AutomationElement _formulaBar;
-        AutomationElement _inCellEdit;
         FormulaEditFocus  _formulaEditFocus;
-
-        bool _enableFormulaPolling = false;
-        Timer _formulaPollingTimer;
 
         public FormulaEditWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto)
         {
@@ -81,20 +80,6 @@ namespace ExcelDna.IntelliSense
             _windowWatcher = windowWatcher;
             _windowWatcher.FormulaBarWindowChanged += _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged += _windowWatcher_InCellEditWindowChanged;
-
-            // Focus event handler works beautifully, but Breaks the PopupList SelectedItemChange event handler ... !?
-            //_syncContextAuto.Post(_ =>
-            //{
-            //    try
-            //    {
-            //        Automation.AddAutomationFocusChangedEventHandler(FocusChangedEventHandler);
-            //        Logger.WindowWatcher.Verbose("FormulaEditWatcher Focus event handler added");
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Logger.WindowWatcher.Warn($"FormulaEditWatcher Error adding focus event handler {ex}");
-            //    }
-            //}, null);
         }
 
         // Runs on the Automation thread
@@ -103,11 +88,23 @@ namespace ExcelDna.IntelliSense
             switch (e.Type)
             {
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
-                    // CONSIDER: Is this too soon to set up the AutomationElement ??
-                    SetEditWindow(e.WindowHandle, ref _hwndFormulaBar, ref _formulaBar);
-                    UpdateEditState();
+                    if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Self)
+                    {
+                        SetEditWindow(e.WindowHandle, ref _hwndFormulaBar);
+                        UpdateEditState();
+                    }
+                    else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
+                    {
+                        // We expect this on every text change (and it is our only detection of text changes)
+                        UpdateEditState();
+                    }
+                    else
+                    {
+                        Debug.Print($"### Unexpected WindowsChanged object id: {e.ObjectId}");
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
+                    // We expect this for every text change, but ignore since we react to the Create event
                     //if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
                     //{
                     //    _formulaEditFocus = FormulaEditFocus.None;
@@ -118,8 +115,12 @@ namespace ExcelDna.IntelliSense
                     if (_formulaEditFocus != FormulaEditFocus.FormulaBar)
                     {
                         Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Focus");
+                        if (e.WindowHandle != _hwndFormulaBar)
+                        {
+                            // We never saw the Create...
+                            SetEditWindow(e.WindowHandle, ref _hwndFormulaBar);
+                        }
                         _formulaEditFocus = FormulaEditFocus.FormulaBar;
-                        UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
@@ -128,7 +129,6 @@ namespace ExcelDna.IntelliSense
                     {
                         Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Unfocus");
                         _formulaEditFocus = FormulaEditFocus.None;
-                        UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
@@ -146,16 +146,28 @@ namespace ExcelDna.IntelliSense
         // Runs on the Automation thread
         void _windowWatcher_InCellEditWindowChanged(object sender, WindowWatcher.WindowChangedEventArgs e)
         {
+            // Debug.Print($"\r\n%%% InCellEditWindowChanged: {e.ObjectId} - {e.Type}\r\n");
             switch (e.Type)
             {
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
-                    // CONSIDER: Is this too soon to set up the AutomationElement ??
-                    // TODO: Yes - need to do AutomationElement later (new Window does not have TextPattern ready)
-                    SetEditWindow(e.WindowHandle, ref _hwndInCellEdit, ref _inCellEdit);
-                    UpdateEditState();
+                    if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Self)
+                    {
+                        SetEditWindow(e.WindowHandle, ref _hwndInCellEdit);
+                        UpdateEditState();
+                    }
+                    else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
+                    {
+                        // We expect this on every text change (and it is our only detection of text changes)
+                        UpdateEditState();
+                    }
+                    else
+                    {
+                        Debug.Print($"### Unexpected WindowsChanged object id: {e.ObjectId}");
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
-                    //if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
+                    // We expect this for every text change, but ignore since we react to the Create event
+                    //if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
                     //{
                     //    _formulaEditFocus = FormulaEditFocus.None;
                     //    UpdateEditState();
@@ -164,9 +176,15 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                     if (_formulaEditFocus != FormulaEditFocus.InCellEdit)
                     {
+                        if (e.WindowHandle != _hwndInCellEdit)
+                        {
+                            // We never saw the Create...
+                            SetEditWindow(e.WindowHandle, ref _hwndInCellEdit);
+                        }
+
                         Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Focus");
+
                         _formulaEditFocus = FormulaEditFocus.InCellEdit;
-                        UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
@@ -175,7 +193,6 @@ namespace ExcelDna.IntelliSense
                     {
                         Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
                         _formulaEditFocus = FormulaEditFocus.None;
-                        UpdateFormulaPolling();
                         UpdateEditState();
                     }
                     break;
@@ -190,7 +207,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        void SetEditWindow(IntPtr newWindowHandle, ref IntPtr hwnd, ref AutomationElement element)
+        void SetEditWindow(IntPtr newWindowHandle, ref IntPtr hwnd)
         {
             if (hwnd != newWindowHandle)
             {
@@ -203,11 +220,10 @@ namespace ExcelDna.IntelliSense
                     Logger.WindowWatcher.Info($"FormulaEdit SetEditWindow - Change from {hwnd} to {newWindowHandle}");
                 }
 
-                if (element != null)
+                if (_formulaEditFocus != FormulaEditFocus.None)
                 {
                     try
                     {
-                        UninstallTextChangeMonitor(element);
                         UninstallLocationMonitor();
                         Logger.WindowWatcher.Verbose($"FormulaEdit Uninstalled event handlers for {hwnd}");
                     }
@@ -225,98 +241,6 @@ namespace ExcelDna.IntelliSense
 
             // Setting the out parameters
             hwnd = newWindowHandle;
-            element = AutomationElement.FromHandle(newWindowHandle);
-
-            try
-            {
-                InstallTextChangeMonitor(element);
-                if (IsEditingFormula)
-                    InstallLocationMonitor(GetTopLevelWindow(element));
-                Logger.WindowWatcher.Verbose($"FormulaEdit Installed event handlers for {newWindowHandle}");
-            }
-            catch (Exception ex)
-            {
-                Logger.WindowWatcher.Warn($"FormulaEdit Error installing event handlers for {newWindowHandle}: {ex}");
-            }
-        }
-
-        void InstallTextChangeMonitor(AutomationElement element)
-        {
-            // Either add a UIAutomation event handler, or start our polling
-            // CONSIDER: Try Keyboard hook or other Windows message watcher of some sort?
-            bool isTextPatternAvailable = (bool)element.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
-
-            if (isTextPatternAvailable)
-            {
-                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit TextPattern adding change handler");
-                Automation.AddAutomationEventHandler(TextPattern.TextChangedEvent, element, TreeScope.Element, TextChanged);
-                _enableFormulaPolling = false;
-            }
-            else
-            {
-                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit TextPattern not available - enabling polling");
-                _enableFormulaPolling = true;   // Has an effect when focus changes
-                UpdateFormulaPolling();
-            }
-        }
-
-        void UninstallTextChangeMonitor(AutomationElement element)
-        {
-            bool isTextPatternAvailable = (bool)element.GetCurrentPropertyValue(AutomationElement.IsTextPatternAvailableProperty);
-            if (isTextPatternAvailable)
-            {
-                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit removing text change handler");
-                Automation.RemoveAutomationEventHandler(TextPattern.TextChangedEvent, element, TextChanged);
-            }
-            else
-            {
-                Logger.WindowWatcher.Info("FormulaEdit/InCellEdit disabling polling");
-                _enableFormulaPolling = false;
-                UpdateFormulaPolling();
-            }
-        }
-
-        // Threading... ???
-        void UpdateFormulaPolling()
-        {
-            if (_enableFormulaPolling)
-            {
-                if (_formulaEditFocus != FormulaEditFocus.None)
-                {
-                    if (_formulaPollingTimer == null)
-                        _formulaPollingTimer = new Timer(FormulaPollingCallback);
-                    _formulaPollingTimer.Change(100, 100);
-                }
-                else // no focus
-                {
-                    _formulaPollingTimer?.Change(-1, -1);
-                }
-            }
-            else if (_formulaPollingTimer != null)
-            {
-                _formulaPollingTimer?.Dispose();
-                _formulaPollingTimer = null;
-            }
-        }
-
-        // Called on some ThreadPool thread...
-        void FormulaPollingCallback(object _unused_)
-        {
-            // Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaPollingCallback");
-
-            // Check for Disposed already
-            // TODO: Check again whether System.Timers.Timer can fire after Dispose()...
-            if (_formulaPollingTimer == null)
-                return;
-
-            var oldPrefix = CurrentPrefix;
-            var newPrefix = XlCall.GetFormulaEditPrefix();
-            if (oldPrefix != newPrefix)
-            {
-                // CONSIDER: What to do if newPrefix is null (not editing...)
-                CurrentPrefix = newPrefix;
-                OnStateChanged(new StateChangeEventArgs(StateChangeType.TextChange));
-            }
         }
 
         WindowLocationWatcher _windowLocationWatcher;
@@ -351,84 +275,75 @@ namespace ExcelDna.IntelliSense
 
         // Runs on an Automation event thread
         // CONSIDER: With WinEvents we could get notified from main thread ... ?
-        void TextChanged(object sender, AutomationEventArgs e)
-        {
-            // Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
-            Logger.WindowWatcher.Verbose($"FormulaEdit - Text changed in {(sender.Equals(_formulaBar) ? "FormulaBar" : (sender.Equals(_inCellEdit) ? "InCellEdit" : "UNKNOWN"))}");
-            UpdateFormula(textChangedOnly: true);
-        }
+        //void TextChanged(object sender, AutomationEventArgs e)
+        //{
+        //    // Debug.Print($">>>> FormulaEditWatcher.TextChanged on thread {Thread.CurrentThread.ManagedThreadId}");
+        //    Logger.WindowWatcher.Verbose($"FormulaEdit - Text changed in {(sender.Equals(_formulaBar) ? "FormulaBar" : (sender.Equals(_inCellEdit) ? "InCellEdit" : "UNKNOWN"))}");
+        //    UpdateFormula(textChangedOnly: true);
+        //}
 
         // Switches to our Automation thread, updates current state and raises StateChanged event
         void UpdateEditState(bool moveOnly = false)
         {
-            Logger.WindowWatcher.Verbose("> FormulaEdit UpdateEditState - Posted");
-            _syncContextAuto.Post(moveOnlyObj =>
+            Logger.WindowWatcher.Verbose($"> FormulaEdit UpdateEditState - Thread {Thread.CurrentThread.ManagedThreadId}");
+            Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState - Focus: {_formulaEditFocus} Window: {(_formulaEditFocus == FormulaEditFocus.FormulaBar ? _hwndFormulaBar : _hwndInCellEdit)}");
+            
+            IntPtr hwnd = IntPtr.Zero;
+            bool prefixChanged = false;
+            if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
+            {
+                //focusedEdit = _formulaBar;
+                hwnd = _hwndFormulaBar;
+            }
+            else if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
+            {
+                //focusedEdit = _inCellEdit;
+                hwnd = _hwndInCellEdit;
+            }
+            else
+            {
+                // Neither have the focus, so we don't update anything
+                Logger.WindowWatcher.Verbose("FormulaEdit UpdateEditState End formula editing");
+                CurrentPrefix = null;
+                if (IsEditingFormula)
+                    UninstallLocationMonitor();
+                IsEditingFormula = false;
+                prefixChanged = true;
+                // Debug.Print("Don't have a focused text box to update.");
+                Debug.Print("#### FormulaEditWatcher - No Window " + Environment.StackTrace);
+            }
+
+            if (hwnd != IntPtr.Zero)
+            {
+                EditWindowBounds = Win32Helper.GetWindowBounds(hwnd);
+
+                var pt = Win32Helper.GetClientCursorPos(hwnd);
+
+                if (!IsEditingFormula)
                 {
-                    Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState - Focus: {_formulaEditFocus}");
-                    //// TODO: This is not right yet - the list box might have the focus... ?
-                    //AutomationElement focused;
-                    //try
-                    //{
-                    //    focused = AutomationElement.FocusedElement;
-                    //}
-                    //catch (ArgumentException aex)
-                    //{
-                    //    Debug.Print($"!!! ERROR: Failed to get Focused Element: {aex}");
-                    //    // Not sure why I get this - sometimes with startup screen
-                    //    return;
-                    //}
-                    AutomationElement focusedEdit = null;
-                    bool prefixChanged = false;
-                    if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
-                    {
-                        focusedEdit = _formulaBar;
-                    }
-                    else if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
-                    {
-                        focusedEdit = _inCellEdit;
-                    }
-                    else
-                    {
-                        // Neither have the focus, so we don't update anything
-                        Logger.WindowWatcher.Verbose("FormulaEdit UpdateEditState End formula editing");
-                        CurrentPrefix = null;
-                        if (IsEditingFormula)
-                            UninstallLocationMonitor();
-                        IsEditingFormula = false;
-                        prefixChanged = true;
-                        // Debug.Print("Don't have a focused text box to update.");
-                    }
+                    IntPtr hwndTopLevel = Win32Helper.GetRootAncestor(hwnd);
+                    InstallLocationMonitor(hwndTopLevel);
+                }
+                IsEditingFormula = true;
 
-                    if (focusedEdit != null)
-                    {
-                        EditWindowBounds = (Rect)focusedEdit.GetCurrentPropertyValue(AutomationElement.BoundingRectangleProperty);
-                        IntPtr hwnd = (IntPtr)(int)focusedEdit.GetCurrentPropertyValue(AutomationElement.NativeWindowHandleProperty);
+                var newPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
+                if (CurrentPrefix != newPrefix)
+                {
+                    CurrentPrefix = newPrefix;
+                    prefixChanged = true;
+                }
+                Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState Formula editing: CurrentPrefix {CurrentPrefix}, EditWindowBounds: {EditWindowBounds}");
+            }
 
-                        var pt = Win32Helper.GetClientCursorPos(hwnd);
-
-                        if (!IsEditingFormula)
-                            InstallLocationMonitor(GetTopLevelWindow(focusedEdit));
-                        IsEditingFormula = true;
-
-                        var newPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
-                        if (CurrentPrefix != newPrefix)
-                        {
-                            CurrentPrefix = newPrefix;
-                            prefixChanged = true;
-                        }
-                        Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState Formula editing: CurrentPrefix {CurrentPrefix}, EditWindowBounds: {EditWindowBounds}");
-                    }
-
-                    // TODO: Smarter notification...?
-                    if ((bool)moveOnlyObj && !prefixChanged)
-                    {
-                        StateChanged?.Invoke(this, new StateChangeEventArgs(StateChangeType.Move));
-                    }
-                    else
-                    {
-                        OnStateChanged(new StateChangeEventArgs(StateChangeType.Multiple));
-                    }
-                }, moveOnly);
+            // TODO: Smarter (or more direct) notification...?
+            if (moveOnly && !prefixChanged)
+            {
+                StateChanged?.Invoke(this, new StateChangeEventArgs(StateChangeType.Move));
+            }
+            else
+            {
+                OnStateChanged(StateChangeType.Multiple);
+            }
         }
 
         void UpdateFormula(bool textChangedOnly = false)
@@ -436,53 +351,37 @@ namespace ExcelDna.IntelliSense
             Logger.WindowWatcher.Verbose($">>>> FormulaEditWatcher.UpdateFormula on thread {Thread.CurrentThread.ManagedThreadId}");
             CurrentPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
             Logger.WindowWatcher.Verbose($">>>> FormulaEditWatcher.UpdateFormula CurrentPrefix: {CurrentPrefix}");
-            OnStateChanged(textChangedOnly ? new StateChangeEventArgs(StateChangeType.TextChange) : StateChangeEventArgs.Empty);
+            OnStateChanged(textChangedOnly ? StateChangeType.TextChange : StateChangeType.Multiple);
         }
 
         // We ensure that our event is raised on the Automation thread .. (Eases concurrency issues in handling it, though it will get passed on to the main thread...)
-        void OnStateChanged(StateChangeEventArgs stateChangeEventArgs)
+        void OnStateChanged(StateChangeType stateChangeType)
         {
-            _syncContextAuto.Post(args => StateChanged?.Invoke(this, (StateChangeEventArgs)args), stateChangeEventArgs);
+            StateChangeEventArgs stateChangedArgs;
+            switch (stateChangeType)
+            {
+                case StateChangeType.Multiple:
+                    stateChangedArgs = s_stateChangeMultiple;
+                    break;
+                case StateChangeType.Move:
+                    stateChangedArgs = s_stateChangeMove;
+                    break;
+                case StateChangeType.TextChange:
+                    stateChangedArgs = s_stateChangeTextChange;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(stateChangeType));
+
+            }
+            StateChanged?.Invoke(this, stateChangedArgs);
         }
 
         public void Dispose()
         {
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose Begin");
-
-            // Not sure we need this:
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
-//            _windowWatcher.MainWindowChanged -= _windowWatcher_MainWindowChanged;
-
-            // Forcing cleanup on the automation thread - not sure we need to ....
-            _syncContextAuto.Send(delegate 
-            {
-                _enableFormulaPolling = false;
-                _formulaPollingTimer?.Dispose();
-                _formulaPollingTimer = null;
-                _formulaBar = null;
-                _inCellEdit = null;
-            }, null);
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose End");
-        }
-
-
-        static IntPtr GetTopLevelWindow(AutomationElement element)
-        {
-            TreeWalker walker = TreeWalker.ControlViewWalker;
-            AutomationElement elementParent;
-            AutomationElement node = element;
-            if (node == AutomationElement.RootElement)
-                return node.NativeElement.CurrentNativeWindowHandle;
-            do
-            {
-                elementParent = walker.GetParent(node);
-                if (elementParent == AutomationElement.RootElement)
-                    break;
-                node = elementParent;
-            }
-            while (true);
-            return node.NativeElement.CurrentNativeWindowHandle;
         }
     }
 }

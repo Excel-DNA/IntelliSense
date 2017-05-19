@@ -13,12 +13,12 @@ namespace ExcelDna.IntelliSense
         {
             public WinEvent EventType;
             public IntPtr WindowHandle;
-            public int ObjectId;
+            public WinEventObjectId ObjectId;
             public int ChildId;
             public uint EventThreadId;
             public uint EventTimeMs;
 
-            public WinEventArgs(WinEvent eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+            public WinEventArgs(WinEvent eventType, IntPtr hWnd, WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
             {
                 EventType = eventType;
                 WindowHandle = hWnd;
@@ -31,7 +31,7 @@ namespace ExcelDna.IntelliSense
 
         delegate void WinEventDelegate(
               IntPtr hWinEventHook, WinEventHook.WinEvent eventType,
-              IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+              IntPtr hWnd, WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
         [DllImport("user32.dll")]
         static extern IntPtr SetWinEventHook(
@@ -85,6 +85,24 @@ namespace ExcelDna.IntelliSense
             EVENT_AIA_END = 0xAFFF,
         }
 
+        public enum WinEventObjectId : int
+        {
+            OBJID_SELF = 0,
+            OBJID_SYSMENU = -1,
+            OBJID_TITLEBAR = -2,
+            OBJID_MENU = -3,
+            OBJID_CLIENT = -4,
+            OBJID_VSCROLL = -5,
+            OBJID_HSCROLL = -6,
+            OBJID_SIZEGRIP = -7,
+            OBJID_CARET = -8,
+            OBJID_CURSOR = -9,
+            OBJID_ALERT = -10,
+            OBJID_SOUND = -11,
+            OBJID_QUERYCLASSNAMEIDX = -12,
+            OBJID_NATIVEOM = -16
+        }
+
         public event EventHandler<WinEventArgs> WinEventReceived;
 
         readonly IntPtr _hWinEventHook;
@@ -112,8 +130,8 @@ namespace ExcelDna.IntelliSense
         }
 
         // This runs on the Excel main thread - get off quickly
-        void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd, 
-                            int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd,
+                            WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
             try
             {
@@ -121,6 +139,9 @@ namespace ExcelDna.IntelliSense
                     return;
 
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
+                    return;
+
+                if (!IsSupportedWinEvent(eventType))
                     return;
 
                 // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
@@ -132,14 +153,26 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        bool IsSupportedWinEvent(WinEvent winEvent)
+        {
+            return winEvent == WinEvent.EVENT_OBJECT_CREATE ||
+                   winEvent == WinEvent.EVENT_OBJECT_DESTROY ||
+                   winEvent == WinEvent.EVENT_OBJECT_SHOW ||
+                   winEvent == WinEvent.EVENT_OBJECT_HIDE ||
+                   winEvent == WinEvent.EVENT_OBJECT_FOCUS ||
+                   winEvent == WinEvent.EVENT_OBJECT_LOCATIONCHANGE ||   // Only for the on-demand hook
+                   winEvent == WinEvent.EVENT_OBJECT_SELECTION ||           // Only for the PopupList
+                   winEvent == WinEvent.EVENT_OBJECT_TEXTSELECTIONCHANGED;
+        }
+
         // Runs on our Automation thread (via SyncContext passed into the constructor)
         // CONSIDER: Performance impact of logging (including GetClassName) here 
         void OnWinEventReceived(object winEventArgsObj)
         {
             var winEventArgs = (WinEventArgs)winEventArgsObj;
-//#if DEBUG
-//            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
-//#endif
+#if DEBUG
+            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
+#endif
             WinEventReceived?.Invoke(this, winEventArgs);
         }
 

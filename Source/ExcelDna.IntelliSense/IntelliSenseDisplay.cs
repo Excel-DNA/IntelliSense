@@ -393,7 +393,8 @@ namespace ExcelDna.IntelliSense
             Logger.Display.Verbose($"IntelliSenseDisplay - PopupListSelectedItemChanged - {selectedItemText} List/Item Bounds: {listBounds} / {selectedItemBounds}");
 
             FunctionInfo functionInfo;
-            if (_functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
+            if (!string.IsNullOrEmpty(selectedItemText) &&
+                _functionInfoMap.TryGetValue(selectedItemText, out functionInfo))
             {
                 // It's ours!
                 var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);

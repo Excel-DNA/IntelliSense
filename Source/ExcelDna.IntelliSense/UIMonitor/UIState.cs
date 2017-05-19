@@ -73,7 +73,7 @@ namespace ExcelDna.IntelliSense
             public Rect FunctionListBounds;
             public string SelectedItemText;
             public Rect SelectedItemBounds;
-            // CONSIDER: Add a second ExcelToopTipWindow here, and try to keep track of the one shown for the list?
+            // CONSIDER: Add a second ExcelToolTipWindow here, and try to keep track of the one shown for the list?
 
             public override FormulaEdit WithFormulaEditWindow(IntPtr newFormulaEditWindow)
             {
@@ -183,7 +183,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Becomes a more general Window ro Dialog to watch (for resize extension)
+        // Becomes a more general Window or Dialog to watch (for resize extension)
         public class SelectDataSource : UIState
         {
             public IntPtr SelectDataSourceWindow;

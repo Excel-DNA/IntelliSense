@@ -14,6 +14,15 @@ namespace ExcelDna.IntelliSense
         {
             GETTEXT = 0x000D,
             GETTEXTLENGTH = 0x000E,
+            EM_POSFROMCHAR = 214,
+
+            LVM_FIRST = 0x1000,
+            LVM_GETITEM = (LVM_FIRST + 5),
+            LVM_GETNEXTITEM = (LVM_FIRST + 12),
+            LVM_GETITEMRECT = (LVM_FIRST + 14),
+            LVM_GETITEMTEXTW = (LVM_FIRST + 115),
+
+            LVNI_SELECTED = 0x0002,
         }
 
         [DllImport("kernel32.dll")]
@@ -51,9 +60,14 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, [Out] StringBuilder lParam);
 
-        // TODO: Not for 64-bit ...?
+        [DllImport("user32.dll")]
+        static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, ref LV_ITEM lParam);
+
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        static extern int SendMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
+        static extern IntPtr SendMessage(IntPtr hWnd, WM Msg, IntPtr wParam, ref RECT lParam);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -61,7 +75,7 @@ namespace ExcelDna.IntelliSense
 
         [DllImport("user32.dll")]
         static extern bool ScreenToClient(IntPtr hWnd, ref Point lpPoint);
-        
+
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
 
@@ -104,7 +118,7 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll")]
         static extern IntPtr GetAncestor(IntPtr hwnd, GetAncestorFlags flags);
 
-        [DllImport("user32.dll", SetLastError=true)]
+        [DllImport("user32.dll", SetLastError = true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         [DllImport("user32.dll")]
@@ -151,14 +165,15 @@ namespace ExcelDna.IntelliSense
             return pt;
         }
 
-        // We use System.Windows.Rect to be consistent with the UIAutomation we use elsewhere.
-        // Returns Rect.Empty if the Win32 call fails (Windows is not visible?)
+        // We use System.Windows.Rect to be consistent with the UIAutomation we used initially.
+        // Returns Rect.Empty if the Win32 call fails (Window is not visible?)
+        // Returns the window bounds in 
         public static System.Windows.Rect GetWindowBounds(IntPtr hWnd)
         {
-            RECT rect; // Not sure if the struct layout is like Win32 RECT or System.Drawing.Rectangle (these are different)
+            RECT rect; // This struct layout is like Win32 RECT (not like System.Drawing.Rectangle)
             if (GetWindowRect(hWnd, out rect))
             {
-                return new System.Windows.Rect(rect.Left, rect.Right, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1);
+                return new System.Windows.Rect(rect.Left, rect.Top, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1);
             }
             else
             {
@@ -176,7 +191,7 @@ namespace ExcelDna.IntelliSense
         }
 
         const int SW_HIDE = 0;
-        
+
         [DllImport("user32.dll")]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
@@ -228,7 +243,107 @@ namespace ExcelDna.IntelliSense
 
         public static int GetPosFromChar(IntPtr hWnd, int ch)
         {
-            return SendMessage(hWnd, 214 /*EM_POSFROMCHAR*/, ch, 0);
+            return (int)SendMessage(hWnd, WM.EM_POSFROMCHAR, new IntPtr(ch), IntPtr.Zero);
+        }
+
+        internal static int GetListViewSelectedItemIndex(IntPtr hwndPopupList)
+        {
+            return 1;
+        }
+
+        const int LVIR_BOUNDS = 0;
+
+        [StructLayoutAttribute(LayoutKind.Sequential)]
+        struct LV_ITEM
+        {
+            public uint mask;
+            public int iItem;
+            public int iSubItem;
+            public uint state;
+            public uint stateMask;
+            public IntPtr pszText;
+            public int cchTextMax;
+            public int iImage;
+            public IntPtr lParam;
+        }
+
+        // Sets text to emptyh string if failed to find an item, or another error
+        internal static int GetListViewSelectedItemInfo(IntPtr hwndList, out string text, out System.Windows.Rect bounds)
+        {
+            string listViewClassName = GetClassName(hwndList);
+            //Debug.Assert(listViewClassName != "SysListView32");
+
+            var selectedItemIndex = (int)SendMessage(hwndList, WM.LVM_GETNEXTITEM, new IntPtr(-1), new IntPtr((int)WM.LVNI_SELECTED));
+
+            if (selectedItemIndex == -1)
+            {
+                text = string.Empty;
+                bounds = System.Windows.Rect.Empty;
+                return selectedItemIndex;
+            }
+            // Debug.Print($"#### PopupList SelectedItemIndex: {selectedItemIndex}");
+
+            // First get text
+
+            LV_ITEM item = new LV_ITEM();
+            item.mask = /*public const int LVIF_TEXT = */ 0x00000001;
+            item.iSubItem = 0;
+            IntPtr nativeBuffer = Marshal.AllocHGlobal(512 * 2);    // There might be a more elegant way to do this, sith a StringBuilder or something...
+            for (int i = 0; i < 512; ++i)
+            {
+                Marshal.WriteInt16(nativeBuffer, i * 2, '\0');
+            }
+
+            try
+            {
+                item.pszText = nativeBuffer;
+                item.cchTextMax = 512;
+
+                uint length = (uint)SendMessage(hwndList, WM.LVM_GETITEMTEXTW, new IntPtr(selectedItemIndex), ref item);
+                if (length > 0)
+                {
+                    text = Marshal.PtrToStringUni(item.pszText, (int)length);
+                }
+                else
+                {
+                    text = string.Empty;
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(nativeBuffer);
+            }
+
+            // Now get bounds
+            RECT rect = new RECT();
+            rect.Left = LVIR_BOUNDS;
+            uint ok = (uint)SendMessage(hwndList, WM.LVM_GETITEMRECT, new IntPtr(selectedItemIndex), ref rect);
+            if (ok != 0)
+                bounds = new System.Windows.Rect(rect.Left, rect.Top, rect.Right - rect.Left + 1, rect.Bottom - rect.Top + 1);
+            else
+                bounds = System.Windows.Rect.Empty;
+
+            Debug.Print($"#### >>> {selectedItemIndex} / {ok} / ({rect.Left}, {rect.Top}, {rect.Right}, {rect.Bottom}) / {bounds}");
+
+            return selectedItemIndex;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern IntPtr GetWindow(IntPtr hWnd, GW uCmd);
+
+        enum GW : uint
+        {
+            GW_HWNDFIRST = 0,
+            GW_HWNDLAST = 1,
+            GW_HWNDNEXT = 2,
+            GW_HWNDPREV = 3,
+            GW_OWNER = 4,
+            GW_CHILD = 5,
+            GW_ENABLEDPOPUP = 6
+        }
+        internal static IntPtr GetFirstChildWindow(IntPtr hwndPopupList)
+        {
+            return GetWindow(hwndPopupList, GW.GW_CHILD);
         }
     }
 }

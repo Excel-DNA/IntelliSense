@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>ExcelDna.IntelliSense</id>
-        <version>1.0.1</version>
+        <version>1.0.2</version>
         <title>Excel-DNA IntelliSense Extension</title>
         <authors>Excel-DNA Contributors</authors>
         <owners>Excel-DNA Contributors</owners>
@@ -14,7 +14,6 @@
         <tags>excel exceldna udf excel-dna intellisense</tags>
         <dependencies>
           <dependency id="ExcelDna.Integration" version="0.33.9" />
-          <dependency id="UIAComWrapper" version="1.1.0.14" />
         </dependencies>
     </metadata>
     <files>
