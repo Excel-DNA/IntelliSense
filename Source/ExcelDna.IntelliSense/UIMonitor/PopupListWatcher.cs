@@ -55,6 +55,7 @@ namespace ExcelDna.IntelliSense
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
                     Logger.WindowWatcher.Verbose($"PopupList window show");
+                    _hwndPopupList = e.WindowHandle;    // We might have missed the Create
                     IsVisible = true;
                     if (_selectionChangeHook == null)
                     {
@@ -124,7 +125,7 @@ namespace ExcelDna.IntelliSense
 
         void UpdateSelectedItem()
         {
-            if (_hwndPopupList == null)
+            if (_hwndPopupList == IntPtr.Zero)
             {
                 Logger.WindowWatcher.Verbose($"PopupList UpdateSelectedItem ignored: PopupList is null");
                 return;
