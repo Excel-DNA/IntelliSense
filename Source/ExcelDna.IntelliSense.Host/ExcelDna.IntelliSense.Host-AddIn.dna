@@ -1,6 +1,4 @@
 <DnaLibrary Name="Excel-DNA IntelliSense Host" RuntimeVersion="v4.0">
   <ExternalLibrary Path="ExcelDna.IntelliSense.Host.dll" Pack="true" />
   <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
-  <Reference Path="Interop.UIAutomationClient.dll" Pack="true" />
-  <Reference Path="UIAComWrapper.dll" Pack="true" />
 </DnaLibrary>
