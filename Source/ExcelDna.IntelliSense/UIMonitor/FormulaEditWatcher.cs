@@ -96,7 +96,7 @@ namespace ExcelDna.IntelliSense
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
                         // We expect this on every text change (and it is our only detection of text changes)
-                        UpdateEditState();
+                        UpdateEditStateDelayed();
                     }
                     else
                     {
@@ -158,7 +158,7 @@ namespace ExcelDna.IntelliSense
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
                         // We expect this on every text change (and it is our only detection of text changes)
-                        UpdateEditState();
+                        UpdateEditStateDelayed();
                     }
                     else
                     {
@@ -282,6 +282,15 @@ namespace ExcelDna.IntelliSense
         //    UpdateFormula(textChangedOnly: true);
         //}
 
+        void UpdateEditStateDelayed()
+        {
+            _syncContextAuto.Post(_ =>
+           {
+               Thread.Sleep(50);
+               UpdateEditState();
+           }, null);
+        }
+
         // Switches to our Automation thread, updates current state and raises StateChanged event
         void UpdateEditState(bool moveOnly = false)
         {
@@ -292,12 +301,10 @@ namespace ExcelDna.IntelliSense
             bool prefixChanged = false;
             if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
             {
-                //focusedEdit = _formulaBar;
                 hwnd = _hwndFormulaBar;
             }
             else if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
             {
-                //focusedEdit = _inCellEdit;
                 hwnd = _hwndInCellEdit;
             }
             else
@@ -317,14 +324,12 @@ namespace ExcelDna.IntelliSense
             {
                 EditWindowBounds = Win32Helper.GetWindowBounds(hwnd);
 
-                var pt = Win32Helper.GetClientCursorPos(hwnd);
-
                 if (!IsEditingFormula)
                 {
                     IntPtr hwndTopLevel = Win32Helper.GetRootAncestor(hwnd);
                     InstallLocationMonitor(hwndTopLevel);
+                    IsEditingFormula = true;
                 }
-                IsEditingFormula = true;
 
                 var newPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
                 if (CurrentPrefix != newPrefix)
@@ -344,14 +349,6 @@ namespace ExcelDna.IntelliSense
             {
                 OnStateChanged(StateChangeType.Multiple);
             }
-        }
-
-        void UpdateFormula(bool textChangedOnly = false)
-        {
-            Logger.WindowWatcher.Verbose($">>>> FormulaEditWatcher.UpdateFormula on thread {Thread.CurrentThread.ManagedThreadId}");
-            CurrentPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
-            Logger.WindowWatcher.Verbose($">>>> FormulaEditWatcher.UpdateFormula CurrentPrefix: {CurrentPrefix}");
-            OnStateChanged(textChangedOnly ? StateChangeType.TextChange : StateChangeType.Multiple);
         }
 
         // We ensure that our event is raised on the Automation thread .. (Eases concurrency issues in handling it, though it will get passed on to the main thread...)
