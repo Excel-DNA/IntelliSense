@@ -186,7 +186,6 @@ namespace ExcelDna.IntelliSense
                     break;
                 case UIStateUpdate.UpdateType.FunctionListShow:
                     var fls = (UIState.FunctionList)update.NewState;
-                    // TODO: TEMP
                     _functionListWindow = fls.FunctionListWindow;
                     FunctionListShow();
                     FunctionListSelectedItemChange(fls.SelectedItemText, fls.SelectedItemBounds, fls.FunctionListBounds);
@@ -209,7 +208,7 @@ namespace ExcelDna.IntelliSense
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
-                    // We ignore these
+                    // We ignore these for now
                     break;
                 default:
                     throw new InvalidOperationException("Unexpected UIStateUpdate");
@@ -240,24 +239,24 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        void UpdateFunctionListWindow(IntPtr functionListWindow)
-        {
-            if (_functionListWindow != functionListWindow)
-            {
-                _functionListWindow = functionListWindow;
-                if (_descriptionToolTip != null)
-                {
-                    _descriptionToolTip.Dispose();
-                    _descriptionToolTip = null;
-                }
-                if (_functionListWindow != IntPtr.Zero)
-                {
-                    _descriptionToolTip = new ToolTipForm(_functionListWindow);
-                    //_descriptionToolTip.OwnerHandle = _functionListWindow;
-                }
+        //void UpdateFunctionListWindow(IntPtr functionListWindow)
+        //{
+        //    if (_functionListWindow != functionListWindow)
+        //    {
+        //        _functionListWindow = functionListWindow;
+        //        if (_descriptionToolTip != null)
+        //        {
+        //            _descriptionToolTip.Dispose();
+        //            _descriptionToolTip = null;
+        //        }
+        //        if (_functionListWindow != IntPtr.Zero)
+        //        {
+        //            _descriptionToolTip = new ToolTipForm(_functionListWindow);
+        //            //_descriptionToolTip.OwnerHandle = _functionListWindow;
+        //        }
                 
-            }
-        }
+        //    }
+        //}
 
         // Runs on the main thread
         void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
@@ -295,7 +294,17 @@ namespace ExcelDna.IntelliSense
                 return;
             }
             int topOffset = GetTopOffset(excelToolTipWindow);
-            _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+            try
+            {
+                _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+            }
+            catch (Exception ex)
+            {
+                Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditMove Error - {ex}");
+                // Recycle the Arguments ToolTip - won't show now, but should for the next function
+                _argumentsToolTip.Dispose();
+                _argumentsToolTip = null;
+            }
         }
 
         // Runs on the main thread
@@ -326,7 +335,16 @@ namespace ExcelDna.IntelliSense
                         //}
                         int topOffset = GetTopOffset(excelToolTipWindow);
                         FormattedText infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        _argumentsToolTip.ShowToolTip(infoText, lineBeforeFunctionName, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                        try
+                        {
+                            _argumentsToolTip.ShowToolTip(infoText, lineBeforeFunctionName, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditTextChange Error - {ex}");
+                            _argumentsToolTip.Dispose();
+                            _argumentsToolTip = null;
+                        }
                     }
                     else
                     {
@@ -338,12 +356,7 @@ namespace ExcelDna.IntelliSense
             }
 
             // All other paths, we hide the box
-            if (_argumentsToolTip != null)
-            {
-                _argumentsToolTip.Hide();
-                //_argumentsToolTip.Dispose();
-                //_argumentsToolTip = null;
-            }
+           _argumentsToolTip?.Hide();
         }
 
 
@@ -366,7 +379,16 @@ namespace ExcelDna.IntelliSense
             if (_argumentsToolTip != null && _argumentsToolTip.Visible)
             {
                 int topOffset = GetTopOffset(excelToolTipWindow);
-                _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                try
+                {
+                    _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditExcelToolTipShow Error - {ex}");
+                    _argumentsToolTip.Dispose();
+                    _argumentsToolTip = null;
+                }
             }
         }
 
@@ -382,9 +404,7 @@ namespace ExcelDna.IntelliSense
         void FunctionListHide()
         {
             Debug.Print($"IntelliSenseDisplay - FunctionListHide");
-            _descriptionToolTip.Hide();
-            //_descriptionToolTip.Dispose();
-            //_descriptionToolTip = null;
+            _descriptionToolTip?.Hide();
         }
 
         // Runs on the main thread
@@ -400,28 +420,49 @@ namespace ExcelDna.IntelliSense
                 var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
                 if (descriptionLines != null)
                 {
-                    _descriptionToolTip.ShowToolTip(
-                        text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
-                        linePrefix: null,
-                        left: (int)listBounds.Right + DescriptionLeftMargin,
-                        top: (int)selectedItemBounds.Bottom - 18,
-                        topOffset: 0,
-                        listLeft: (int)selectedItemBounds.Left);
-                    return;
+                    try
+                    {
+                        _descriptionToolTip?.ShowToolTip(
+                            text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
+                            linePrefix: null,
+                            left: (int)listBounds.Right + DescriptionLeftMargin,
+                            top: (int)selectedItemBounds.Bottom - 18,
+                            topOffset: 0,
+                            listLeft: (int)selectedItemBounds.Left);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Display.Warn($"IntelliSenseDisplay - PopupListSelectedItemChanged Error - {ex}");
+                        // Recycle the _DescriptionToolTip - won't show now, but should for the next function
+                        _descriptionToolTip.Dispose();
+                        _descriptionToolTip = null;
+                        return;
+                    }
                 }
             }
 
             // Not ours or no description
-            _descriptionToolTip.Hide();
+            _descriptionToolTip?.Hide();
         }
         
         void FunctionListMove(Rect selectedItemBounds, Rect listBounds)
         {
-            _descriptionToolTip.MoveToolTip(
-               left: (int)listBounds.Right + DescriptionLeftMargin,
-               top: (int)selectedItemBounds.Bottom - 18, 
-               topOffset: 0, 
-               listLeft: (int)selectedItemBounds.Left);
+            try
+            {
+                _descriptionToolTip?.MoveToolTip(
+                   left: (int)listBounds.Right + DescriptionLeftMargin,
+                   top: (int)selectedItemBounds.Bottom - 18,
+                   topOffset: 0,
+                   listLeft: (int)selectedItemBounds.Left);
+            }
+            catch (Exception ex)
+            {
+                Logger.Display.Warn($"IntelliSenseDisplay - FunctionListMove Error - {ex}");
+                // Recycle the _DescriptionToolTip - won't show now, but should for the next function
+                _descriptionToolTip?.Dispose();
+                _descriptionToolTip = null;
+            }
         }
 
         // TODO: Performance / efficiency - cache these somehow
