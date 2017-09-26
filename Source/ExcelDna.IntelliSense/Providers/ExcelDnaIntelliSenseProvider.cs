@@ -133,6 +133,7 @@ namespace ExcelDna.IntelliSense
 
             lock (_xllRegistrationInfos)
             {
+                Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize - inside lock");
                 foreach (var xllPath in GetLoadedXllPaths())
                 {
                     if (!_xllRegistrationInfos.ContainsKey(xllPath))
@@ -147,6 +148,7 @@ namespace ExcelDna.IntelliSense
                     }
                 }
             }
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Initialize - after lock");
         }
 
         // Must be called on the main Excel thread
@@ -156,6 +158,7 @@ namespace ExcelDna.IntelliSense
             Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh");
             lock (_xllRegistrationInfos)
             {
+                Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh - inside lock");
                 foreach (var regInfo in _xllRegistrationInfos.Values)
                 {
                     regInfo.Refresh();
@@ -163,17 +166,20 @@ namespace ExcelDna.IntelliSense
                 _xmlProvider.Refresh();
                 _isDirty = false;
             }
+            Logger.Provider.Info("ExcelDnaIntelliSenseProvider.Refresh - after lock");
         }
 
         // May be called from any thread
         public IList<FunctionInfo> GetFunctionInfos()
         {
             IList<FunctionInfo> excelDnaInfos;
+            Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos");
             lock (_xllRegistrationInfos)
             {
+                Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos - inside lock");
                 excelDnaInfos = _xllRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
             }
-            Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos Begin");
+            Logger.Provider.Verbose("ExcelDnaIntelliSenseProvider.GetFunctionInfos - after lock");
             foreach (var info in excelDnaInfos)
             {
                 Logger.Provider.Verbose($"\t{info.Name}({info.ArgumentList.Count}) - {info.Description} ");
@@ -207,9 +213,9 @@ namespace ExcelDna.IntelliSense
             var xllPath = notification.FullDllName;
 
             Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.ProcessLoadNotification {notification}, {xllPath}");
-
             lock (_xllRegistrationInfos)
             {
+                Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.ProcessLoadNotification - inside lock");
                 XllRegistrationInfo regInfo;
                 if (!_xllRegistrationInfos.TryGetValue(xllPath, out regInfo))
                 {
@@ -240,6 +246,7 @@ namespace ExcelDna.IntelliSense
                     // OnInvalidate();
                 }
             }
+            Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.ProcessLoadNotification - after lock");
         }
 
         string GetXmlPath(string xllPath) => Path.ChangeExtension(xllPath, ".intellisense.xml");
@@ -252,13 +259,42 @@ namespace ExcelDna.IntelliSense
         // Alternative, more in line with our update watch, is to enumerate all loaded modules...
         IEnumerable<string> GetLoadedXllPaths()
         {
-            // TODO: Implement properly...
-            dynamic app = ExcelDnaUtil.Application;
-            foreach (var addin in app.AddIns2)
+            //// DOCUMENT(2) does not seem to include .xll add-ins
+
+            //var loadedDocs = Integration.XlCall.Excel(Integration.XlCall.xlfDocuments, 2) as object[,];
+            //if (loadedDocs == null)
+            //{
+            //    Logger.Provider.Verbose($"ExcelDnaIntelliSenseProvider.GetLoadedXllPaths - DOCUMENTS(2) failed");
+            //    yield break;
+            //}
+            //for (int i = 0; i < loadedDocs.GetLength(1); i++)
+            //{
+            //    var docName = loadedDocs[0, i] as string;
+            //    if (docName != null && Path.GetExtension(docName) == ".xll")
+            //    {
+            //        yield return docName;
+            //    }
+            //}
+
+            //// TODO: Implement properly...
+            //dynamic app = ExcelDnaUtil.Application;
+            //foreach (var addin in app.AddIns2)
+            //{
+            //    if (addin.IsOpen && Path.GetExtension(addin.FullName) == ".xll")
+            //    {
+            //        yield return addin.FullName;
+            //    }
+            //}
+
+            // Enumerate loaded modules - pick .xll files
+            var process = Process.GetCurrentProcess();
+            var modules = process.Modules;
+            foreach (ProcessModule module in modules)
             {
-                if (addin.IsOpen && Path.GetExtension(addin.FullName) == ".xll")
+                var fileName = module.FileName; 
+                if (Path.GetExtension(fileName) == ".xll")
                 {
-                    yield return addin.FullName;
+                    yield return fileName;
                 }
             }
         }
