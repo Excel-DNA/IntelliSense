@@ -157,33 +157,70 @@ namespace ExcelDna.IntelliSense
                         RegisterWithXmlProvider(wb);
                     }
                 }
-                if (ExcelDnaUtil.ExcelVersion >= 14.0)
+
+                // NOTE: This access to AddIns2 might have caused long load delays
+                //if (ExcelDnaUtil.ExcelVersion >= 14.0)
+                //{
+                //    foreach (AddIn addIn in xlApp.AddIns2)
+                //    {
+                //        if (addIn.IsOpen && Path.GetExtension(addIn.FullName) != ".xll")
+                //        {
+                //            // Can it be "Open" and not be loaded?
+                //            var name = addIn.Name;
+                //            Workbook wbAddIn;
+                //            try
+                //            {
+                //                // TODO: Log
+                //                wbAddIn = xlApp.Workbooks[name];
+                //            }
+                //            catch
+                //            {
+                //                // TODO: Log
+                //                continue;
+                //            }
+
+                //            WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
+                //            _workbookRegistrationInfos[name] = regInfo;
+
+                //            regInfo.Refresh();
+
+                //            RegisterWithXmlProvider(wbAddIn);
+                //        }
+                //    }
+                //}
+
+                var loadedAddIns = Integration.XlCall.Excel(Integration.XlCall.xlfDocuments, 2) as object[,];
+                if (loadedAddIns == null)
                 {
-                    foreach (AddIn addIn in xlApp.AddIns2)
+                    // This is normal if there are none
+                    Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - DOCUMENTS(2) returned null");
+                    return;
+                }
+                for (int i = 0; i < loadedAddIns.GetLength(1); i++)
+                {
+                    var addInName = loadedAddIns[0, i] as string;
+                    if (addInName != null && Path.GetExtension(addInName) != ".xll")    // We don't actually expect the .xll add-ins here - and they're taken care of elsewhere
                     {
-                        if (addIn.IsOpen && Path.GetExtension(addIn.FullName) != ".xll")
+                        // Can it be "Open" and not be loaded?
+                        var name = addInName;
+                        Workbook wbAddIn;
+                        try
                         {
-                            // Can it be "Open" and not be loaded?
-                            var name = addIn.Name;
-                            Workbook wbAddIn;
-                            try
-                            {
-                                // TODO: Log
-                                wbAddIn = xlApp.Workbooks[name];
-                            }
-                            catch
-                            {
-                                // TODO: Log
-                                continue;
-                            }
-
-                            WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
-                            _workbookRegistrationInfos[name] = regInfo;
-
-                            regInfo.Refresh();
-
-                            RegisterWithXmlProvider(wbAddIn);
+                            // TODO: Log
+                            wbAddIn = xlApp.Workbooks[name];
                         }
+                        catch
+                        {
+                            // TODO: Log
+                            continue;
+                        }
+
+                        WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
+                        _workbookRegistrationInfos[name] = regInfo;
+
+                        regInfo.Refresh();
+
+                        RegisterWithXmlProvider(wbAddIn);
                     }
                 }
             }
