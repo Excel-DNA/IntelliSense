@@ -155,9 +155,22 @@ namespace ExcelDna.IntelliSense
                 ListBounds = Win32Helper.GetWindowBounds(_hwndPopupList);
 
                 _selectedItemIndex = Win32Helper.GetListViewSelectedItemInfo(hwndListView, out text, out itemBounds);
-                itemBounds.Offset(ListBounds.Left, ListBounds.Top);
-                SelectedItemBounds = itemBounds;
-                SelectedItemText = text;
+                if (string.IsNullOrEmpty(text))
+                {
+                    // We (unexpectedly) failed to get information about the selected item
+                    Logger.WindowWatcher.Warn($"PopupList UpdateSelectedItem - IsVisible but GetListViewSelectedItemInfo failed ");
+                    _selectedItemIndex = -1;
+                    SelectedItemText = string.Empty;
+                    SelectedItemBounds = Rect.Empty;
+                    ListBounds = Rect.Empty;
+                }
+                else
+                {
+                    // Normal case - all is OK
+                    itemBounds.Offset(ListBounds.Left, ListBounds.Top);
+                    SelectedItemBounds = itemBounds;
+                    SelectedItemText = text;
+                }
             }
             OnSelectedItemChanged();
         }
