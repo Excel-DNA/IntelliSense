@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Xml;
 using System.Xml.Serialization;
 using ExcelDna.Integration;
@@ -89,16 +90,22 @@ namespace ExcelDna.IntelliSense
         public void RegisterXmlFunctionInfo(string fileName, string xmlIntelliSense = null)
         {
             if (!File.Exists(fileName) && xmlIntelliSense == null)
+            {
+                Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Not IntelliSense file at {fileName}");
                 return;
+            }
             
             var regInfo = new XmlRegistrationInfo(fileName, xmlIntelliSense);
+            Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Created XmlRegistrationInfo info for {fileName}");
             lock (_xmlRegistrationInfos)
             {
+                Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Recording XmlRegistrationInfo info");
                 _xmlRegistrationInfos.Add(fileName, regInfo);
 
                 if (!_isDirty)
                 {
                     _isDirty = true;
+                    Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Posting OnInvalidate to Excel SyncContext");
                     _syncContextExcel.Post(OnInvalidate, null);
                 }
             }
@@ -135,22 +142,25 @@ namespace ExcelDna.IntelliSense
         // May be called from any thread
         public IList<FunctionInfo> GetFunctionInfos()
         {
+            Logger.Provider.Verbose($"XmlIntelliSenseProvider.GetFunctionInfos - Enter on Thread {Thread.CurrentThread.ManagedThreadId}");
+
             IList<FunctionInfo> functionInfos;
             lock (_xmlRegistrationInfos)
             {
                 functionInfos = _xmlRegistrationInfos.Values.SelectMany(ri => ri.GetFunctionInfos()).ToList();
             }
-            Logger.Provider.Verbose("XmlIntelliSenseProvider.GetFunctionInfos Begin");
+            Logger.Provider.Verbose("XmlIntelliSenseProvider.GetFunctionInfos - Begin");
             foreach (var info in functionInfos)
             {
                 Logger.Provider.Verbose($"\t{info.Name}({info.ArgumentList.Count}) - {info.Description} ");
             }
-            Logger.Provider.Verbose("XmlIntelliSenseProvider.GetFunctionInfos End");
+            Logger.Provider.Verbose("XmlIntelliSenseProvider.GetFunctionInfos - End");
             return functionInfos;
         }
         
         void OnInvalidate(object _unused_)
         {
+            Logger.Provider.Verbose($"XmlIntelliSenseProvider.ROnInvalidate - Invoking Invalidate event");
             Invalidate?.Invoke(this, EventArgs.Empty);
         }
 

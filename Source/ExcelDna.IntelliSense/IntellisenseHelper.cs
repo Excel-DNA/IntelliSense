@@ -55,9 +55,11 @@ namespace ExcelDna.IntelliSense
         void RefreshProvider(object providerObj)
         {
             Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Logger.Provider.Verbose($"IntelliSenseHelper.RefreshProvider - Begin Refresh for {providerObj.GetType().Name}");
             IIntelliSenseProvider provider = (IIntelliSenseProvider)providerObj;
             provider.Refresh();
             UpdateDisplay(provider);
+            Logger.Provider.Verbose($"IntelliSenseHelper.RefreshProvider - End");
         }
 
         void UpdateDisplay(IIntelliSenseProvider provider)

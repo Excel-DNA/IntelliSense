@@ -40,17 +40,20 @@ namespace ExcelDna.IntelliSense
                 var wb = app.Workbooks[_name];
                 _path = wb.Path;
 
+                Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - Workbook {_name} at {_path}");
                 try
                 {
                     var ws = wb.Sheets[intelliSenseWorksheetName];
-
+                    Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - IntelliSense sheet found");
                     var info = ws.UsedRange.Value;
                     _regInfo = info as object[,];
+                    Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - Read {_regInfo.GetLength(0) - 1} registrations");
                 }
                 catch (Exception ex)
                 {
                     // We expect this if there is no sheet.
                     Debug.Print("WorkbookIntelliSenseProvider.Refresh Error : " + ex.Message);
+                    Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - No IntelliSense sheet found");
                     _regInfo = null;
                 }
                 _lastUpdate = DateTime.Now;
@@ -141,12 +144,15 @@ namespace ExcelDna.IntelliSense
             xlApp.WorkbookBeforeClose += Excel_WorkbookBeforeClose;
             xlApp.WorkbookAddinInstall += Excel_WorkbookAddinInstall;
             xlApp.WorkbookAddinUninstall += Excel_WorkbookAddinUninstall;
+            Logger.Provider.Verbose("WorkbookIntelliSenseProvider.Initialize - Installed event listeners");
 
             lock (_workbookRegistrationInfos)
             {
+                Logger.Provider.Verbose("WorkbookIntelliSenseProvider.Initialize - Starting Workbooks loop");
                 foreach (Workbook wb in xlApp.Workbooks)
                 {
                     var name = wb.Name;
+                    Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Adding registration for {name}");
                     if (!_workbookRegistrationInfos.ContainsKey(name))
                     {
                         WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
@@ -189,6 +195,8 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //}
 
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Checking Add-Ins");
+
                 var loadedAddIns = Integration.XlCall.Excel(Integration.XlCall.xlfDocuments, 2) as object[,];
                 if (loadedAddIns == null)
                 {
@@ -199,6 +207,7 @@ namespace ExcelDna.IntelliSense
                 for (int i = 0; i < loadedAddIns.GetLength(1); i++)
                 {
                     var addInName = loadedAddIns[0, i] as string;
+                    Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Checking Add-In {addInName}");
                     if (addInName != null && Path.GetExtension(addInName) != ".xll")    // We don't actually expect the .xll add-ins here - and they're taken care of elsewhere
                     {
                         // Can it be "Open" and not be loaded?
@@ -214,6 +223,8 @@ namespace ExcelDna.IntelliSense
                             // TODO: Log
                             continue;
                         }
+
+                        Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Adding registration for add-in {name}");
 
                         WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
                         _workbookRegistrationInfos[name] = regInfo;
@@ -330,16 +341,26 @@ namespace ExcelDna.IntelliSense
 
         void RegisterWithXmlProvider(Workbook wb)
         {
+            Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider");
+
             var path = wb.FullName;
             var xmlPath = GetXmlPath(path);
             _xmlProvider.RegisterXmlFunctionInfo(xmlPath);  // Will check if file exists
 
+            Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - Checking CustomXMLParts");
+
             var customXmlParts = wb.CustomXMLParts.SelectByNamespace(XmlIntelliSense.Namespace);
             if (customXmlParts.Count > 0)
             {
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - CustomXMLPart found");
                 // We just take the first one - register against the Bworkbook name
                 _xmlProvider.RegisterXmlFunctionInfo(path, customXmlParts[1].XML);
             }
+            else
+            {
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - No CustomXMLPart found");
+            }
+
         }
 
         void UnregisterWithXmlProvider(Workbook wb)
