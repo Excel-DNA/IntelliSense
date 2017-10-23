@@ -199,12 +199,13 @@ namespace ExcelDna.IntelliSense
                     FunctionListSelectedItemChange(fl.SelectedItemText, fl.SelectedItemBounds, fl.FunctionListBounds);
                     break;
                 case UIStateUpdate.UpdateType.FunctionListHide:
+                case UIStateUpdate.UpdateType.FunctionListWindowChange:
                     FunctionListHide();
                     break;
                 case UIStateUpdate.UpdateType.FormulaEditEnd:
                     FormulaEditEnd();
                     break;
-
+                    
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
