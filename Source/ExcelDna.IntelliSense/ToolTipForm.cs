@@ -73,6 +73,7 @@ namespace ExcelDna.IntelliSense
             const int WM_MOUSEMOVE = 0x0200;
             const int WM_LBUTTONDOWN = 0x0201;
             const int WM_LBUTTONUP = 0x0202;
+            const int WM_LBUTTONDBLCLK = 0x203;
             const int WM_SETCURSOR = 0x20;
             const int MA_NOACTIVATE = 0x0003;
 
@@ -93,6 +94,7 @@ namespace ExcelDna.IntelliSense
                     MouseButtonUp(GetMouseLocation(m.LParam));
                     return;
                 case WM_SETCURSOR:
+                case WM_LBUTTONDBLCLK:
                     // We need to handle this message to prevent flicker (possibly because we're not 'active').
                     m.Result = new IntPtr(1); //Signify that we dealt with the message.
                     return;
