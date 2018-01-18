@@ -67,44 +67,44 @@ namespace ExcelDna.IntelliSense
             Debug.Print($"Created ToolTipForm with owner {hwndOwner}");
         }
 
-		protected override void WndProc(ref Message m)
-		{
-			const int WM_MOUSEACTIVATE = 0x21;
-			const int WM_MOUSEMOVE = 0x0200;
-			const int WM_LBUTTONDOWN = 0x0201;
-			const int WM_LBUTTONUP = 0x0202;
-			const int WM_LBUTTONDBLCLK = 0x203;
-			const int WM_SETCURSOR = 0x20;
-			const int MA_NOACTIVATE = 0x0003;
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_MOUSEACTIVATE = 0x21;
+            const int WM_MOUSEMOVE = 0x0200;
+            const int WM_LBUTTONDOWN = 0x0201;
+            const int WM_LBUTTONUP = 0x0202;
+            const int WM_LBUTTONDBLCLK = 0x203;
+            const int WM_SETCURSOR = 0x20;
+            const int MA_NOACTIVATE = 0x0003;
 
-			switch (m.Msg)
-			{
-				// Prevent activation by mouse interaction
-				case WM_MOUSEACTIVATE:
-					m.Result = (IntPtr)MA_NOACTIVATE;
-					return;
-				// We're never active, so we need to do our own mouse handling
-				case WM_LBUTTONDOWN:
-					MouseButtonDown(GetMouseLocation(m.LParam));
-					return;
-				case WM_MOUSEMOVE:
-					MouseMoved(GetMouseLocation(m.LParam));
-					return;
-				case WM_LBUTTONUP:
-					MouseButtonUp(GetMouseLocation(m.LParam));
-					return;
-				case WM_SETCURSOR:
-				case WM_LBUTTONDBLCLK:
-					// We need to handle this message to prevent flicker (possibly because we're not 'active').
-					m.Result = new IntPtr(1); //Signify that we dealt with the message.
-					return;
-				default:
-					base.WndProc(ref m);
-					return;
-			}
-		}
+            switch (m.Msg)
+            {
+                // Prevent activation by mouse interaction
+                case WM_MOUSEACTIVATE:
+                    m.Result = (IntPtr)MA_NOACTIVATE;
+                    return;
+                // We're never active, so we need to do our own mouse handling
+                case WM_LBUTTONDOWN:
+                    MouseButtonDown(GetMouseLocation(m.LParam));
+                    return;
+                case WM_MOUSEMOVE:
+                    MouseMoved(GetMouseLocation(m.LParam));
+                    return;
+                case WM_LBUTTONUP:
+                    MouseButtonUp(GetMouseLocation(m.LParam));
+                    return;
+                case WM_SETCURSOR:
+                case WM_LBUTTONDBLCLK:
+                    // We need to handle this message to prevent flicker (possibly because we're not 'active').
+                    m.Result = new IntPtr(1); //Signify that we dealt with the message.
+                    return;
+                default:
+                    base.WndProc(ref m);
+                    return;
+            }
+        }
 
-		void ShowToolTip()
+        void ShowToolTip()
         {
             try
             {
