@@ -108,9 +108,8 @@ namespace ExcelDna.IntelliSense
             {
                 if (CurrentState is UIState.FunctionList)
                 {
-                    // We'll update stuff in the PopupList change handler
-//                    var newState = ((UIState.FunctionList)CurrentState).WithBounds(_formulaEditWatcher.EditWindowBounds);
-//                    OnStateChanged(newState);
+                    var newState = ((UIState.FunctionList)CurrentState).WithBounds(_formulaEditWatcher.EditWindowBounds);
+                    OnStateChanged(newState);
                     return;
                 }
                 if (CurrentState is UIState.FormulaEdit)
