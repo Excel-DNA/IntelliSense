@@ -133,7 +133,7 @@ namespace ExcelDna.IntelliSense
             var info = new GUITHREADINFO();
             info.cbSize = Marshal.SizeOf(info);
             if (!GetGUIThreadInfo(0, ref info))
-                throw new Win32Exception();
+                return IntPtr.Zero;
 
             var focusedWindow = info.hwndFocus;
             if (focusedWindow == IntPtr.Zero)
@@ -142,7 +142,7 @@ namespace ExcelDna.IntelliSense
             uint processId;
             uint threadId = GetWindowThreadProcessId(focusedWindow, out processId);
             if (threadId == 0)
-                throw new Win32Exception();
+                return IntPtr.Zero;
 
             uint currentProcessId = GetCurrentProcessId();
             if (processId == currentProcessId)
