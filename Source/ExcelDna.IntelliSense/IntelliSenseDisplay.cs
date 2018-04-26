@@ -489,15 +489,35 @@ namespace ExcelDna.IntelliSense
         {
             var nameLine = new TextLine { new TextRun { Text = functionInfo.Name, LinkAddress = FixHelpTopic(functionInfo.HelpTopic) } };
             nameLine.Add(new TextRun { Text = "(" });
+
+            // Save the original currentArgIndex for later use if we change it 
+            int orgCurrentArgIndex = currentArgIndex;
+
+            // Indicates the currentArgIndex is one of the params
+            bool usingParams = false;
+
+            // Note: Using params for the last argument
+            if (functionInfo.ArgumentList.Count > 1 &&
+                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 1].Name == "..." &&
+                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.EndsWith("1") && // Note: Omit if the "..." check is enoguh
+                currentArgIndex >= functionInfo.ArgumentList.Count - 2)
+            {
+                // Change the currentArgIndex so the next block will print correctly
+                currentArgIndex = functionInfo.ArgumentList.Count - 2;
+                usingParams = true;
+            }
+
             if (functionInfo.ArgumentList.Count > 0)
             {
+                // Print the arguments before the current argument
                 var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
                 if (argNames.Length >= 1)
                 {
                     nameLine.Add(new TextRun { Text = string.Join(_argumentSeparator, argNames) });
                 }
 
-                if (functionInfo.ArgumentList.Count > currentArgIndex)
+                // The current argument is before the params or there are no params at all
+                if (!usingParams && functionInfo.ArgumentList.Count > currentArgIndex)
                 {
                     if (argNames.Length >= 1)
                     {
@@ -507,30 +527,87 @@ namespace ExcelDna.IntelliSense
                         });
                     }
 
+                    // Print the current argument
                     nameLine.Add(new TextRun
                     {
                         Text = functionInfo.ArgumentList[currentArgIndex].Name,
                         Style = System.Drawing.FontStyle.Bold
                     });
 
+                    // Print the arguments after current argument
                     argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.Name).ToArray();
                     if (argNames.Length >= 1)
                     {
-                        nameLine.Add(new TextRun {Text = _argumentSeparator + string.Join(_argumentSeparator, argNames)});
+                        nameLine.Add(new TextRun { Text = _argumentSeparator + string.Join(_argumentSeparator, argNames) });
                     }
                 }
+
+                // The current argument is within the params
+                if (usingParams)
+                {
+                    // Take the last named argument and omit the "1" that the registration added
+                    string lastArgBaseName = functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.TrimEnd('1');
+                    int paramsArgsCount = orgCurrentArgIndex - currentArgIndex + 1;
+                    int currentParamsArgIndex = orgCurrentArgIndex - (functionInfo.ArgumentList.Count - 2);
+
+                    // Add the seperator after the last non params argument
+                    if (functionInfo.ArgumentList.Count > 2)
+                    {
+                        nameLine.Add(new TextRun
+                        {
+                            Text = _argumentSeparator
+                        });
+                    }
+
+                    int i = 0;
+                    for (; i < currentParamsArgIndex; i++)
+                    {
+                        nameLine.Add(new TextRun { Text = lastArgBaseName + (i + 1) + _argumentSeparator });
+                    }
+
+                    nameLine.Add(new TextRun { Text = lastArgBaseName + (i + 1) + _argumentSeparator, Style = System.Drawing.FontStyle.Bold });
+                    ++i;
+
+                    // BUGBUG: We never run this loop
+                    // At this point:
+                    //         i = currentParamsArgIndex + 1 = orgCurrentArgIndex - (functionInfo.ArgumentList.Count - 2) + 1, 
+                    //  and    paramsArgsCount = orgCurrentArgIndex - currentArgIndex + 1  = orgCurrentArgIndex + (functionInfo.ArgumentList.Count - 2) + 1
+                    // Usually it's ok, but in case we have the formula: F(params object[] args) and we write in the formula editor =F(1,2,3,4,5,6,7)
+                    // and then we move the cursor to point on the second argument, the intelisense will short its text and omit any argument after the 3rd argument.
+                    // We need to get the full formula (or at least how many totoal arguments are used) not just the prefix (the current posision)
+                    for (; i < paramsArgsCount; i++)
+                    {
+                        nameLine.Add(new TextRun { Text = lastArgBaseName + (i + 1) + _argumentSeparator });
+                    }
+
+                    nameLine.Add(new TextRun { Text = "[" + lastArgBaseName + (paramsArgsCount + 1) + "]" + _argumentSeparator + "..." });
+                }
             }
+
             nameLine.Add(new TextRun { Text = ")" });
+
+            currentArgIndex = orgCurrentArgIndex;
 
             var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
             
             var formattedText = new FormattedText { nameLine, descriptionLines };
-            if (functionInfo.ArgumentList.Count > currentArgIndex)
+            TextLine description = null;
+            if (usingParams)
             {
-                var description = GetArgumentDescriptionOrNull(functionInfo.ArgumentList[currentArgIndex]);
-                if (description != null)
-                    formattedText.Add(description);
+                description = 
+                    GetArgumentDescriptionOrNull(
+                        new FunctionInfo.ArgumentInfo() {
+                            Description = functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Description,
+                            Name = functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.TrimEnd('1') + (orgCurrentArgIndex - (functionInfo.ArgumentList.Count - 2) +1)
+                        });
             }
+            else if (functionInfo.ArgumentList.Count > currentArgIndex)
+            {
+               description = GetArgumentDescriptionOrNull(functionInfo.ArgumentList[currentArgIndex]);
+            }
+
+            if (description != null)
+                formattedText.Add(description);
 
             return formattedText;
         }
