@@ -95,7 +95,8 @@ namespace ExcelDna.IntelliSense
                     }
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
-                        // We expect this on every text change (and it is our only detection of text changes)
+                        // We expect this on every text change
+                        // NOTE: Not anymore after some Excel / Windows update
                         UpdateEditStateDelayed();
                     }
                     else
@@ -138,8 +139,22 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                         Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Hide");
                     break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.LocationChange:
+                    if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
+                    {
+                        // We expect this on every text change in newer Excel versions
+                        Debug.Print($"-#-#-#- Text Changed ... ");
+                        UpdateEditStateDelayed();
+                    }
+                    else
+                    {
+                        Debug.Print($"-#-#-#- Unexpected WindowsChanged object id: {e.ObjectId}");
+                    }
+                    break;
                 default:
-                    throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");
+                    //throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - Unexpected Window Change Type: {e.Type}");
+                    break;
             }
         }
 
@@ -157,7 +172,9 @@ namespace ExcelDna.IntelliSense
                     }
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
-                        // We expect this on every text change (and it is our only detection of text changes)
+                        // We expect this on every text change 
+                        // NOTE: Not anymore after some Excel / Windows update
+                        Debug.Print($"-#-#-#- Text Changed ... ");
                         UpdateEditStateDelayed();
                     }
                     else
@@ -202,8 +219,22 @@ namespace ExcelDna.IntelliSense
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Hide");
                     break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.LocationChange:
+                    if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
+                    {
+                        // We expect this on every text change in newer Excel versions
+                        Debug.Print($"-#-#-#- Text Changed ... ");
+                        UpdateEditStateDelayed();
+                    }
+                    else
+                    {
+                        Debug.Print($"-#-#-#- Unexpected WindowsChanged object id: {e.ObjectId}");
+                    }
+                    break;
                 default:
-                    throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");
+                    //throw new ArgumentOutOfRangeException("Unexpected Window Change Type", "e.Type");
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - Unexpected Window Change Type: {e.Type}");
+                    break;
             }
         }
 

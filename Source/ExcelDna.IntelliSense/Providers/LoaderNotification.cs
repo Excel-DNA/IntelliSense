@@ -78,6 +78,8 @@ namespace ExcelDna.IntelliSense
         IntPtr _cookie;
         LdrNotification _notificationDelegate;
 
+        // NOTE: We might try to set an Environment Variable to disable the Managed Debugging Assistant
+        // https://docs.microsoft.com/en-us/dotnet/framework/debug-trace-profile/diagnosing-errors-with-managed-debugging-assistants
         public LoaderNotification()
         {
             IntPtr context = IntPtr.Zero; // new IntPtr(12345);

@@ -125,14 +125,15 @@ namespace ExcelDna.IntelliSense
 
         public WindowWatcher(SynchronizationContext syncContextAuto)
         {
-            #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
+#pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
             // Debug.Print($"### WindowWatcher created on thread: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
-            #pragma warning restore CS0618 // Type or member is obsolete
+#pragma warning restore CS0618 // Type or member is obsolete
 
             // Using WinEvents instead of Automation so that we can watch top-level window changes, but only from the right (current Excel) process.
             // TODO: We need to dramatically reduce the number of events we grab here...
-            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_FOCUS, syncContextAuto, IntPtr.Zero);
-//            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_END, syncContextAuto);
+            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, syncContextAuto, IntPtr.Zero);
+            // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_END, syncContextAuto, IntPtr.Zero);
+            // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_MIN, WinEventHook.WinEvent.EVENT_AIA_END, syncContextAuto, IntPtr.Zero);
 
             _windowStateChangeHook.WinEventReceived += _windowStateChangeHook_WinEventReceived;
         }

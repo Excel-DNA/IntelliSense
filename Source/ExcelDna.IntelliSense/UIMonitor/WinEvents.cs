@@ -52,6 +52,7 @@ namespace ExcelDna.IntelliSense
 
         public enum WinEvent : uint
         {
+            EVENT_MIN = 0x00000001,
             EVENT_OBJECT_CREATE = 0x8000, // hwnd ID idChild is created item
             EVENT_OBJECT_DESTROY = 0x8001, // hwnd ID idChild is destroyed item
             EVENT_OBJECT_SHOW = 0x8002, // hwnd ID idChild is shown item
