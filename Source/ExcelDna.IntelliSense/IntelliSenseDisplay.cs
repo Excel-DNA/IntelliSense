@@ -487,17 +487,21 @@ namespace ExcelDna.IntelliSense
 
         FormattedText GetFunctionIntelliSense(FunctionInfo functionInfo, int currentArgIndex)
         {
+            // In case of the special params pattern (x, y, arg1, ...) we base the argument display on an expanded argument list, matching Excel's behaviour,
+            // and the magic expansion in the function wizard.
+            var argumentList = GetExpandedArgumentList(functionInfo, currentArgIndex);
+
             var nameLine = new TextLine { new TextRun { Text = functionInfo.Name, LinkAddress = FixHelpTopic(functionInfo.HelpTopic) } };
             nameLine.Add(new TextRun { Text = "(" });
-            if (functionInfo.ArgumentList.Count > 0)
+            if (argumentList.Count > 0)
             {
-                var argNames = functionInfo.ArgumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
+                var argNames = argumentList.Take(currentArgIndex).Select(arg => arg.Name).ToArray();
                 if (argNames.Length >= 1)
                 {
                     nameLine.Add(new TextRun { Text = string.Join(_argumentSeparator, argNames) });
                 }
 
-                if (functionInfo.ArgumentList.Count > currentArgIndex)
+                if (argumentList.Count > currentArgIndex)
                 {
                     if (argNames.Length >= 1)
                     {
@@ -509,11 +513,11 @@ namespace ExcelDna.IntelliSense
 
                     nameLine.Add(new TextRun
                     {
-                        Text = functionInfo.ArgumentList[currentArgIndex].Name,
+                        Text = argumentList[currentArgIndex].Name,
                         Style = System.Drawing.FontStyle.Bold
                     });
 
-                    argNames = functionInfo.ArgumentList.Skip(currentArgIndex + 1).Select(arg => arg.Name).ToArray();
+                    argNames = argumentList.Skip(currentArgIndex + 1).Select(arg => arg.Name).ToArray();
                     if (argNames.Length >= 1)
                     {
                         nameLine.Add(new TextRun {Text = _argumentSeparator + string.Join(_argumentSeparator, argNames)});
@@ -523,16 +527,58 @@ namespace ExcelDna.IntelliSense
             nameLine.Add(new TextRun { Text = ")" });
 
             var descriptionLines = GetFunctionDescriptionOrNull(functionInfo);
-            
+
             var formattedText = new FormattedText { nameLine, descriptionLines };
-            if (functionInfo.ArgumentList.Count > currentArgIndex)
+            if (argumentList.Count > currentArgIndex)
             {
-                var description = GetArgumentDescriptionOrNull(functionInfo.ArgumentList[currentArgIndex]);
+                var description = GetArgumentDescriptionOrNull(argumentList[currentArgIndex]);
                 if (description != null)
                     formattedText.Add(description);
             }
 
             return formattedText;
+        }
+
+        // In case of the special params pattern (x, y, arg1, ...) we base the argument display on an expanded argument list, matching Excel's behaviour,
+        // and the magic expansion in the function wizard.
+        // Thanks to @amibar for figuring this out.
+        // NOTE: We might need to get the whole formula, the current location (or prefix) and the currentArgIndex to implement Excel's behaviour for params parameters.
+        // Usually just having the prefix is OK, but in case we have the formula: F(params object[] args) and we write in the formula editor =F(1,2,3,4,5,6,7)
+        // and then we move the cursor to point on the second argument, our current implementation will shorten its text and omit any argument after the 3rd argument.
+        // But Excel will keep showing the vurtual argument list corresponding to the full formula.
+        // There is no technical problem in getting the full formula - PenHelper will give us the required info - but tracking this throughout the IntelliSense state 
+        // affects the code in a lot of places, and the benefits seem small, particularly in this case of quirky Excel behaviour.
+        List<FunctionInfo.ArgumentInfo> GetExpandedArgumentList(FunctionInfo functionInfo, int currentArgIndex)
+        {
+            // Note: Using params for the last argument
+            if (functionInfo.ArgumentList.Count > 1 &&
+                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 1].Name == "..." &&
+                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.EndsWith("1") && // Note: Need both the Arg1 and the ... to trigger the expansion in the function wizard?
+                currentArgIndex >= functionInfo.ArgumentList.Count - 2)
+            {
+                var paramsIndex = functionInfo.ArgumentList.Count - 2;
+
+                // Take the last named argument and omit the "1" that the registration added
+                var paramsDesc = functionInfo.ArgumentList[paramsIndex].Description;
+                string paramsBaseName = functionInfo.ArgumentList[paramsIndex].Name.TrimEnd('1');
+                int currentParamsArgIndex = currentArgIndex - paramsIndex;
+
+                // Omit last two entries ("Arg1" and "...") from the original argument list
+                var newList = new List<FunctionInfo.ArgumentInfo>(functionInfo.ArgumentList.Take(paramsIndex));
+                // Now if we're at Arg3 (currentParamsIndex=2) then add "[Arg1],[Arg2],[Arg3],[Arg4],..."
+                for (int i = 1; i <= currentParamsArgIndex + 1; i++)
+                {
+                    newList.Add(new FunctionInfo.ArgumentInfo { Name = $"[{paramsBaseName + i}]", Description = paramsDesc });
+                }
+                newList.Add(new FunctionInfo.ArgumentInfo { Name = "...", Description = paramsDesc });
+
+                return newList;
+            }
+            else
+            {
+                // No problems - just return the real argumentlist
+                return functionInfo.ArgumentList;
+            }
         }
 
         TextLine GetArgumentDescriptionOrNull(FunctionInfo.ArgumentInfo argumentInfo)
