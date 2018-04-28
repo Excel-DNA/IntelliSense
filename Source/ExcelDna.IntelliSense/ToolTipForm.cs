@@ -37,6 +37,8 @@ namespace ExcelDna.IntelliSense
         // Various graphics object cached
         Brush _textBrush;
         Brush _linkBrush;
+        Color _textColor;
+        Color _linkColor;
         Pen _borderPen;
         Pen _borderLightPen;
         Dictionary<FontStyle, Font> _fonts;
@@ -60,8 +62,10 @@ namespace ExcelDna.IntelliSense
 
             };
             //_textBrush = new SolidBrush(Color.FromArgb(68, 68, 68));  // Best matches Excel's built-in color, but I think a bit too light
-            _textBrush = new SolidBrush(Color.FromArgb(52, 52, 52));
-            _linkBrush = new SolidBrush(Color.Blue);
+            _textColor = Color.FromArgb(60, 60, 60);
+            _linkColor = Color.Blue;
+            _textBrush = new SolidBrush(_textColor);
+            _linkBrush = new SolidBrush(_linkColor);
             _borderPen = new Pen(Color.FromArgb(195, 195, 195));
             _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
             SetStyle(ControlStyles.UserMouse | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
@@ -311,7 +315,129 @@ namespace ExcelDna.IntelliSense
         #endregion
 
         #region Painting
+
+        bool oldPaint = false;
+
         protected override void OnPaint(PaintEventArgs e)
+        {
+            //if (oldPaint)
+            //{
+            //    OnPaint_Plus(e);
+            //    return;
+            //}
+            if (oldPaint)
+            {
+                _textBrush = Brushes.Red;
+                _linkBrush = Brushes.Pink;
+                OnPaint_Plus(e);
+            }
+
+            base.OnPaint(e);
+
+            List<int> lineWidths = new List<int>();
+            const int maxWidth = 1000;  // Should depend on screen width?
+            const int maxHeight = 500;
+            const int leftPadding = 6;
+            const int linePadding = 0;
+            const int widthPadding = 12;
+            const int heightPadding = 2;
+            const int minLineHeight = 16;
+
+            int layoutLeft = ClientRectangle.Location.X + leftPadding;
+            int layoutTop = ClientRectangle.Location.Y;
+
+            var textFormatFlags = TextFormatFlags.Left | 
+                                  TextFormatFlags.Top | 
+                                  TextFormatFlags.NoPadding | 
+                                  TextFormatFlags.SingleLine | 
+                                  TextFormatFlags.ExternalLeading;
+
+            int currentHeight = 0; // Measured from layoutTop, going down
+            foreach (var line in _text)
+            {
+                currentHeight += linePadding;
+                int lineHeight = minLineHeight;
+                int lineWidth = 0;
+                foreach (var run in line)
+                {
+                    // We support only a single link, for now
+                    Font font;
+                    Brush brush;
+                    Color color;
+                    if (run.IsLink && _linkActive)
+                    {
+                        font = _fonts[FontStyle.Underline];
+                        color = _linkColor;
+                        brush = _linkBrush;
+                    }
+                    else
+                    {
+                        font = _fonts[run.Style];
+                        color = _textColor;
+                        brush = _textBrush;
+                    }
+
+                    foreach (var text in getRunParts(run.Text)) // Might split on space too?
+                    {
+                        if (text == "") continue;
+
+                        // How wide is this part?
+                        var proposedSize = new Size(maxWidth - lineWidth, maxHeight - currentHeight);
+                        var textSize = TextRenderer.MeasureText(e.Graphics, text, font, proposedSize, textFormatFlags);
+                        if (textSize.Width <= proposedSize.Width)
+                        {
+                            // Draw it in this line
+                            TextRenderer.DrawText(e.Graphics, text, font, new Point(layoutLeft + lineWidth, layoutTop + currentHeight), color, textFormatFlags);
+                        }
+                        else
+                        {
+                            // Make a new line and definitely draw it there (maybe with ellipses?)
+                            lineWidths.Add(lineWidth);
+                            currentHeight += lineHeight;
+                            currentHeight += linePadding;
+
+                            lineHeight = minLineHeight;
+                            lineWidth = 2;  // Little bit of indent on these lines
+                            TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags |= TextFormatFlags.EndEllipsis);
+                        }
+
+                        if (run.IsLink)
+                        {
+                            _linkClientRect = new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, textSize.Width, textSize.Height);
+                            _linkAddress = run.LinkAddress;
+                        }
+
+                        lineWidth += textSize.Width; // + 1;
+                        lineHeight = Math.Max(lineHeight, textSize.Height);
+                    }
+                }
+                lineWidths.Add(lineWidth);
+                currentHeight += lineHeight;
+            }
+
+            var width = lineWidths.Max() + widthPadding;
+            var height = currentHeight + heightPadding;
+
+            UpdateLocation(width, height);
+            DrawRoundedRectangle(e.Graphics, new RectangleF(0, 0, Width - 1, Height - 1), 2, 2);
+        }
+
+        IEnumerable<string> getRunParts(string runText)
+        {
+            int lastStart = 0;
+            for (int i = 0; i < runText.Length; i++)
+            {
+                if (runText[i] == ',')
+                {
+                    yield return runText.Substring(lastStart, i - lastStart + 1);
+                    lastStart = i + 1;
+                }
+            }
+            yield return runText.Substring(lastStart);
+        }
+
+        #region This is the original text painting, based on GDI+ calls
+        protected void OnPaint_Plus(PaintEventArgs e)
         {
             const int leftPadding = 6;
             const int linePadding = 0;
@@ -357,7 +483,7 @@ namespace ExcelDna.IntelliSense
                         // TODO: Empty strings are a problem....
                         var text = run.Text == "" ? " " : run.Text;
 
-                        DrawString(e.Graphics, brush, ref layoutRect, out textSize, format, text, font);
+                        DrawString_Plus(e.Graphics, brush, ref layoutRect, out textSize, format, text, font);
 
                         if (run.IsLink)
                         {
@@ -385,7 +511,7 @@ namespace ExcelDna.IntelliSense
             DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
         }
 
-        void DrawString(Graphics g, Brush brush, ref Rectangle rect, out Size used,
+        void DrawString_Plus(Graphics g, Brush brush, ref Rectangle rect, out Size used,
                                 StringFormat format, string text, Font font)
         {
             using (StringFormat copy = (StringFormat)format.Clone())
@@ -408,8 +534,8 @@ namespace ExcelDna.IntelliSense
                 rect.Width -= width;
             }
         }
+        #endregion
 
-            
         void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
         {
             var oldMode = g.SmoothingMode;
