@@ -22,7 +22,7 @@ namespace ExcelDna.CustomAddin
                            HelpTopic = "MyFile.chm!100")]
             public static double AdxThem(
                 [ExcelArgument(Name = "[tag]", Description = "is the first number, to which will be added")] double v1,
-                [ExcelArgument(Name = "[Addend]", Description = "is the second number that will be added")]     double v2)
+                [ExcelArgument(Name = "[Addend]", Description = "is the second number that will be added - and is described with a very long description that goes on and on in dangar of talking about foxes and dogs")]     double v2)
             {
                 return v1 + v2;
             }

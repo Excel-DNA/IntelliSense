@@ -35,8 +35,6 @@ namespace ExcelDna.IntelliSense
         int _topOffset; // Might be trying to move the tooltip out of the way of Excel's tip - we track this extra offset here
         int? _listLeft;
         // Various graphics object cached
-        Brush _textBrush;
-        Brush _linkBrush;
         Color _textColor;
         Color _linkColor;
         Pen _borderPen;
@@ -61,11 +59,9 @@ namespace ExcelDna.IntelliSense
                 { FontStyle.Bold | FontStyle.Italic, new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic) },
 
             };
-            //_textBrush = new SolidBrush(Color.FromArgb(68, 68, 68));  // Best matches Excel's built-in color, but I think a bit too light
-            _textColor = Color.FromArgb(60, 60, 60);
+            // Color.FromArgb(68, 68, 68) Best matches Excel's built-in color, but I think a bit too light
+            _textColor = Color.FromArgb(68, 68, 68);
             _linkColor = Color.Blue;
-            _textBrush = new SolidBrush(_textColor);
-            _linkBrush = new SolidBrush(_linkColor);
             _borderPen = new Pen(Color.FromArgb(195, 195, 195));
             _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
             SetStyle(ControlStyles.UserMouse | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
@@ -315,23 +311,8 @@ namespace ExcelDna.IntelliSense
         #endregion
 
         #region Painting
-
-        bool oldPaint = false;
-
         protected override void OnPaint(PaintEventArgs e)
         {
-            //if (oldPaint)
-            //{
-            //    OnPaint_Plus(e);
-            //    return;
-            //}
-            if (oldPaint)
-            {
-                _textBrush = Brushes.Red;
-                _linkBrush = Brushes.Pink;
-                OnPaint_Plus(e);
-            }
-
             base.OnPaint(e);
 
             List<int> lineWidths = new List<int>();
@@ -362,22 +343,19 @@ namespace ExcelDna.IntelliSense
                 {
                     // We support only a single link, for now
                     Font font;
-                    Brush brush;
                     Color color;
                     if (run.IsLink && _linkActive)
                     {
                         font = _fonts[FontStyle.Underline];
-                        color = _linkColor;
-                        brush = _linkBrush;
+                        color = _linkColor;C:\Work\Excel-DNA\IntelliSense\Source\ExcelDna.IntelliSense.Host\ExcelDna.IntelliSense.Host-AddIn.xll.config
                     }
                     else
                     {
                         font = _fonts[run.Style];
                         color = _textColor;
-                        brush = _textBrush;
                     }
 
-                    foreach (var text in getRunParts(run.Text)) // Might split on space too?
+                    foreach (var text in GetRunParts(run.Text)) // Might split on space too?
                     {
                         if (text == "") continue;
 
@@ -388,17 +366,22 @@ namespace ExcelDna.IntelliSense
                         {
                             // Draw it in this line
                             TextRenderer.DrawText(e.Graphics, text, font, new Point(layoutLeft + lineWidth, layoutTop + currentHeight), color, textFormatFlags);
+                            lineWidth += textSize.Width; // + 1;
                         }
                         else
                         {
-                            // Make a new line and definitely draw it there (maybe with ellipses?)
-                            lineWidths.Add(lineWidth);
-                            currentHeight += lineHeight;
-                            currentHeight += linePadding;
+                            if (lineWidth > 0)  // Check if we aren't on the first line, and already overflowing - might then line-break rather than ellipses...
+                            {
+                                // Make a new line and definitely draw it there (maybe with ellipses?)
+                                lineWidths.Add(lineWidth);
+                                currentHeight += lineHeight;
+                                currentHeight += linePadding;
 
-                            lineHeight = minLineHeight;
-                            lineWidth = 2;  // Little bit of indent on these lines
+                                lineHeight = minLineHeight;
+                                lineWidth = 2;  // Little bit of indent on these lines
+                            }
                             TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags |= TextFormatFlags.EndEllipsis);
+                            lineWidth += Math.Min(textSize.Width, maxWidth); // + 1;
                         }
 
                         if (run.IsLink)
@@ -407,7 +390,6 @@ namespace ExcelDna.IntelliSense
                             _linkAddress = run.LinkAddress;
                         }
 
-                        lineWidth += textSize.Width; // + 1;
                         lineHeight = Math.Max(lineHeight, textSize.Height);
                     }
                 }
@@ -422,7 +404,7 @@ namespace ExcelDna.IntelliSense
             DrawRoundedRectangle(e.Graphics, new RectangleF(0, 0, Width - 1, Height - 1), 2, 2);
         }
 
-        IEnumerable<string> getRunParts(string runText)
+        static IEnumerable<string> GetRunParts(string runText)
         {
             int lastStart = 0;
             for (int i = 0; i < runText.Length; i++)
@@ -435,106 +417,6 @@ namespace ExcelDna.IntelliSense
             }
             yield return runText.Substring(lastStart);
         }
-
-        #region This is the original text painting, based on GDI+ calls
-        protected void OnPaint_Plus(PaintEventArgs e)
-        {
-            const int leftPadding = 6;
-            const int linePadding = 0;
-            const int widthPadding = 12;
-            const int heightPadding = 2;
-
-            base.OnPaint(e);
-            List<int> lineWidths = new List<int>();
-            int totalWidth = 0;
-            int totalHeight = 0;
-
-            using (StringFormat format =
-                (StringFormat)StringFormat.GenericTypographic.Clone())
-            {
-                int layoutLeft = ClientRectangle.Location.X + leftPadding;
-                int layoutTop = ClientRectangle.Location.Y;
-                Rectangle layoutRect = new Rectangle(layoutLeft, layoutTop - 1, 1000, 500);
-
-                format.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces;
-                Size textSize;
-
-                foreach (var line in _text)
-                {
-                    totalHeight += linePadding;
-                    int lineHeight = 16;
-                    foreach (var run in line)
-                    {
-                        // We support only a single link, for now
-
-                        Font font;
-                        Brush brush;
-                        if (run.IsLink && _linkActive)
-                        {
-                            font = _fonts[FontStyle.Underline];
-                            brush = _linkBrush;
-                        }
-                        else
-                        {
-                            font = _fonts[run.Style];
-                            brush = _textBrush;
-                        }
-
-                        // TODO: Empty strings are a problem....
-                        var text = run.Text == "" ? " " : run.Text;
-
-                        DrawString_Plus(e.Graphics, brush, ref layoutRect, out textSize, format, text, font);
-
-                        if (run.IsLink)
-                        {
-                            _linkClientRect = new Rectangle(layoutRect.X - textSize.Width, layoutRect.Y, textSize.Width, textSize.Height);
-                            _linkAddress = run.LinkAddress;
-                        }
-
-                        totalWidth += textSize.Width;
-                        lineHeight = Math.Max(lineHeight, textSize.Height);
-
-                        // Pad by one extra pixel between runs, until we figure out kerning between runs
-                        layoutRect.X += 1;
-                        totalWidth += 1;
-                    }
-                    lineWidths.Add(totalWidth);
-                    totalWidth = 0;
-                    totalHeight += lineHeight;
-                    layoutRect = new Rectangle(layoutLeft, layoutTop + totalHeight - 1, 1000, 500);
-                }
-            }
-            var width = lineWidths.Max() + widthPadding;
-            var height = totalHeight + heightPadding;
-
-            UpdateLocation(width, height);
-            DrawRoundedRectangle(e.Graphics, new RectangleF(0,0, Width - 1, Height - 1), 2, 2);
-        }
-
-        void DrawString_Plus(Graphics g, Brush brush, ref Rectangle rect, out Size used,
-                                StringFormat format, string text, Font font)
-        {
-            using (StringFormat copy = (StringFormat)format.Clone())
-            {
-                copy.SetMeasurableCharacterRanges(new CharacterRange[]
-                    {
-                        new CharacterRange(0, text.Length)
-                    });
-                Region[] regions = g.MeasureCharacterRanges(text, font, rect, copy);
-
-                g.DrawString(text, font, brush, rect, format);
-
-                int height = (int)(regions[0].GetBounds(g).Height);
-                int width = (int)(regions[0].GetBounds(g).Width);
-
-                // First just one line...
-                used = new Size(width, height);
-
-                rect.X += width;
-                rect.Width -= width;
-            }
-        }
-        #endregion
 
         void DrawRoundedRectangle(Graphics g, RectangleF r, float radiusX, float radiusY)
         {
