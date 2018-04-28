@@ -22,6 +22,7 @@ namespace ExcelDna.IntelliSense
         Rectangle _linkClientRect;
         bool _linkActive;
         string _linkAddress;
+        long _showTimeTicks; // Track to prevent mouse click-through into help
         // Mouse Capture information for moving        
         bool _captured = false;
         Point _mouseDownScreenLocation;
@@ -137,6 +138,7 @@ namespace ExcelDna.IntelliSense
                 Debug.Print($"ShowToolTip - Showing ToolTipForm: {linePrefix} => {_text.ToString()}");
                 // Make sure we're in the right position before we're first shown
                 SetBounds(_currentLeft, _currentTop + _topOffset, 0, 0);
+                _showTimeTicks = DateTime.UtcNow.Ticks;
                 ShowToolTip();
             }
             else
@@ -239,6 +241,12 @@ namespace ExcelDna.IntelliSense
                 Win32Helper.ReleaseCapture();
                 return;
             }
+
+            // This delay check of 500 ms is inserted to prevent the double-click on the formula list to also be processed 
+            // as a click on the toolip, launching the help erroneously.
+            var nowTicks = DateTime.UtcNow.Ticks;
+            if (nowTicks - _showTimeTicks < 5000000)
+                return;
 
             var inLink = _linkClientRect.Contains(PointToClient(screenLocation));
             if (inLink)
