@@ -51,7 +51,33 @@ namespace ExcelDna.CustomAddin
                 return inout;
             }
 
-            [ExcelCommand]
+            [ExcelFunction(Description = "Has many arguments")]
+            public static object AManyArgFunction(
+                [ExcelArgument(Name = "Argument1", Description = "is the first argument")] double arg1,
+                [ExcelArgument(Name = "Argument2", Description = "is another argument")] double arg2,
+                [ExcelArgument(Name = "Argument3", Description = "is another argument")] double arg3,
+                [ExcelArgument(Name = "Argument4", Description = "is another argument")] double arg4,
+                [ExcelArgument(Name = "Argument5", Description = "is another argument")] double arg5,
+                [ExcelArgument(Name = "Argument6", Description = "is another argument")] double arg6,
+                [ExcelArgument(Name = "Argument7", Description = "is another argument")] double arg7,
+                [ExcelArgument(Name = "Argument8", Description = "is another argument")] double arg8,
+                [ExcelArgument(Name = "Argument9", Description = "is another argument")] double arg9,
+                [ExcelArgument(Name = "Argument10", Description = "is another argument")] double arg10,
+                [ExcelArgument(Name = "Argument11", Description = "is another argument")] double arg11,
+                [ExcelArgument(Name = "Argument12", Description = "is another argument")] double arg12,
+                [ExcelArgument(Name = "Argument13", Description = "is another argument")] double arg13,
+                [ExcelArgument(Name = "Argument14", Description = "is another argument")] double arg14,
+                [ExcelArgument(Name = "Argument15", Description = "is another argument")] double arg15,
+                [ExcelArgument(Name = "Argument16", Description = "is another argument")] double arg16,
+                [ExcelArgument(Name = "Argument18", Description = "is another argument")] double arg18,
+                [ExcelArgument(Name = "Argument19", Description = "is another argument")] double arg19,
+                [ExcelArgument(Name = "Argument20", Description = "is another argument")] double arg20
+                )
+            {
+                return arg1;
+            }
+
+        [ExcelCommand]
             public static void dnaLogDisplayShow()
             {
                 LogDisplay.Show();
