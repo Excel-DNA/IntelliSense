@@ -347,7 +347,7 @@ namespace ExcelDna.IntelliSense
                     if (run.IsLink && _linkActive)
                     {
                         font = _fonts[FontStyle.Underline];
-                        color = _linkColor;C:\Work\Excel-DNA\IntelliSense\Source\ExcelDna.IntelliSense.Host\ExcelDna.IntelliSense.Host-AddIn.xll.config
+                        color = _linkColor;
                     }
                     else
                     {

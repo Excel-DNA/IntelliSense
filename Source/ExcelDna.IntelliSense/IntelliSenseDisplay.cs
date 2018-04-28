@@ -553,8 +553,7 @@ namespace ExcelDna.IntelliSense
             // Note: Using params for the last argument
             if (functionInfo.ArgumentList.Count > 1 &&
                 functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 1].Name == "..." &&
-                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.EndsWith("1") && // Note: Need both the Arg1 and the ... to trigger the expansion in the function wizard?
-                currentArgIndex >= functionInfo.ArgumentList.Count - 2)
+                functionInfo.ArgumentList[functionInfo.ArgumentList.Count - 2].Name.EndsWith("1")) // Note: Need both the Arg1 and the ... to trigger the expansion in the function wizard?
             {
                 var paramsIndex = functionInfo.ArgumentList.Count - 2;
 
@@ -565,8 +564,11 @@ namespace ExcelDna.IntelliSense
 
                 // Omit last two entries ("Arg1" and "...") from the original argument list
                 var newList = new List<FunctionInfo.ArgumentInfo>(functionInfo.ArgumentList.Take(paramsIndex));
-                // Now if we're at Arg3 (currentParamsIndex=2) then add "[Arg1],[Arg2],[Arg3],[Arg4],..."
-                for (int i = 1; i <= currentParamsArgIndex + 1; i++)
+                // Add back with parens the "[Arg1]"
+                newList.Add(new FunctionInfo.ArgumentInfo { Name = $"[{paramsBaseName + 1}]", Description = paramsDesc });
+
+                // Now if we're at Arg4 (currentParamsIndex=3) then add "[Arg2],[Arg3],[Arg4],[Arg5],..."
+                for (int i = 2; i <= currentParamsArgIndex + 2; i++)
                 {
                     newList.Add(new FunctionInfo.ArgumentInfo { Name = $"[{paramsBaseName + i}]", Description = paramsDesc });
                 }
