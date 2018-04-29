@@ -315,7 +315,6 @@ namespace ExcelDna.IntelliSense
         {
             base.OnPaint(e);
 
-            List<int> lineWidths = new List<int>();
             const int maxWidth = 1000;  // Should depend on screen width?
             const int maxHeight = 500;
             const int leftPadding = 6;
@@ -333,6 +332,7 @@ namespace ExcelDna.IntelliSense
                                   TextFormatFlags.SingleLine | 
                                   TextFormatFlags.ExternalLeading;
 
+            List<int> lineWidths = new List<int>();
             int currentHeight = 0; // Measured from layoutTop, going down
             foreach (var line in _text)
             {
@@ -359,7 +359,6 @@ namespace ExcelDna.IntelliSense
                     {
                         if (text == "") continue;
 
-                        // How wide is this part?
                         var proposedSize = new Size(maxWidth - lineWidth, maxHeight - currentHeight);
                         var textSize = TextRenderer.MeasureText(e.Graphics, text, font, proposedSize, textFormatFlags);
                         if (textSize.Width <= proposedSize.Width)
@@ -378,10 +377,10 @@ namespace ExcelDna.IntelliSense
                                 currentHeight += linePadding;
 
                                 lineHeight = minLineHeight;
-                                lineWidth = 2;  // Little bit of indent on these lines
+                                lineWidth = 2;  // Start with a little bit of indent on these lines
                             }
-                            TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags |= TextFormatFlags.EndEllipsis);
-                            lineWidth += Math.Min(textSize.Width, maxWidth); // + 1;
+                            TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags | TextFormatFlags.EndEllipsis);
+                            lineWidth += textSize.Width;
                         }
 
                         if (run.IsLink)
