@@ -64,12 +64,12 @@ namespace ExcelDna.IntelliSense
                 }
                 if (fmlaInfo.wPointMode == xlModeReady)
                 {
-                    // Logger.WindowWatcher.Verbose($"LPenHelper PointMode Ready");
+                    Logger.WindowWatcher.Verbose($"LPenHelper PointMode Ready");
                     return null;
                 }
 
-                //Logger.WindowWatcher.Verbose("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
-                //    fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
+                Logger.WindowWatcher.Verbose("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
+                    fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
 
                 var prefixLen = Math.Min(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch);  // I've never seen ichLast > cch !?
                 return Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);

@@ -72,7 +72,8 @@ namespace ExcelDna.IntelliSense
                         Type = ChangeType.LocationChange;
                         break;
                     default:
-                        throw new ArgumentException("Unexpected WinEvent type", nameof(winEvent));
+                        // throw new ArgumentException("Unexpected WinEvent type", nameof(winEvent));
+                        break;
                 }
                 switch (objectId)
                 {
@@ -86,7 +87,7 @@ namespace ExcelDna.IntelliSense
                         ObjectId = ChangeObjectId.Caret;
                         break;
                     default:
-                        Debug.Fail("Unexpected ObjectId");
+                        //Debug.Fail("Unexpected ObjectId");
                         ObjectId = ChangeObjectId.Unknown;
                         break;
                 }

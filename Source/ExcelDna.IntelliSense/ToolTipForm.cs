@@ -59,8 +59,7 @@ namespace ExcelDna.IntelliSense
                 { FontStyle.Bold | FontStyle.Italic, new Font("Segoe UI", 9, FontStyle.Bold | FontStyle.Italic) },
 
             };
-            // Color.FromArgb(68, 68, 68) Best matches Excel's built-in color, but I think a bit too light
-            _textColor = Color.FromArgb(68, 68, 68);
+            _textColor = Color.FromArgb(72, 72, 72);
             _linkColor = Color.Blue;
             _borderPen = new Pen(Color.FromArgb(195, 195, 195));
             _borderLightPen = new Pen(Color.FromArgb(225, 225, 225));
