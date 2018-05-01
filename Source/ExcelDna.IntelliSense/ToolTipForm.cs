@@ -364,7 +364,6 @@ namespace ExcelDna.IntelliSense
                         {
                             // Draw it in this line
                             TextRenderer.DrawText(e.Graphics, text, font, new Point(layoutLeft + lineWidth, layoutTop + currentHeight), color, textFormatFlags);
-                            lineWidth += textSize.Width; // + 1;
                         }
                         else
                         {
@@ -379,7 +378,6 @@ namespace ExcelDna.IntelliSense
                                 lineWidth = 2;  // Start with a little bit of indent on these lines
                             }
                             TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags | TextFormatFlags.EndEllipsis);
-                            lineWidth += textSize.Width;
                         }
 
                         if (run.IsLink)
@@ -388,6 +386,7 @@ namespace ExcelDna.IntelliSense
                             _linkAddress = run.LinkAddress;
                         }
 
+                        lineWidth += textSize.Width; // + 1;
                         lineHeight = Math.Max(lineHeight, textSize.Height);
                     }
                 }
