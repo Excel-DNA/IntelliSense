@@ -8,7 +8,7 @@ using System.Threading;
 namespace ExcelDna.IntelliSense
 {
 
-    // Combines all the information received from the UIAutomation and WinEvents watchers,
+    // Combines all the information received from the WinEvents watchers,
     // and interprets these into a state that reflect our interests.
     // Raises its events on the main thread.
     // TODO: Also should for argument lists, like TRUE / FALSE in VLOOKUP ...
