@@ -68,6 +68,8 @@ namespace ExcelDna.IntelliSense
                     return null;
                 }
 
+                // We seem to mis-track in the click case when wPointMode changed from xlModeEnter to xlModeEdit
+
                 Logger.WindowWatcher.Verbose("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
                     fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
 

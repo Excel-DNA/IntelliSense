@@ -68,15 +68,17 @@ namespace ExcelDna.IntelliSense
         }
 
         SynchronizationContext _syncContextAuto;
+        SynchronizationContext _syncContextMain;
         WindowWatcher _windowWatcher;
 
         IntPtr            _hwndFormulaBar;
         IntPtr            _hwndInCellEdit;
         FormulaEditFocus  _formulaEditFocus;
 
-        public FormulaEditWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto)
+        public FormulaEditWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
             _syncContextAuto = syncContextAuto;
+            _syncContextMain = syncContextMain;
             _windowWatcher = windowWatcher;
             _windowWatcher.FormulaBarWindowChanged += _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged += _windowWatcher_InCellEditWindowChanged;
@@ -283,7 +285,7 @@ namespace ExcelDna.IntelliSense
             {
                _windowLocationWatcher.Dispose();
             }
-            _windowLocationWatcher = new WindowLocationWatcher(hWnd, _syncContextAuto);
+            _windowLocationWatcher = new WindowLocationWatcher(hWnd, _syncContextAuto, _syncContextMain);
             _windowLocationWatcher.LocationChanged += _windowLocationWatcher_LocationChanged;
         }
 

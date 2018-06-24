@@ -125,7 +125,11 @@ namespace ExcelDna.IntelliSense
             {
                 // Parachute in asap a call to prevent further XLPenHelper calls
                 XlCall.ShutdownStarted();
-                Deactivate();
+
+                // Don't try to clean up clean up on process exit - all our resources are in-process anyway
+                // Leads to an error with the main thread SynchronizationContext, which might be shut down already.
+                // In particular we don't have to call UnhookWinEvent: "If the client's thread ends, the system automatically calls this function."
+                // Deactivate();
             }
             Logger.Initialization.Verbose("IntelliSenseServer ProcessExit End");
             

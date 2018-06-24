@@ -124,7 +124,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler FormulaEditLocationChanged;
 //        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
 
-        public WindowWatcher(SynchronizationContext syncContextAuto)
+        public WindowWatcher(SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
 #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
             // Debug.Print($"### WindowWatcher created on thread: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
@@ -132,7 +132,7 @@ namespace ExcelDna.IntelliSense
 
             // Using WinEvents instead of Automation so that we can watch top-level window changes, but only from the right (current Excel) process.
             // TODO: We need to dramatically reduce the number of events we grab here...
-            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, syncContextAuto, IntPtr.Zero);
+            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, syncContextAuto, syncContextMain, IntPtr.Zero);
             // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_END, syncContextAuto, IntPtr.Zero);
             // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_MIN, WinEventHook.WinEvent.EVENT_AIA_END, syncContextAuto, IntPtr.Zero);
 
@@ -146,7 +146,7 @@ namespace ExcelDna.IntelliSense
             var focusedWindowHandle = Win32Helper.GetFocusedWindowHandle();
             string className = null;
             if (focusedWindowHandle != IntPtr.Zero)
-                className = Win32Helper.GetClassName(_focusedWindowHandle);
+                className = Win32Helper.GetClassName(focusedWindowHandle);
 
             UpdateFocus(focusedWindowHandle, className);
         }

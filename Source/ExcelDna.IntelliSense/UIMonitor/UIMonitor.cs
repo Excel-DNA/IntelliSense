@@ -47,9 +47,9 @@ namespace ExcelDna.IntelliSense
             Logger.Monitor.Verbose("UIMonitor.RunUIAutomation installing watchers");
 
             // Create and hook together the various watchers
-            _windowWatcher = new WindowWatcher(_syncContextAuto);
-            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto);
-            _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto);
+            _windowWatcher = new WindowWatcher(_syncContextAuto, _syncContextMain);
+            _formulaEditWatcher = new FormulaEditWatcher(_windowWatcher, _syncContextAuto, _syncContextMain);
+            _popupListWatcher = new PopupListWatcher(_windowWatcher, _syncContextAuto, _syncContextMain);
             _excelToolTipWatcher = new ExcelToolTipWatcher(_windowWatcher, _syncContextAuto);
 
             // These are the events we're interested in for showing, hiding and updating the IntelliSense forms
@@ -279,7 +279,6 @@ namespace ExcelDna.IntelliSense
             _syncContextAuto.Send(delegate
                 {
                     // Remove all event handlers ASAP
-                    // Automation.RemoveAllEventHandlers();
                     if (_windowWatcher != null)
                     {
                         _windowWatcher.Dispose();

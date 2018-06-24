@@ -21,12 +21,14 @@ namespace ExcelDna.IntelliSense
         public IntPtr PopupListHandle => _hwndPopupList;
 
         SynchronizationContext _syncContextAuto;
+        SynchronizationContext _syncContextMain;
         WindowWatcher _windowWatcher;
         WinEventHook _selectionChangeHook = null;
 
-        public PopupListWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto)
+        public PopupListWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
             _syncContextAuto = syncContextAuto;
+            _syncContextMain = syncContextMain;
             _windowWatcher = windowWatcher;
             _windowWatcher.PopupListWindowChanged += _windowWatcher_PopupListWindowChanged;
             _windowWatcher.FormulaEditLocationChanged += _windowWatcher_FormulaEditLocationChanged;
@@ -104,7 +106,7 @@ namespace ExcelDna.IntelliSense
                 // TODO: Clean up 
                 var hwndListView = Win32Helper.GetFirstChildWindow(_hwndPopupList);
 
-                _selectionChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_SELECTION, WinEventHook.WinEvent.EVENT_OBJECT_SELECTION, _syncContextAuto, hwndListView);
+                _selectionChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_SELECTION, WinEventHook.WinEvent.EVENT_OBJECT_SELECTION, _syncContextAuto, _syncContextMain, hwndListView);
                 _selectionChangeHook.WinEventReceived += _selectionChangeHook_WinEventReceived;
                 Logger.WindowWatcher.Verbose($"PopupList selection event handler added");
             }

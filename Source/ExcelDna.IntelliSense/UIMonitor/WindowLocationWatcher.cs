@@ -15,11 +15,11 @@ namespace ExcelDna.IntelliSense
         //       This nearly worked, and meant we were watching many fewer events ...
         //       ...but we missed some of the resizing events for the window, leaving our tooltip stranded.
         //       So until we can find a workaround for that (perhaps a timer would work fine for this), we watch all the LOCATIONCHANGE events.
-        public WindowLocationWatcher(IntPtr hWnd, SynchronizationContext syncContextAuto)
+        public WindowLocationWatcher(IntPtr hWnd, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
             _hWnd = hWnd;
             _syncContextAuto = syncContextAuto;
-            _windowLocationChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, _hWnd);
+            _windowLocationChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, syncContextMain, _hWnd);
             _windowLocationChangeHook.WinEventReceived += _windowLocationChangeHook_WinEventReceived;
         }
 

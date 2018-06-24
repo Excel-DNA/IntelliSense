@@ -1,12 +1,16 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace ExcelDna.IntelliSense
 {
     // This class sets up a WinEventHook for the main Excel process - watching for a range or event types specified.
-    // Events received (on the main Excel thread) are posted onto the Automation thread (via syncContextAuto)
+    // Events received (on the main Excel thread) are posted by the handler onto the Automation thread (via syncContextAuto)
+    // NOTE: Currently we make the SetWinEventHook call on the main Excel thread, which is pumping Windows messages.
+    //       In an alternative implementation we could either create our own thread that pumps Windows messages and use the for WinEvents, 
+    //       or we could change our automation thread to also pump windows messages.
     class WinEventHook : IDisposable
     {
         public class WinEventArgs : EventArgs
@@ -106,39 +110,82 @@ namespace ExcelDna.IntelliSense
 
         public event EventHandler<WinEventArgs> WinEventReceived;
 
-        readonly IntPtr _hWinEventHook;
+        /* readonly */ IntPtr _hWinEventHook;
         readonly SynchronizationContext _syncContextAuto;
+        readonly SynchronizationContext _syncContextMain;
         readonly IntPtr _hWndFilterOrZero;    // If non-zero, only these window events are processed
         readonly WinEventDelegate _handleWinEventDelegate;  // Ensures delegate that we pass to SetWinEventHook is not GC'd
+        readonly WinEvent _eventMin;
+        readonly WinEvent _eventMax;
 
-        public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto, IntPtr hWndFilterOrZero)
+        // Can be called on any thread, but installed by calling in to the main thread, and will only start receiving events then
+        public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain, IntPtr hWndFilterOrZero)
         {
-            if (syncContextAuto == null)
-                throw new ArgumentNullException(nameof(syncContextAuto));
-            _syncContextAuto = syncContextAuto;
+            _syncContextAuto = syncContextAuto ?? throw new ArgumentNullException(nameof(syncContextAuto));
+            _syncContextMain = syncContextMain ?? throw new ArgumentNullException(nameof(syncContextMain));
             _hWndFilterOrZero = hWndFilterOrZero;
-            var xllModuleHandle = Win32Helper.GetXllModuleHandle();
-            var excelProcessId = Win32Helper.GetExcelProcessId();
             _handleWinEventDelegate = HandleWinEvent;
-            _hWinEventHook = SetWinEventHook(eventMin, eventMax, xllModuleHandle, _handleWinEventDelegate, excelProcessId, 0, SetWinEventHookFlags.WINEVENT_INCONTEXT);
+            _eventMin = eventMin;
+            _eventMax = eventMax;
+            syncContextMain.Post(InstallWinEventHook, null);
+        }
+
+        // Must run on the main Excel thread (or another thread where Windows messages are pumped)
+        void InstallWinEventHook(object _)
+        {
+            var excelProcessId = Win32Helper.GetExcelProcessId();
+            _hWinEventHook = SetWinEventHook(_eventMin, _eventMax, IntPtr.Zero, _handleWinEventDelegate, excelProcessId, 0, SetWinEventHookFlags.WINEVENT_OUTOFCONTEXT);
             if (_hWinEventHook == IntPtr.Zero)
             {
+                Debug.Print("++++++++++++++ SetWinEventHook failed +++++++++++++++++++++++++++");
                 Logger.WinEvents.Error("SetWinEventHook failed");
                 // Is SetLastError used? - SetWinEventHook documentation does not indicate so
                 throw new Win32Exception("SetWinEventHook failed");
             }
+            // Debug.Print($"++++++++++++++ SetWinEventHook Success on thread {Thread.CurrentThread.ManagedThreadId} \r\n {Environment.StackTrace} \r\n +++++++++++++++++++++++++++");
             Logger.WinEvents.Info($"SetWinEventHook success on thread {Thread.CurrentThread.ManagedThreadId}");
         }
 
-        // This runs on the Excel main thread - get off quickly
+        // Must run on the same thread that InstallWinEventHook ran on
+        void UninstallWinEventHook(object _)
+        {
+            if (_hWinEventHook == IntPtr.Zero)
+            {
+                Logger.WinEvents.Warn($"UnhookWinEvent unexpectedly called with no hook installed - thread {Thread.CurrentThread.ManagedThreadId}");
+                return;
+            }
+
+            try
+            {
+                Logger.WinEvents.Info($"UnhookWinEvent called on thread {Thread.CurrentThread.ManagedThreadId}");
+                bool result = UnhookWinEvent(_hWinEventHook);
+                if (!result)
+                {
+                    // GetLastError?
+                    Logger.WinEvents.Info($"UnhookWinEvent failed");
+                }
+                else
+                {
+                    Logger.WinEvents.Info("UnhookWinEvent success");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.WinEvents.Warn($"UnhookWinEvent Exception {ex}");
+            }
+            finally
+            {
+                _hWinEventHook = IntPtr.Zero;
+            }
+        }
+
+        // This runs on the Excel main thread (usually, not always) - get off quickly
         void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd,
                             WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
+            // Debug.Print($"++++++++++++++ WinEvent Received: {eventType} on thread {Thread.CurrentThread.ManagedThreadId} from thread {dwEventThread} +++++++++++++++++++++++++++");
             try
             {
-                if (disposedValue)
-                    return;
-
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 
@@ -154,6 +201,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // A quick filter that runs on the Excel main thread (or other thread handling the WinEvent)
         bool IsSupportedWinEvent(WinEvent winEvent)
         {
             return winEvent == WinEvent.EVENT_OBJECT_CREATE ||
@@ -179,49 +227,10 @@ namespace ExcelDna.IntelliSense
         }
 
         #region IDisposable Support
-        bool disposedValue = false; // To detect redundant calls
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                Logger.WinEvents.Info($"WinEventHook Dispose on thread {Thread.CurrentThread.ManagedThreadId}");
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects).
-                }
-                _syncContextAuto.Send(winEventHook =>
-                {
-                    try
-                    {
-                        Logger.WinEvents.Info($"UnhookWinEvent called on thread {Thread.CurrentThread.ManagedThreadId}");
-                        bool result = UnhookWinEvent((IntPtr)winEventHook);
-                        Logger.WinEvents.Info($"UnhookWinEvent success? {result}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.WinEvents.Warn($"UnhookWinEvent Exception {ex}");
-                    }
-                }, _hWinEventHook);
-
-                disposedValue = true;
-            }
-        }
-
-        // TODO: Does this make any sense?
-        //       We _have_to_ Unhook from the automation thread...
-        // ~WinEventHook()
-        //{
-        //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-        //   Dispose(false);
-        // }
-
-        // This code added to correctly implement the disposable pattern.
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-            Dispose(true);
-            // GC.SuppressFinalize(this);
+            Logger.WinEvents.Info($"WinEventHook Dispose on thread {Thread.CurrentThread.ManagedThreadId}");
+            _syncContextMain.Send(UninstallWinEventHook, null);
         }
         #endregion
     }
