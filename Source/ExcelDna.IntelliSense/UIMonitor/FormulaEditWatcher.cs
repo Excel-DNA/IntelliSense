@@ -319,7 +319,7 @@ namespace ExcelDna.IntelliSense
         {
             _syncContextAuto.Post(_ =>
            {
-               Thread.Sleep(50);
+               Thread.Sleep(100);
                UpdateEditState();
            }, null);
         }
