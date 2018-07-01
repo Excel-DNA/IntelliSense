@@ -17,6 +17,7 @@
         </dependencies>
     </metadata>
     <files>
-        <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.pdb" target="lib\net40\ExcelDna.IntelliSense.pdb" />
     </files>
 </package>
