@@ -6,6 +6,11 @@ using System.Windows.Forms;
 
 namespace ExcelDna.IntelliSense
 {
+    // This is really the running IntelliSenseServer
+    // It brings together:
+    // * the UIMonitor which monitors the state of Excel, including the current function prefix,
+    // * the IntelliSenseDisplay which presents the pop-ups, and 
+    // * the IntelliSenseProviders which figure out what information is available.
     class IntelliSenseHelper : IDisposable
     {
         readonly SynchronizationContext _syncContextMain; // Main thread, not macro context
@@ -78,16 +83,18 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Must run on the main thread
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             Logger.Initialization.Verbose("IntelliSenseHelper Dispose Start");
 
             foreach (var provider in _providers)
             {
                 provider.Dispose();
             }
-            _uiMonitor.Dispose();
             _display.Dispose();
+            _uiMonitor.Dispose();
 
             Logger.Initialization.Verbose("IntelliSenseHelper Dispose End");
         }

@@ -67,9 +67,11 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        SynchronizationContext _syncContextAuto;
-        SynchronizationContext _syncContextMain;
-        WindowWatcher _windowWatcher;
+        readonly SynchronizationContext _syncContextAuto;
+        readonly SynchronizationContext _syncContextMain;
+
+        readonly WindowWatcher _windowWatcher;          // Passed in
+        WindowLocationWatcher  _windowLocationWatcher;  // Managed here
 
         IntPtr            _hwndFormulaBar;
         IntPtr            _hwndInCellEdit;
@@ -240,6 +242,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
+        // Runs on the automation thread
         void SetEditWindow(IntPtr newWindowHandle, ref IntPtr hwnd)
         {
             if (hwnd != newWindowHandle)
@@ -276,15 +279,10 @@ namespace ExcelDna.IntelliSense
             hwnd = newWindowHandle;
         }
 
-        WindowLocationWatcher _windowLocationWatcher;
-
         // Runs on our Automation thread
         void InstallLocationMonitor(IntPtr hWnd)
         {
-            if (_windowLocationWatcher != null)
-            {
-               _windowLocationWatcher.Dispose();
-            }
+            UninstallLocationMonitor();
             _windowLocationWatcher = new WindowLocationWatcher(hWnd, _syncContextAuto, _syncContextMain);
             _windowLocationWatcher.LocationChanged += _windowLocationWatcher_LocationChanged;
         }
@@ -292,10 +290,10 @@ namespace ExcelDna.IntelliSense
         // Runs on our Automation thread
         void UninstallLocationMonitor()
         {
-            if (_windowLocationWatcher != null)
+            WindowLocationWatcher tempWatcher = Interlocked.Exchange(ref _windowLocationWatcher, null);
+            if (tempWatcher != null)
             {
-                _windowLocationWatcher.Dispose();
-                _windowLocationWatcher = null;
+                _syncContextMain.Post(disp => ((IDisposable)disp).Dispose(), tempWatcher);
             }
         }
 
@@ -315,6 +313,7 @@ namespace ExcelDna.IntelliSense
         //    UpdateFormula(textChangedOnly: true);
         //}
 
+        // TODO: Get rid of this somehow - added to make the mouse clicks in the in-cell editing work, by delaying the call to the PenHelper
         void UpdateEditStateDelayed()
         {
             _syncContextAuto.Post(_ =>
@@ -406,11 +405,21 @@ namespace ExcelDna.IntelliSense
             StateChanged?.Invoke(this, stateChangedArgs);
         }
 
+        // Runs on the main thread
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose Begin");
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
+
+            // Can't call UninstallLocationMonitor - we might be shutting down on the main thread, and don't want to post
+            WindowLocationWatcher tempWatcher = Interlocked.Exchange(ref _windowLocationWatcher, null);
+            if (tempWatcher != null)
+            {
+                tempWatcher.Dispose();
+            }
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose End");
         }
     }

@@ -270,8 +270,10 @@ namespace ExcelDna.IntelliSense
             FormulaEditLocationChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        // Must run on the main thread
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             if (_windowStateChangeHook != null)
             {
                 _windowStateChangeHook.Dispose();

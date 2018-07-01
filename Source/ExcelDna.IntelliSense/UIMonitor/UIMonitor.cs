@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
-//using System.Windows.Automation;
 
 namespace ExcelDna.IntelliSense
 {
@@ -32,7 +30,7 @@ namespace ExcelDna.IntelliSense
             _syncContextMain = syncContextMain;
 
             // Make a separate thread and set to MTA, according to: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692%28v=vs.85%29.aspx
-            // This thread will be used for UI Automation calls, particularly adding and removing event handlers.
+            // This thread was initially intended for UI Automation calls, particularly adding and removing event handlers.
             var threadAuto = new Thread(RunUIAutomation);
             threadAuto.SetApartmentState(ApartmentState.MTA);
             threadAuto.Start();
@@ -268,36 +266,38 @@ namespace ExcelDna.IntelliSense
 
 #endregion
 
+        // Must run on the main thread
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             Logger.Monitor.Info($"UIMonitor Dispose Begin");
 
+            // Remove all event handlers ASAP
+            // Since we are running on the main thread, we call Dispose directly
+            // (might not be in a context where we can post to or wait for main thread sync context)
+            if (_windowWatcher != null)
+            {
+                _windowWatcher.Dispose();
+                _windowWatcher = null;
+            }
+            if (_formulaEditWatcher != null)
+            {
+                _formulaEditWatcher.StateChanged -= _formulaEditWatcher_StateChanged;
+                _formulaEditWatcher.Dispose();
+                _formulaEditWatcher = null;
+            }
+            if (_popupListWatcher != null)
+            {
+                _popupListWatcher.SelectedItemChanged -= _popupListWatcher_SelectedItemChanged;
+                _popupListWatcher.Dispose();
+                _popupListWatcher = null;
+            }
+
             if (_syncContextAuto == null)
+            {
+                Debug.Fail("Unexpected");
                 return;
-
-            // Send is not supported on _syncContextAuto
-            _syncContextAuto.Send(delegate
-                {
-                    // Remove all event handlers ASAP
-                    if (_windowWatcher != null)
-                    {
-                        _windowWatcher.Dispose();
-                        _windowWatcher = null;
-                    }
-                    if (_formulaEditWatcher != null)
-                    {
-                        _formulaEditWatcher.StateChanged -= _formulaEditWatcher_StateChanged;
-                        _formulaEditWatcher.Dispose();
-                        _formulaEditWatcher = null;
-                    }
-                    if (_popupListWatcher != null)
-                    {
-                        _popupListWatcher.SelectedItemChanged -= _popupListWatcher_SelectedItemChanged;
-                        _popupListWatcher.Dispose();
-                        _popupListWatcher = null;
-                    }
-
-                }, null);
+            }
 
             // Let the above delegate and nested calls run, then clean up.
             // (not sure it makes a difference anymore...)

@@ -6,18 +6,20 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using ExcelDna.Integration;
+using System.Threading;
 
 namespace ExcelDna.IntelliSense
 {
     // This class implements the registration and activation of the calling add-in as an IntelliSense Server.
     //
     // Among different add-ins that are loaded into an Excel process, at most one IntelliSenseServer can be Active.
-    // This should always be the IntelliSenseServer with the greatest version number among those registered.
+    // This should always be an IntelliSenseServer with the greatest version number among those registered.
+    // 
     // At the moment the bookkeeping for registration and activation in the process is done with environment variables. 
     // (An attractive alternative is the hidden Excel name space: http://www.cpearson.com/excel/hidden.htm )
-    // This prevents cross-AppDomain calls, which are problematic because assemblies are then loaded into multiple AppDomains, and
-    // since the mechanism is intended to cater for different assembly versions, this would be a problem. Also, we don't control
-    // the CLR hosting configuration, so can't always set the MultiDomain flag on setup. COM mechanisms could work, but are complicated.
+    // This allows us not to make cross-AppDomain calls, which are problematic because assemblies are then loaded into multiple AppDomains, and
+    // since the mechanism is intended to cater for different assembly versions, this would be a problem. Also, as we don't control
+    // the CLR hosting configuration, we can't always set the MultiDomain flag on setup. COM mechanisms could work, but are complicated.
     // Another approach would be to use a hidden Excel function that the Active server provides, and have all server register with the active server.
     // When a new server should become active, it then tells the active server, and somehow gets all the other registrations...
 
@@ -28,7 +30,7 @@ namespace ExcelDna.IntelliSense
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "1.0.9";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "1.0.10";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -55,12 +57,19 @@ namespace ExcelDna.IntelliSense
         static bool _isActive = false;
         static IntelliSenseHelper _helper = null;
 
-        // Called directly from AutoOpen.
+        // The name change from Register to Install is just to force attention on this message for anyone upgrading
+        // - omitting the Uninstall call causes an Excel crash when the add-in is unloaded for any reason
+        [Obsolete("IntelliSenseServer now requires matching calls to Install (inside AutoOpen) and Uninstall (inside AutoClose)", true)]
         public static void Register()
+        {
+        }
+
+        // Called directly from AutoOpen()
+        public static void Install()
         {
             TraceLogger.Initialize();
 
-            Logger.Initialization.Info($"IntelliSenseServer.Register Begin: Version {ServerVersion} in {AppDomain.CurrentDomain.FriendlyName}");
+            Logger.Initialization.Info($"IntelliSenseServer.Install Begin: Version {ServerVersion} in {AppDomain.CurrentDomain.FriendlyName}");
             if (IsDisabled())
                 return;
 
@@ -93,7 +102,30 @@ namespace ExcelDna.IntelliSense
 
             AppDomain.CurrentDomain.DomainUnload += CurrentDomain_DomainUnload;
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
-            Logger.Initialization.Info("IntelliSenseServer.Register End");
+            Logger.Initialization.Info("IntelliSenseServer.Install End");
+        }
+
+        // Should be called in a macro context, e.g. from AutoClose()
+        // Was added again in 1.0.10 to clean up WinEvents
+        // Maybe we won't need it if we can move to our own thread handling WinEvents
+        public static void Uninstall()
+        {
+            Logger.Initialization.Info($"IntelliSenseServer.Uninstall Begin: Version {ServerVersion} in {AppDomain.CurrentDomain.FriendlyName}");
+
+            UnpublishRegistration();
+            if (_isActive)
+            {
+                Deactivate();
+
+                // See if there is another server to active
+                var highestRegistration = GetHighestPublishedRegistration();
+                if (highestRegistration != null)
+                {
+                    ActivateServer(highestRegistration);
+                }
+            }
+
+            Logger.Initialization.Info($"IntelliSenseServer.Uninstall End");
         }
 
         // Invokes a Refresh on the Active server (if there is on)
@@ -115,9 +147,8 @@ namespace ExcelDna.IntelliSense
             Logger.Initialization.Info($"IntelliSenseServer.Refresh End");
         }
 
-        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        static void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
-            
             // CONSIDER: We get this quite late in the shutdown
             //           We should try to find a way to identify Excel shutdown a lot earlier
             Logger.Initialization.Verbose("IntelliSenseServer ProcessExit Begin");
@@ -129,10 +160,8 @@ namespace ExcelDna.IntelliSense
                 // Don't try to clean up clean up on process exit - all our resources are in-process anyway
                 // Leads to an error with the main thread SynchronizationContext, which might be shut down already.
                 // In particular we don't have to call UnhookWinEvent: "If the client's thread ends, the system automatically calls this function."
-                // Deactivate();
             }
             Logger.Initialization.Verbose("IntelliSenseServer ProcessExit End");
-            
         }
 
         // DomainUnload runs when AutoClose() would run on the add-in.
@@ -142,20 +171,12 @@ namespace ExcelDna.IntelliSense
         static void CurrentDomain_DomainUnload(object sender, EventArgs e)
         {
             Logger.Initialization.Verbose("IntelliSenseServer DomainUnload Begin");
-            //// Early shutdown notification
-            //XlCall.ShutdownStarted();
 
-            UnpublishRegistration();
             if (_isActive)
             {
-                Deactivate();
-
-                var highestRegistration = GetHighestPublishedRegistration();
-                if (highestRegistration != null)
-                {
-                    ActivateServer(highestRegistration);
-                }
+                Logger.Initialization.Error("IntelliSenseServer DomainUnload while active - Add and IntelliSenseServer.Unregister() call in AutoClose() !");
             }
+
             Logger.Initialization.Verbose("IntelliSenseServer DomainUnload End");
         }
 
@@ -167,7 +188,6 @@ namespace ExcelDna.IntelliSense
                 SetActiveRegistrationInfo();
                 _isActive = true;
 
-                // Now initialize (TODO: perhaps lazily...?)
                 _helper = new IntelliSenseHelper();
                 // TODO: Perhaps also register macro to trigger updates
                 return true;
@@ -179,9 +199,15 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        // Called internally from the AppDomain_DomainUnload or AppDomain_ProcessExit event handler, and via the control function from another server when that server figures out that it must become the active server.
+        // Should be called only on the Excel main thread, either from Unregister (AutoClose) 
+        // or via the control function from another server when that server figures out that it must become the active server.
         internal static bool Deactivate()
         {
+            if (Thread.CurrentThread.ManagedThreadId != 1)
+            {
+                // At least try to log
+                Logger.Initialization.Error($"IntelliSenseServer.Deactivate not called on the main Excel thread!");
+            }
             try
             {
                 if (_helper != null)
@@ -193,7 +219,6 @@ namespace ExcelDna.IntelliSense
             }
             catch (Exception ex)
             {
-                // TODO: Log
                 Logger.Initialization.Error($"IntelliSenseServer.Deactivate error: {ex}");
                 return false;
             }
@@ -509,7 +534,6 @@ namespace ExcelDna.IntelliSense
             }
             return false;
         }
-
         #endregion
     }
 }

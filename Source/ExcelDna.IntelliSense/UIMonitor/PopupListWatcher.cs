@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 
@@ -186,6 +187,7 @@ namespace ExcelDna.IntelliSense
 
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             Logger.WindowWatcher.Info($"PopupList Dispose Begin");
             _windowWatcher.PopupListWindowChanged -= _windowWatcher_PopupListWindowChanged;
             _windowWatcher = null;

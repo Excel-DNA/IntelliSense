@@ -1,10 +1,4 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.InteropServices;
 using ExcelDna.Integration;
-using ExcelDna.Integration.CustomUI;
 using ExcelDna.IntelliSense;
 
 namespace TestAddIn
@@ -13,14 +7,17 @@ namespace TestAddIn
     {
         public void AutoOpen()
         {
-            IntelliSenseServer.Register();
+            IntelliSenseServer.Install();
             //ExcelDna.Logging.LogDisplay.Show();
             //ExcelDna.Logging.LogDisplay.DisplayOrder = ExcelDna.Logging.DisplayOrder.NewestFirst;
         }
 
         public void AutoClose()
         {
-            // CONSIDER: Do we implement an explicit call here, or is the AppDomain Unload event good enough?
+            // The explicit Uninstall call was added in version 1.0.10, 
+            // to give us a chance to unhook the WinEvents (which needs to happen on the main thread)
+            // No easy plan to do this from the AppDomain unload event, which runs on a ThreadPool thread.
+            IntelliSenseServer.Uninstall();
         }
     }
 }

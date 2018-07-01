@@ -160,7 +160,7 @@ namespace ExcelDna.IntelliSense
         
         void OnInvalidate(object _unused_)
         {
-            Logger.Provider.Verbose($"XmlIntelliSenseProvider.ROnInvalidate - Invoking Invalidate event");
+            Logger.Provider.Verbose($"XmlIntelliSenseProvider.OnInvalidate - Invoking Invalidate event");
             Invalidate?.Invoke(this, EventArgs.Empty);
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 
 namespace ExcelDna.IntelliSense
@@ -7,6 +8,7 @@ namespace ExcelDna.IntelliSense
     {
         IntPtr _hWnd;
         SynchronizationContext _syncContextAuto;
+        SynchronizationContext _syncContextMain;
         WinEventHook _windowLocationChangeHook;
 
         public event EventHandler LocationChanged;
@@ -19,6 +21,7 @@ namespace ExcelDna.IntelliSense
         {
             _hWnd = hWnd;
             _syncContextAuto = syncContextAuto;
+            _syncContextMain = syncContextMain;
             _windowLocationChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, syncContextMain, _hWnd);
             _windowLocationChangeHook.WinEventReceived += _windowLocationChangeHook_WinEventReceived;
         }
@@ -31,8 +34,10 @@ namespace ExcelDna.IntelliSense
             LocationChanged?.Invoke(this, EventArgs.Empty);
         }
 
+        // Runs on the Main thread, perhaps during shutdown
         public void Dispose()
         {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
             if (_windowLocationChangeHook != null)
             {
                 _windowLocationChangeHook.Dispose();
