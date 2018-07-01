@@ -348,8 +348,7 @@ namespace ExcelDna.IntelliSense
                     UninstallLocationMonitor();
                 IsEditingFormula = false;
                 prefixChanged = true;
-                // Debug.Print("Don't have a focused text box to update.");
-                Debug.Print("#### FormulaEditWatcher - No Window " + Environment.StackTrace);
+                // Debug.Print("#### FormulaEditWatcher - No Window " + Environment.StackTrace);
             }
 
             if (hwnd != IntPtr.Zero)

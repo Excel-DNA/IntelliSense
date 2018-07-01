@@ -349,7 +349,7 @@ namespace ExcelDna.IntelliSense
                     }
                     else
                     {
-                        Logger.Display.Warn("FormulaEditTextChange with no arguments tooltip !?");
+                        Logger.Display.Info("FormulaEditTextChange with no arguments tooltip !?");
                     }
                     return;
                 }

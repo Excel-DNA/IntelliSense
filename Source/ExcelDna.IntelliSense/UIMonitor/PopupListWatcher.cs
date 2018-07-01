@@ -160,8 +160,8 @@ namespace ExcelDna.IntelliSense
                 _selectedItemIndex = Win32Helper.GetListViewSelectedItemInfo(hwndListView, out text, out itemBounds);
                 if (string.IsNullOrEmpty(text))
                 {
-                    // We (unexpectedly) failed to get information about the selected item
-                    Logger.WindowWatcher.Warn($"PopupList UpdateSelectedItem - IsVisible but GetListViewSelectedItemInfo failed ");
+                    // We (unexpectedly) failed to get information about the selected item - not sure this is a problem
+                    Logger.WindowWatcher.Info($"PopupList UpdateSelectedItem - IsVisible but GetListViewSelectedItemInfo failed ");
                     _selectedItemIndex = -1;
                     SelectedItemText = string.Empty;
                     SelectedItemBounds = Rect.Empty;
