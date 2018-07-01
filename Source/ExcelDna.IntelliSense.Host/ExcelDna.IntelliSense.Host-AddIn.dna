@@ -1,4 +1,4 @@
 <DnaLibrary Name="Excel-DNA IntelliSense Host" RuntimeVersion="v4.0">
-  <ExternalLibrary Path="ExcelDna.IntelliSense.Host.dll" Pack="true" />
+  <ExternalLibrary Path="ExcelDna.IntelliSense.Host.dll" Pack="true" UseVersionAsOutputVersion="true" />
   <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
 </DnaLibrary>
