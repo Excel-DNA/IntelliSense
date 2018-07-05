@@ -358,12 +358,13 @@ namespace ExcelDna.IntelliSense
                     {
                         if (text == "") continue;
 
+                        var location = new Point(layoutLeft + lineWidth, layoutTop + currentHeight);
                         var proposedSize = new Size(maxWidth - lineWidth, maxHeight - currentHeight);
                         var textSize = TextRenderer.MeasureText(e.Graphics, text, font, proposedSize, textFormatFlags);
                         if (textSize.Width <= proposedSize.Width)
                         {
                             // Draw it in this line
-                            TextRenderer.DrawText(e.Graphics, text, font, new Point(layoutLeft + lineWidth, layoutTop + currentHeight), color, textFormatFlags);
+                            TextRenderer.DrawText(e.Graphics, text, font, location, color, textFormatFlags);
                         }
                         else
                         {
@@ -376,8 +377,32 @@ namespace ExcelDna.IntelliSense
 
                                 lineHeight = minLineHeight;
                                 lineWidth = 2;  // Start with a little bit of indent on these lines
+
+                                // TODO: Clean up this duplication
+                                location = new Point(layoutLeft + lineWidth, layoutTop + currentHeight);
+                                proposedSize = new Size(maxWidth - lineWidth, maxHeight - currentHeight);
+                                textSize = TextRenderer.MeasureText(e.Graphics, text, font, proposedSize, textFormatFlags);
+                                if (textSize.Width <= proposedSize.Width)
+                                {
+                                    // Draw it in this line (the new one)
+                                    TextRenderer.DrawText(e.Graphics, text, font, location, color, textFormatFlags);
+                                }
+                                else
+                                {
+                                    // Even too long for a full line - draw truncated
+                                    textSize = new Size(proposedSize.Width, textSize.Height);
+                                    var bounds = new Rectangle(location, textSize);
+                                    TextRenderer.DrawText(e.Graphics, text, font, bounds, color, textFormatFlags | TextFormatFlags.EndEllipsis);
+                                }
                             }
-                            TextRenderer.DrawText(e.Graphics, text, font, new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight), color, textFormatFlags | TextFormatFlags.EndEllipsis);
+                            else
+                            {
+                                // Draw truncated
+                                textSize = new Size(proposedSize.Width, textSize.Height);
+                                var bounds = new Rectangle(location, textSize);
+                                //  new Rectangle(layoutLeft + lineWidth, layoutTop + currentHeight, maxWidth, maxHeight - currentHeight)
+                                TextRenderer.DrawText(e.Graphics, text, font, bounds, color, textFormatFlags | TextFormatFlags.EndEllipsis);
+                            }
                         }
 
                         if (run.IsLink)
