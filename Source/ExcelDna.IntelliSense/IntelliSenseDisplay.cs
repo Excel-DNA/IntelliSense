@@ -424,7 +424,7 @@ namespace ExcelDna.IntelliSense
                     try
                     {
                         _descriptionToolTip?.ShowToolTip(
-                            text: new FormattedText { GetFunctionDescriptionOrNull(functionInfo) },
+                            text: new FormattedText { descriptionLines },
                             linePrefix: null,
                             left: (int)listBounds.Right + DescriptionLeftMargin,
                             top: (int)selectedItemBounds.Bottom - 18,
@@ -531,9 +531,8 @@ namespace ExcelDna.IntelliSense
             var formattedText = new FormattedText { nameLine, descriptionLines };
             if (argumentList.Count > currentArgIndex)
             {
-                var description = GetArgumentDescriptionOrNull(argumentList[currentArgIndex]);
-                if (description != null)
-                    formattedText.Add(description);
+                var description = GetArgumentDescription(argumentList[currentArgIndex]);
+                formattedText.Add(description);
             }
 
             return formattedText;
@@ -583,12 +582,13 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        TextLine GetArgumentDescriptionOrNull(FunctionInfo.ArgumentInfo argumentInfo)
+        IEnumerable<TextLine> GetArgumentDescription(FunctionInfo.ArgumentInfo argumentInfo)
         {
             if (string.IsNullOrEmpty(argumentInfo.Description))
-                return null;
+                yield break;
 
-            return new TextLine { 
+            var lines = argumentInfo.Description.Split(s_newLineStringArray, StringSplitOptions.None);
+            yield return new TextLine {
                     new TextRun
                     {
                         Style = System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic,
@@ -597,9 +597,19 @@ namespace ExcelDna.IntelliSense
                     new TextRun
                     {
                         Style = System.Drawing.FontStyle.Italic,
-                        Text = argumentInfo.Description ?? ""
+                        Text = lines.FirstOrDefault() ?? ""
                     },
                 };
+
+            foreach (var line in lines.Skip(1))
+            {
+                yield return new TextLine {
+                    new TextRun
+                    {
+                        Style = System.Drawing.FontStyle.Italic,
+                        Text = line
+                    }};
+            }
         }
 
         public void Dispose()

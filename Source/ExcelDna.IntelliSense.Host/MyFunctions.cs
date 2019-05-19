@@ -13,9 +13,9 @@ namespace ExcelDna.CustomAddin
                            HelpTopic = "http://www.google.com")]
             public static double AddThem(
                 [ExcelArgument(Name = "Augend", Description = "is the first number, to which will be added")] double v1,
-                [ExcelArgument(Name = "Addend", Description = "is the second number that will be added")]     double v2)
-            {
-                return v1 + v2;
+                [ExcelArgument(Name = "Addend", Description = "is the second number that will be added\r\nin other words, and another line,\r\nthe extra stuff")]     double v2)
+        {
+            return v1 + v2;
             }
 
             [ExcelFunction(Description = "--------------------",
