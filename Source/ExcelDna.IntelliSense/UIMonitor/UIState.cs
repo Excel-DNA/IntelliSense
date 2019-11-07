@@ -186,7 +186,7 @@ namespace ExcelDna.IntelliSense
         // Becomes a more general Window or Dialog to watch (for resize extension)
         public class SelectDataSource : UIState
         {
-            public IntPtr SelectDataSourceWindow;
+            public IntPtr SelectDataSourceWindow = IntPtr.Zero;
         }
 
         public override string ToString()
