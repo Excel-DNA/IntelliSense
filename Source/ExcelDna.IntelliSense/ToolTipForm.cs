@@ -354,7 +354,7 @@ namespace ExcelDna.IntelliSense
                         color = _textColor;
                     }
 
-                    foreach (var text in GetRunParts(run.Text)) // Might split on space too?
+                    foreach (var text in GetRunParts(run.Text))
                     {
                         if (text == "") continue;
 
@@ -431,7 +431,7 @@ namespace ExcelDna.IntelliSense
             int lastStart = 0;
             for (int i = 0; i < runText.Length; i++)
             {
-                if (runText[i] == ',')
+                if (runText[i] == ',' || runText[i] == ' ')
                 {
                     yield return runText.Substring(lastStart, i - lastStart + 1);
                     lastStart = i + 1;
