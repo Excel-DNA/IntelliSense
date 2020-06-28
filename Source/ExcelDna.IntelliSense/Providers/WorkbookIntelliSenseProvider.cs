@@ -70,7 +70,7 @@ namespace ExcelDna.IntelliSense
 
                 int numRows = regInfo.GetLength(0);
                 int numCols = regInfo.GetLength(1);
-                if (numRows < 1 || numCols < 1)
+                if (numRows < 2 || numCols < 2) // Either no registrations or no descriptions - nothing to register
                     yield break;
 
                 var idCheck = regInfo[1, 1] as string;
@@ -85,7 +85,7 @@ namespace ExcelDna.IntelliSense
                 {
                     string functionName = regInfo[i, 1] as string;
                     string description = regInfo[i, 2] as string;
-                    string helpTopic = regInfo[i, 3] as string;
+                    string helpTopic = (numCols >= 3) ? (regInfo[i, 3] as string) : "";
 
                     if (string.IsNullOrEmpty(functionName))
                         continue;
