@@ -32,6 +32,8 @@ namespace ExcelDna.IntelliSense
             // Make a separate thread and set to MTA, according to: https://msdn.microsoft.com/en-us/library/windows/desktop/ee671692%28v=vs.85%29.aspx
             // This thread was initially intended for UI Automation calls, particularly adding and removing event handlers.
             var threadAuto = new Thread(RunUIAutomation);
+            threadAuto.IsBackground = true;
+            threadAuto.Name = "ExcelDna.Intellisense.WatcherThread";
             threadAuto.SetApartmentState(ApartmentState.MTA);
             threadAuto.Start();
         }
