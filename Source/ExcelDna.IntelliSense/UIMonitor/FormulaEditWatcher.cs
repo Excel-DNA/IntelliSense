@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ExcelDna.IntelliSense.Util;
+using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
@@ -71,11 +72,15 @@ namespace ExcelDna.IntelliSense
         readonly SynchronizationContext _syncContextMain;
 
         readonly WindowWatcher _windowWatcher;          // Passed in
-        WindowLocationWatcher  _windowLocationWatcher;  // Managed here
 
-        IntPtr            _hwndFormulaBar;
-        IntPtr            _hwndInCellEdit;
-        FormulaEditFocus  _formulaEditFocus;
+        WindowLocationWatcher _windowLocationWatcher;  // Managed here
+        readonly RenewableDelayExecutor _updateEditStateAfterTimeout;
+
+        IntPtr _hwndFormulaBar;
+        IntPtr _hwndInCellEdit;
+        FormulaEditFocus _formulaEditFocus;
+
+        const int DelayBeforeStateUpdateMilliseconds = 100;
 
         public FormulaEditWatcher(WindowWatcher windowWatcher, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
@@ -84,6 +89,7 @@ namespace ExcelDna.IntelliSense
             _windowWatcher = windowWatcher;
             _windowWatcher.FormulaBarWindowChanged += _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged += _windowWatcher_InCellEditWindowChanged;
+            _updateEditStateAfterTimeout = new RenewableDelayExecutor(DelayBeforeStateUpdateMilliseconds, () => UpdateEditState());
         }
 
         // Runs on the Automation thread
@@ -95,13 +101,13 @@ namespace ExcelDna.IntelliSense
                     if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Self)
                     {
                         SetEditWindow(e.WindowHandle, ref _hwndFormulaBar);
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
                         // We expect this on every text change
                         // NOTE: Not anymore after some Excel / Windows update
-                        UpdateEditStateDelayed();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else
                     {
@@ -126,7 +132,7 @@ namespace ExcelDna.IntelliSense
                             SetEditWindow(e.WindowHandle, ref _hwndFormulaBar);
                         }
                         _formulaEditFocus = FormulaEditFocus.FormulaBar;
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
@@ -134,21 +140,21 @@ namespace ExcelDna.IntelliSense
                     {
                         Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Unfocus");
                         _formulaEditFocus = FormulaEditFocus.None;
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Show");
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Show");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Hide");
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - FormulaBar Hide");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.LocationChange:
                     if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
                         // We expect this on every text change in newer Excel versions
                         Debug.Print($"-#-#-#- Text Changed ... ");
-                        UpdateEditStateDelayed();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else
                     {
@@ -172,14 +178,14 @@ namespace ExcelDna.IntelliSense
                     if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Self)
                     {
                         SetEditWindow(e.WindowHandle, ref _hwndInCellEdit);
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
                         // We expect this on every text change 
                         // NOTE: Not anymore after some Excel / Windows update
                         Debug.Print($"-#-#-#- Text Changed ... ");
-                        UpdateEditStateDelayed();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else
                     {
@@ -206,7 +212,7 @@ namespace ExcelDna.IntelliSense
                         Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Focus");
 
                         _formulaEditFocus = FormulaEditFocus.InCellEdit;
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
@@ -214,7 +220,7 @@ namespace ExcelDna.IntelliSense
                     {
                         Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
                         _formulaEditFocus = FormulaEditFocus.None;
-                        UpdateEditState();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
@@ -228,7 +234,7 @@ namespace ExcelDna.IntelliSense
                     {
                         // We expect this on every text change in newer Excel versions
                         Debug.Print($"-#-#-#- Text Changed ... ");
-                        UpdateEditStateDelayed();
+                        _updateEditStateAfterTimeout.Signal();
                     }
                     else
                     {
@@ -313,22 +319,20 @@ namespace ExcelDna.IntelliSense
         //    UpdateFormula(textChangedOnly: true);
         //}
 
-        // TODO: Get rid of this somehow - added to make the mouse clicks in the in-cell editing work, by delaying the call to the PenHelper
-        void UpdateEditStateDelayed()
+        void UpdateEditState(bool moveOnly = false)
         {
-            _syncContextAuto.Post(_ =>
-           {
-               Thread.Sleep(100);
-               UpdateEditState();
-           }, null);
+            // Switches to our Main UI thread, updates current state and raises StateChanged event
+            _syncContextMain.Post(_ =>
+            {
+                UpdateEditStateImpl(moveOnly);
+            }, null);
         }
 
-        // Switches to our Automation thread, updates current state and raises StateChanged event
-        void UpdateEditState(bool moveOnly = false)
+        void UpdateEditStateImpl(bool moveOnly = false)
         {
             Logger.WindowWatcher.Verbose($"> FormulaEdit UpdateEditState - Thread {Thread.CurrentThread.ManagedThreadId}");
             Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState - Focus: {_formulaEditFocus} Window: {(_formulaEditFocus == FormulaEditFocus.FormulaBar ? _hwndFormulaBar : _hwndInCellEdit)}");
-            
+
             IntPtr hwnd = IntPtr.Zero;
             bool prefixChanged = false;
             if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
@@ -410,6 +414,9 @@ namespace ExcelDna.IntelliSense
             Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
 
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose Begin");
+
+            _updateEditStateAfterTimeout.Dispose();
+
             _windowWatcher.FormulaBarWindowChanged -= _windowWatcher_FormulaBarWindowChanged;
             _windowWatcher.InCellEditWindowChanged -= _windowWatcher_InCellEditWindowChanged;
 
@@ -419,6 +426,7 @@ namespace ExcelDna.IntelliSense
             {
                 tempWatcher.Dispose();
             }
+
             Logger.WindowWatcher.Verbose("FormulaEdit Dispose End");
         }
     }
