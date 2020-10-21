@@ -88,6 +88,7 @@
     <Compile Include="UIMonitor\UIState.cs" />
     <Compile Include="UIMonitor\WindowLocationWatcher.cs" />
     <Compile Include="UIMonitor\WindowWatcher.cs" />
+    <Compile Include="Util\RenewableDelayExecutor.cs" />
     <Compile Include="Win32Helper.cs" />
     <Compile Include="Providers\LoaderNotification.cs" />
     <Compile Include="UIMonitor\WinEvents.cs" />
