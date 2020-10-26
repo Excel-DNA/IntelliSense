@@ -17,15 +17,17 @@ namespace ExcelDna.IntelliSense
         {
             public WinEvent EventType;
             public IntPtr WindowHandle;
+            public string WindowClassName;
             public WinEventObjectId ObjectId;
             public int ChildId;
             public uint EventThreadId;
             public uint EventTimeMs;
 
-            public WinEventArgs(WinEvent eventType, IntPtr hWnd, WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+            public WinEventArgs(WinEvent eventType, IntPtr hWnd, string windowClassName, WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
             {
                 EventType = eventType;
                 WindowHandle = hWnd;
+                WindowClassName = windowClassName;
                 ObjectId = idObject;
                 ChildId = idChild;
                 EventThreadId = dwEventThread;
@@ -187,11 +189,14 @@ namespace ExcelDna.IntelliSense
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 
-                if (!IsSupportedWinEvent(eventType))
+                if (!IsSupportedWinEvent(eventType) || idObject == WinEventObjectId.OBJID_CURSOR)
                     return;
 
+                // Moving the GetClassName call here where the main thread is running.
+                var windowClassName = Win32Helper.GetClassName(hWnd);
+                    
                 // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
-                _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, idObject, idChild, dwEventThread, dwmsEventTime));
+                _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, windowClassName, idObject, idChild, dwEventThread, dwmsEventTime));
             }
             catch (Exception ex)
             {
@@ -203,7 +208,7 @@ namespace ExcelDna.IntelliSense
         bool IsSupportedWinEvent(WinEvent winEvent)
         {
             return winEvent == WinEvent.EVENT_OBJECT_CREATE ||
-                   winEvent == WinEvent.EVENT_OBJECT_DESTROY ||
+                   // winEvent == WinEvent.EVENT_OBJECT_DESTROY ||  // Stopped watching for this, because we can't route using the ClassName and don't really need anymore
                    winEvent == WinEvent.EVENT_OBJECT_SHOW ||
                    winEvent == WinEvent.EVENT_OBJECT_HIDE ||
                    winEvent == WinEvent.EVENT_OBJECT_FOCUS ||
@@ -217,9 +222,10 @@ namespace ExcelDna.IntelliSense
         void OnWinEventReceived(object winEventArgsObj)
         {
             var winEventArgs = (WinEventArgs)winEventArgsObj;
+            if (winEventArgs.ObjectId == WinEventObjectId.OBJID_CURSOR)
+                return;
 #if DEBUG
-            if (winEventArgs.ObjectId != WinEventObjectId.OBJID_CURSOR)
-                Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} ({Win32Helper.GetClassName(winEventArgs.WindowHandle)} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
+            Logger.WinEvents.Verbose($"{winEventArgs.EventType} - Window {winEventArgs.WindowHandle:X} {(winEventArgs.WindowHandle != IntPtr.Zero ? Win32Helper.GetClassName(winEventArgs.WindowHandle) : "")} - Object/Child {winEventArgs.ObjectId} / {winEventArgs.ChildId} - Thread {winEventArgs.EventThreadId} at {winEventArgs.EventTimeMs}");
 #endif
             WinEventReceived?.Invoke(this, winEventArgs);
         }

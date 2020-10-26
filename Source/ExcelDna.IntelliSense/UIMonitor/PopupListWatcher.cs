@@ -53,8 +53,8 @@ namespace ExcelDna.IntelliSense
                     _hwndPopupList = e.WindowHandle;
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
-                    // We expect this only when shutting down
-                    Logger.WindowWatcher.Info($"PopupList window destroyed: {e.WindowHandle}");
+                    // Not expecting this anymore - Destroy is no longer routed from the WinEvents.
+                    Debug.Fail("Unexpected ChangeType");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
                     Logger.WindowWatcher.Verbose($"PopupList window show");

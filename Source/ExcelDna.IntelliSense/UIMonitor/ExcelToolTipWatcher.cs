@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 
 namespace ExcelDna.IntelliSense
@@ -57,9 +58,12 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
-                case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
                     if (_toolTips.Remove(e.WindowHandle))
                         ToolTipChanged?.Invoke(this, new ToolTipChangeEventArgs(ToolTipChangeType.Hide, e.WindowHandle));
+                    break;
+                case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
+                    // Not expecting this anymore - Destroy is no longer routed from the WinEvents.
+                    Debug.Fail("Unexpected ChangeType");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Create:
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:

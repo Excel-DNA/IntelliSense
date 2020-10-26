@@ -153,12 +153,11 @@ namespace ExcelDna.IntelliSense
 
         bool UpdateFocus(IntPtr windowHandle, string windowClassName)
         {
-            if (windowHandle == _focusedWindowHandle)
-            {
-                Debug.Assert(_focusedWindowClassName == windowClassName);   // I've seen this, with _focusedWindowClassName == "" and windowClassName == "EXCEL7".
-                return false;
-            }
+            if (windowHandle == _focusedWindowHandle && _focusedWindowClassName == windowClassName)
+                    return false;
 
+            // We see a change in the WindowClassName often - handle that as a focus change too
+ 
             Debug.Assert(_focusedWindowClassName != _excelToolTipClass); // We don't expect the ToolTip to ever get the focus
             Logger.WindowWatcher.Verbose($"Focus lost by {_focusedWindowHandle} ({_focusedWindowClassName})");
             // It has changed - raise an event for the old window
@@ -191,13 +190,17 @@ namespace ExcelDna.IntelliSense
         // CONSIDER: We would be able to run all the watcher updates from WinEvents, including Location and Selection changes,
         //           but since WinEvents have no hwnd filter, UIAutomation events might be more efficient.
         // CONSIDER: Performance optimisation would keep a list of window handles we know about, preventing the class name check every time
+        // NOTE: We are not getting OBJID_CURSOR events here - that means we expect to have a valid WindowHandle except when destroyed
         void _windowStateChangeHook_WinEventReceived(object sender, WinEventHook.WinEventArgs e)
         {
-            var className = Win32Helper.GetClassName(e.WindowHandle);
+            if (e.WindowHandle == IntPtr.Zero)
+            {
+                Debug.Fail("WinEvent with window 0!?");
+            }
             if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
             {
                 // Might raise change event for Unfocus
-                if (!UpdateFocus(e.WindowHandle, className))
+                if (!UpdateFocus(e.WindowHandle, e.WindowClassName))
                 {
                     // We already have the right focus
                     return;
@@ -205,7 +208,7 @@ namespace ExcelDna.IntelliSense
             }
 
             // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
-            switch (className)
+            switch (e.WindowClassName)
             {
                 //case _sheetWindowClass:
                 //    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)

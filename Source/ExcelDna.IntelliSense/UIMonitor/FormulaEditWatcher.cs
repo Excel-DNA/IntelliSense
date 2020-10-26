@@ -115,12 +115,8 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
-                    // We expect this for every text change, but ignore since we react to the Create event
-                    //if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
-                    //{
-                    //    _formulaEditFocus = FormulaEditFocus.None;
-                    //    UpdateEditState();
-                    //}
+                    // Not expecting this anymore - Destroy is no longer routed from the WinEvents.
+                    Debug.Fail("Unexpected ChangeType");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                     if (_formulaEditFocus != FormulaEditFocus.FormulaBar)
@@ -193,12 +189,8 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Destroy:
-                    // We expect this for every text change, but ignore since we react to the Create event
-                    //if (_formulaEditFocus == FormulaEditFocus.FormulaBar)
-                    //{
-                    //    _formulaEditFocus = FormulaEditFocus.None;
-                    //    UpdateEditState();
-                    //}
+                    // Not expecting this anymore - Destroy is no longer routed from the WinEvents.
+                    Debug.Fail("Unexpected ChangeType");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Focus:
                     if (_formulaEditFocus != FormulaEditFocus.InCellEdit)

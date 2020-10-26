@@ -29,7 +29,7 @@ namespace ExcelDna.IntelliSense
         public static extern IntPtr GetModuleHandle(string lpModuleName);
         [DllImport("kernel32.dll")]
         static extern uint GetCurrentProcessId();
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         static extern int GetClassNameW(IntPtr hwnd, [MarshalAs(UnmanagedType.LPWStr)] StringBuilder buf, int nMaxCount);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
@@ -228,7 +228,13 @@ namespace ExcelDna.IntelliSense
         public static string GetClassName(IntPtr hWnd)
         {
             _buffer.Length = 0;
-            GetClassNameW(hWnd, _buffer, _buffer.Capacity);
+            int result = GetClassNameW(hWnd, _buffer, _buffer.Capacity);
+            if (result == 0)
+            {
+                // It failed!?
+                int error = Marshal.GetLastWin32Error();
+                Debug.Print($"GetClassName failed on {hWnd}(0x{hWnd:x}) - Error {error}");
+            }
             return _buffer.ToString();
         }
 
