@@ -50,18 +50,8 @@ namespace ExcelDna.IntelliSense.Util
 
             _timer.Elapsed -= OnTimerElapsed;
             _timer.Dispose();
-
-            if (isDisposing)
-            {
-                GC.SuppressFinalize(this);
-            }
         }
 
         public void Dispose() => Dispose(true);
-
-        ~RenewableDelayExecutor()
-        {
-            Dispose(false);
-        }
     }
 }
