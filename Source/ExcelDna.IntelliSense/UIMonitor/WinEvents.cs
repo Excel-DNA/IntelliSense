@@ -189,11 +189,14 @@ namespace ExcelDna.IntelliSense
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 
-                if (!IsSupportedWinEvent(eventType) || idObject == WinEventObjectId.OBJID_CURSOR)
+                if (!IsSupportedWinEvent(eventType) || idObject == WinEventObjectId.OBJID_CURSOR || hWnd == IntPtr.Zero)
                     return;
 
                 // Moving the GetClassName call here where the main thread is running.
                 var windowClassName = Win32Helper.GetClassName(hWnd);
+
+                if (string.IsNullOrEmpty(windowClassName))
+                    return;
                     
                 // CONSIDER: We might add some filtering here... maybe only interested in some of the window / event combinations
                 _syncContextAuto.Post(OnWinEventReceived, new WinEventArgs(eventType, hWnd, windowClassName, idObject, idChild, dwEventThread, dwmsEventTime));

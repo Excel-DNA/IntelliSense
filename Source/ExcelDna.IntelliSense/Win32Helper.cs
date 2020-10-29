@@ -234,6 +234,7 @@ namespace ExcelDna.IntelliSense
                 // It failed!?
                 int error = Marshal.GetLastWin32Error();
                 Debug.Print($"GetClassName failed on {hWnd}(0x{hWnd:x}) - Error {error}");
+                return "";
             }
             return _buffer.ToString();
         }
