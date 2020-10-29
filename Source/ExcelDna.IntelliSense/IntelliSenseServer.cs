@@ -500,9 +500,9 @@ namespace ExcelDna.IntelliSense
 
         static void RegisterControlMacro()
         {
-            var method = typeof(IntelliSenseServer).GetMethod(nameof(IntelliSenseServerControl), BindingFlags.Static | BindingFlags.NonPublic);
+            Func<object, object> delControl = control => IntelliSenseServerControl(control);
             var name = RegistrationInfo.GetControlMacroName(_serverId);
-            ExcelIntegration.RegisterMethods(new List<MethodInfo> { method }, 
+            ExcelIntegration.RegisterDelegates(new List<Delegate> { delControl }, 
                                              new List<object> { new ExcelCommandAttribute { Name = name } }, // Macros in .xlls are always hidden
                                              new List<List<object>> { new List<object> { null } });
             // No Unregistration - that will happen automatically (and is only needed) when we are unloaded.
