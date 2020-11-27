@@ -9,9 +9,8 @@ Overview
 --------
 Excel has no known support for user-defined functions to display as part of the on-sheet intellisense. We use the UI Automation support of Windows and Excel, to keep track of relevant changes of the Excel interface, and overlay IntelliSense information when appropriate.
 
-Current status
---------------
-The project is under activate development, and ready for intial testing.
+Example
+-------
 
 For an Excel-DNA function defined like this:
 ```C#
@@ -38,7 +37,7 @@ User-defined functions written in VBA (either in an add-in or regular Workbook) 
 
 The first configuration being tested now, is where the IntelliSense display server is loaded as a separate add-in.
 
-Getting Started
+Getting started
 ---------------
 
 For existing Excel-DNA add-ins (v0.32 or later):
@@ -49,16 +48,17 @@ For VBA workbooks or add-ins:
   * Download and load the latest ExcelDna.IntelliSense.xll or ExcelDna.IntelliSense64.xll from the [Releases](https://github.com/Excel-DNA/IntelliSense/releases) page.
   * Either add a sheet with the IntelliSense function descriptions, or a separate xml file.
 
-See the [Getting Started](https://github.com/Excel-DNA/IntelliSense/wiki/Getting-Started) page for more detail.
+See the [Getting Started](https://github.com/Excel-DNA/IntelliSense/wiki/Getting-Started) and [Usage Instructions](https://github.com/Excel-DNA/IntelliSense/wiki/Usage-Instructions) pages for more detail.
 
 Future direction
 ----------------
 
-Once a basic implementation is working, there is scope for quite a lot of enhancement. For example, we could add support for:
+There is scope for further enhancement. For example, we could add support for:
 
   * enum lists and other parameter selection and validation
   * links to forms or hyperlinks to help
   * enhanced argument selection controls, like a date selector
+  * Automatic registration of VBA help info with the 'Insert Function' dialog
 
 Support and participation
 -------------------------
