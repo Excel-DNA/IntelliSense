@@ -122,6 +122,7 @@ namespace ExcelDna.IntelliSense
         }
 
         Dictionary<string, WorkbookRegistrationInfo> _workbookRegistrationInfos = new Dictionary<string, WorkbookRegistrationInfo>();
+        ExcelSynchronizationContext _syncContextExcel;
         XmlIntelliSenseProvider _xmlProvider;
         public event EventHandler Invalidate;
 
@@ -129,6 +130,7 @@ namespace ExcelDna.IntelliSense
 
         public WorkbookIntelliSenseProvider()
         {
+            _syncContextExcel = new ExcelSynchronizationContext();
             _xmlProvider = new XmlIntelliSenseProvider();
             _xmlProvider.Invalidate += ( sender, e) => OnInvalidate();
         }
@@ -137,6 +139,13 @@ namespace ExcelDna.IntelliSense
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
             _xmlProvider.Initialize();
+            _syncContextExcel.Post(OnInitialize, null);
+        }
+
+        // Must be called on the main thread, in a macro context
+        void OnInitialize(object _unused_)
+        {
+            Logger.Provider.Info("WorkbookIntelliSenseProvider.OnInitialize");
 
             // The events are just to keep track of the set of open workbooks, 
             var xlApp = (Application)ExcelDnaUtil.Application;
@@ -144,15 +153,15 @@ namespace ExcelDna.IntelliSense
             xlApp.WorkbookBeforeClose += Excel_WorkbookBeforeClose;
             xlApp.WorkbookAddinInstall += Excel_WorkbookAddinInstall;
             xlApp.WorkbookAddinUninstall += Excel_WorkbookAddinUninstall;
-            Logger.Provider.Verbose("WorkbookIntelliSenseProvider.Initialize - Installed event listeners");
+            Logger.Provider.Verbose("WorkbookIntelliSenseProvider.OnInitialize - Installed event listeners");
 
             lock (_workbookRegistrationInfos)
             {
-                Logger.Provider.Verbose("WorkbookIntelliSenseProvider.Initialize - Starting Workbooks loop");
+                Logger.Provider.Verbose("WorkbookIntelliSenseProvider.OnInitialize - Starting Workbooks loop");
                 foreach (Workbook wb in xlApp.Workbooks)
                 {
                     var name = wb.Name;
-                    Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Adding registration for {name}");
+                    Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.OnInitialize - Adding registration for {name}");
                     if (!_workbookRegistrationInfos.ContainsKey(name))
                     {
                         WorkbookRegistrationInfo regInfo = new WorkbookRegistrationInfo(name);
@@ -195,7 +204,7 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //}
 
-                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Initialize - Checking Add-Ins");
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.OnInitialize - Checking Add-Ins");
 
                 var loadedAddIns = Integration.XlCall.Excel(Integration.XlCall.xlfDocuments, 2) as object[,];
                 if (loadedAddIns == null)
