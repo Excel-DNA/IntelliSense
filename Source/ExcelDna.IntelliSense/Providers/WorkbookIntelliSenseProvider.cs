@@ -122,7 +122,6 @@ namespace ExcelDna.IntelliSense
         }
 
         Dictionary<string, WorkbookRegistrationInfo> _workbookRegistrationInfos = new Dictionary<string, WorkbookRegistrationInfo>();
-        ExcelSynchronizationContext _syncContextExcel;
         XmlIntelliSenseProvider _xmlProvider;
         public event EventHandler Invalidate;
 
@@ -130,7 +129,6 @@ namespace ExcelDna.IntelliSense
 
         public WorkbookIntelliSenseProvider()
         {
-            _syncContextExcel = new ExcelSynchronizationContext();
             _xmlProvider = new XmlIntelliSenseProvider();
             _xmlProvider.Invalidate += ( sender, e) => OnInvalidate();
         }
@@ -139,11 +137,11 @@ namespace ExcelDna.IntelliSense
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
             _xmlProvider.Initialize();
-            _syncContextExcel.Post(OnInitialize, null);
+            ExcelAsyncUtil.QueueAsMacro(OnInitialize);
         }
 
         // Must be called on the main thread, in a macro context
-        void OnInitialize(object _unused_)
+        void OnInitialize()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.OnInitialize");
 
