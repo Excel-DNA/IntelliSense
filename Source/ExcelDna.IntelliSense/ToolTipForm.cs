@@ -125,10 +125,10 @@ namespace ExcelDna.IntelliSense
             if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft)
             {
                 // Update the start position and the current position
-                _currentLeft = left;
-                _currentTop = top;
-                _showLeft = left;
-                _showTop = top;
+                _currentLeft = Math.Max(left, 0);   // Don't move off the screen
+                _currentTop = Math.Max(top, -topOffset);
+                _showLeft = _currentLeft;
+                _showTop = _currentTop;
                 _topOffset = topOffset;
                 _listLeft = listLeft;
             }
@@ -477,6 +477,9 @@ namespace ExcelDna.IntelliSense
                         _currentLeft = _listLeft.Value - width - leftPadding;
                     }
                 }
+
+                if (_currentLeft < 0)
+                    _currentLeft = 0;
             }
             SetBounds(_currentLeft, _currentTop + _topOffset, width, height);
         }
