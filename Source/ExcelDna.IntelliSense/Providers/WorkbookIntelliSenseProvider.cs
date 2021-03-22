@@ -133,17 +133,11 @@ namespace ExcelDna.IntelliSense
             _xmlProvider.Invalidate += ( sender, e) => OnInvalidate();
         }
 
+        // Must be called on the main thread, in a macro context
         public void Initialize()
         {
             Logger.Provider.Info("WorkbookIntelliSenseProvider.Initialize");
             _xmlProvider.Initialize();
-            ExcelAsyncUtil.QueueAsMacro(OnInitialize);
-        }
-
-        // Must be called on the main thread, in a macro context
-        void OnInitialize()
-        {
-            Logger.Provider.Info("WorkbookIntelliSenseProvider.OnInitialize");
 
             // The events are just to keep track of the set of open workbooks, 
             var xlApp = (Application)ExcelDnaUtil.Application;
