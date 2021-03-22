@@ -14,11 +14,13 @@
         <summary>Excel-DNA IntelliSense is an extension library that can be added to an Excel-DNA add-in to provide an integrated IntelliSense server, providing IntelliSense services for all loaded Excel-DNA add-ins and appropriately configured VBA functions.</summary>
         <tags>excel exceldna udf excel-dna intellisense</tags>
         <dependencies>
-          <dependency id="ExcelDna.Integration" version="1.2.3-preview" />
+          <group targetFramework=".NETFramework4.5.2" >
+            <dependency id="ExcelDna.Integration" version="1.2.3-preview" />
+          </group>
         </dependencies>
     </metadata>
     <files>
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net40\ExcelDna.IntelliSense.dll" />
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.pdb" target="lib\net40\ExcelDna.IntelliSense.pdb" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net452\ExcelDna.IntelliSense.dll" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.pdb" target="lib\net452\ExcelDna.IntelliSense.pdb" />
     </files>
 </package>
