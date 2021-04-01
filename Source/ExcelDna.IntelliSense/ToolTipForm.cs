@@ -273,7 +273,9 @@ namespace ExcelDna.IntelliSense
                         var topicId = parts[1];
                         if (File.Exists(fileName))
                         {
-                            Help.ShowHelp(null, fileName, HelpNavigator.TopicId, topicId);
+                            dynamic app = ExcelDna.Integration.ExcelDnaUtil.Application;
+                            app.Help(fileName, topicId);
+                            // Help.ShowHelp(null, fileName, HelpNavigator.TopicId, topicId);
                         }
                         else
                         {
@@ -285,7 +287,9 @@ namespace ExcelDna.IntelliSense
                         // Just show the file ...?
                         if (File.Exists(address))
                         {
-                            Help.ShowHelp(null, address, HelpNavigator.TableOfContents);
+                            dynamic app = ExcelDna.Integration.ExcelDnaUtil.Application;
+                            app.Help(address); 
+                            // Help.ShowHelp(null, address, HelpNavigator.TableOfContents);
                         }
                         else
                         {
