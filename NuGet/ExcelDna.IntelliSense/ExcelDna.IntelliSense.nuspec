@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>ExcelDna.IntelliSense</id>
-        <version>1.4.4-test</version>
+        <version>1.5.0-rc1</version>
         <title>Excel-DNA IntelliSense Extension</title>
         <authors>Excel-DNA Contributors</authors>
         <owners>Excel-DNA Contributors</owners>
@@ -15,7 +15,7 @@
         <tags>excel exceldna udf excel-dna intellisense</tags>
         <dependencies>
           <group targetFramework=".NETFramework4.5.2" >
-            <dependency id="ExcelDna.Integration" version="1.2.5-preview" />
+            <dependency id="ExcelDna.Integration" version="[1.5.0-rc1]" />
           </group>
         </dependencies>
     </metadata>
