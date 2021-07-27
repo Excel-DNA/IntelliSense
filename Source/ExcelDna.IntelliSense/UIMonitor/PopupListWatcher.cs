@@ -158,7 +158,7 @@ namespace ExcelDna.IntelliSense
                 ListBounds = Win32Helper.GetWindowBounds(_hwndPopupList);
 
                 _selectedItemIndex = Win32Helper.GetListViewSelectedItemInfo(hwndListView, out text, out itemBounds);
-                if (string.IsNullOrEmpty(text))
+                if (string.IsNullOrEmpty(text) || itemBounds == Rect.Empty)
                 {
                     // We (unexpectedly) failed to get information about the selected item - not sure this is a problem
                     Logger.WindowWatcher.Info($"PopupList UpdateSelectedItem - IsVisible but GetListViewSelectedItemInfo failed ");
