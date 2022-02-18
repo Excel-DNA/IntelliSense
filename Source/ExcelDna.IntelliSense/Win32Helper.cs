@@ -224,11 +224,12 @@ namespace ExcelDna.IntelliSense
             return GetCurrentProcessId();
         }
 
-        static StringBuilder _buffer = new StringBuilder(65000);
         public static string GetClassName(IntPtr hWnd)
         {
-            _buffer.Length = 0;
-            int result = GetClassNameW(hWnd, _buffer, _buffer.Capacity);
+            const int size = 256; //Max size of class name is 256 https://docs.microsoft.com/en-ca/windows/win32/api/winuser/ns-winuser-wndclassa?redirectedfrom=MSDN
+            StringBuilder buffer = new StringBuilder(size + 1);
+
+            int result = GetClassNameW(hWnd, buffer, buffer.Capacity);
             if (result == 0)
             {
                 // It failed!?
@@ -236,7 +237,7 @@ namespace ExcelDna.IntelliSense
                 Debug.Print($"GetClassName failed on {hWnd}(0x{hWnd:x}) - Error {error}");
                 return "";
             }
-            return _buffer.ToString();
+            return buffer.ToString();
         }
 
         public static string GetText(IntPtr hWnd)
