@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net452</TargetFrameworks>
+    <TargetFrameworks>net452;net6.0-windows</TargetFrameworks>
+	<UseWindowsForms>true</UseWindowsForms>
+	<UseWPF>true</UseWPF>
 
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
