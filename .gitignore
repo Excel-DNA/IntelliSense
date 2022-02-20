@@ -100,6 +100,7 @@ ClientBin
 [Ss]tyle[Cc]op.*
 ~$*
 *.dbmdl
+*.TaskCanvasSL
 Generated_Code #added for RIA/Silverlight projects
 
 # Backup & report files from converting an old project file to a newer
@@ -109,4 +110,4 @@ Backup*/
 UpgradeLog*.XML
 *.nupkg
 
-*.TaskCanvasSL
+/Source/ExcelDna.IntelliSense.Host/Properties/launchSettings.json
