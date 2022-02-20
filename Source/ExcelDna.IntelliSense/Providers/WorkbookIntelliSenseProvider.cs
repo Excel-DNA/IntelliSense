@@ -32,7 +32,7 @@ namespace ExcelDna.IntelliSense
             {
                 _name = name;
             }
- 
+
             // Called in a macro context
             public void Refresh()
             {
@@ -43,7 +43,7 @@ namespace ExcelDna.IntelliSense
                 Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - Workbook {_name} at {_path}");
                 try
                 {
-                    var ws = wb.Sheets[intelliSenseWorksheetName];
+                    dynamic ws = wb.Sheets[intelliSenseWorksheetName];
                     Logger.Provider.Verbose($"WorkbookRegistrationInfo.Refresh - IntelliSense sheet found");
                     var info = ws.UsedRange.Value;
                     _regInfo = info as object[,];
@@ -130,7 +130,7 @@ namespace ExcelDna.IntelliSense
         public WorkbookIntelliSenseProvider()
         {
             _xmlProvider = new XmlIntelliSenseProvider();
-            _xmlProvider.Invalidate += ( sender, e) => OnInvalidate();
+            _xmlProvider.Invalidate += (sender, e) => OnInvalidate();
         }
 
         public void Initialize()
