@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>ExcelDna.IntelliSense</id>
-        <version>1.5.1</version>
+        <version>1.6.0-preview2</version>
         <title>Excel-DNA IntelliSense Extension</title>
         <authors>Excel-DNA Contributors</authors>
         <owners>Excel-DNA Contributors</owners>
@@ -15,12 +15,17 @@
         <tags>excel exceldna udf excel-dna intellisense</tags>
         <dependencies>
           <group targetFramework=".NETFramework4.5.2" >
-            <dependency id="ExcelDna.Integration" version="[1.5.1]" />
+            <dependency id="ExcelDna.Integration" version="[1.6.0-preview2]" />
+          </group>
+          <group targetFramework="net6.0-windows" >
+            <dependency id="ExcelDna.Integration" version="[1.6.0-preview2]" />
           </group>
         </dependencies>
     </metadata>
     <files>
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.dll" target="lib\net452\ExcelDna.IntelliSense.dll" />
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\ExcelDna.IntelliSense.pdb" target="lib\net452\ExcelDna.IntelliSense.pdb" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net452\ExcelDna.IntelliSense.dll" target="lib\net452\ExcelDna.IntelliSense.dll" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net452\ExcelDna.IntelliSense.pdb" target="lib\net452\ExcelDna.IntelliSense.pdb" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.dll" target="lib\net6.0-windows\ExcelDna.IntelliSense.dll" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.pdb" target="lib\net6.0-windows\ExcelDna.IntelliSense.pdb" />
     </files>
 </package>

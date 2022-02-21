@@ -1,115 +1,49 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{E0A7432F-3F7E-4E71-80BB-8263637F9686}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ExcelDna.IntelliSense</RootNamespace>
-    <AssemblyName>ExcelDna.IntelliSense</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\assets\exceldna.snk</AssemblyOriginatorKeyFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <DocumentationFile>
-    </DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="ExcelDna.Integration, Version=1.1.0.0, Culture=neutral, PublicKeyToken=f225e9659857edbe, processorArchitecture=MSIL">
-      <HintPath>..\packages\ExcelDna.Integration.1.5.1\lib\net452\ExcelDna.Integration.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Office.Interop.Excel, Version=14.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-      <HintPath>..\packages\ExcelDna.Interop.14.0.1\lib\Microsoft.Office.Interop.Excel.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Microsoft.Vbe.Interop, Version=14.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-      <HintPath>..\packages\ExcelDna.Interop.14.0.1\lib\Microsoft.Vbe.Interop.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Office, Version=14.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-      <HintPath>..\packages\ExcelDna.Interop.14.0.1\lib\Office.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="WindowsBase" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="FormattedText.cs" />
-    <Compile Include="Providers\ExcelDnaIntelliSenseProvider.cs" />
-    <Compile Include="Providers\WorkbookIntelliSenseProvider.cs" />
-    <Compile Include="Providers\XmlIntelliSenseProvider.cs" />
-    <Compile Include="UIMonitor\ExcelToolTipWatcher.cs" />
-    <Compile Include="UIMonitor\FormulaEditWatcher.cs" />
-    <Compile Include="UIMonitor\FormulaParser.cs" />
-    <Compile Include="IntelliSenseDisplay.cs" />
-    <Compile Include="IntelliSenseHelper.cs" />
-    <Compile Include="Providers\IIntelliSenseProvider.cs" />
-    <Compile Include="IntelliSenseServer.cs" />
-    <Compile Include="Logging.cs" />
-    <Compile Include="UIMonitor\PopupListWatcher.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SingleThreadSynchronizationContext.cs" />
-    <Compile Include="ToolTipForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UIMonitor\UIMonitor.cs" />
-    <Compile Include="UIMonitor\UIState.cs" />
-    <Compile Include="UIMonitor\WindowLocationWatcher.cs" />
-    <Compile Include="UIMonitor\WindowWatcher.cs" />
-    <Compile Include="Util\RenewableDelayExecutor.cs" />
-    <Compile Include="Win32Helper.cs" />
-    <Compile Include="Providers\LoaderNotification.cs" />
-    <Compile Include="UIMonitor\WinEvents.cs" />
-    <Compile Include="UIMonitor\XlCall.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="ToolTipForm.resx">
-      <DependentUpon>ToolTipForm.cs</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net452;net6.0-windows</TargetFrameworks>
+		<UseWindowsForms>true</UseWindowsForms>
+		<UseWPF>true</UseWPF>
+
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+		<SignAssembly>true</SignAssembly>
+		<AssemblyOriginatorKeyFile>..\assets\exceldna.snk</AssemblyOriginatorKeyFile>
+	</PropertyGroup>
+
+	<ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
+		<Reference Include="System.Windows.Forms" />
+		<Reference Include="WindowsBase" />
+		<Reference Include="Microsoft.CSharp" />
+	</ItemGroup>
+
+	<ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
+		<PackageReference Include="ExcelDna.Interop" Version="14.0.1" />
+	</ItemGroup>
+
+	<ItemGroup Condition=" '$(TargetFramework)' == 'net6.0-windows' ">
+		<COMReference Include="Microsoft.Office.Interop.Excel">
+			<WrapperTool>tlbimp</WrapperTool>
+			<VersionMinor>9</VersionMinor>
+			<VersionMajor>1</VersionMajor>
+			<Guid>00020813-0000-0000-c000-000000000046</Guid>
+			<Lcid>0</Lcid>
+			<Isolated>false</Isolated>
+			<EmbedInteropTypes>true</EmbedInteropTypes>
+		</COMReference>
+		<COMReference Include="Microsoft.Office.Core">
+			<WrapperTool>tlbimp</WrapperTool>
+			<VersionMinor>8</VersionMinor>
+			<VersionMajor>2</VersionMajor>
+			<Guid>2df8d04c-5bfa-101b-bde5-00aa0044de52</Guid>
+			<Lcid>0</Lcid>
+			<Isolated>false</Isolated>
+			<EmbedInteropTypes>true</EmbedInteropTypes>
+		</COMReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ExcelDna.Integration" Version="1.6.0-preview2" />
+	</ItemGroup>
+
 </Project>
