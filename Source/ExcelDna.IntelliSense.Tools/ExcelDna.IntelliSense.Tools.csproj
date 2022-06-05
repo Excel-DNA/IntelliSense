@@ -12,7 +12,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="ExcelDna.AddIn" Version="1.6.0-preview3" />
+		<PackageReference Include="ExcelDna.AddIn" />
 	</ItemGroup>
 
 </Project>
