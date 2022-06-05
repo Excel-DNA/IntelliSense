@@ -5,9 +5,6 @@
 
 		<Product>ExcelDna.IntelliSense.Tools</Product>
 		<Copyright>Copyright © Excel-DNA Contributors 2013-2022</Copyright>
-		
-		<Version>1.6.0.0</Version>
-		
 	</PropertyGroup>
 	
 	<ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
