@@ -34,6 +34,7 @@ namespace ExcelDna.IntelliSense
         int _showTop;
         int _topOffset; // Might be trying to move the tooltip out of the way of Excel's tip - we track this extra offset here
         int? _listLeft;
+        int? _listTop;
         // Various graphics object cached
         Color _textColor;
         Color _linkColor;
@@ -116,21 +117,26 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void ShowToolTip(FormattedText text, string linePrefix, int left, int top, int topOffset, int? listLeft = null)
+        public void ShowToolTip(FormattedText text, string linePrefix, int left, int top, int topOffset, int? listLeft = null, int? listTop = null)
         {
             Debug.Print($"@@@ ShowToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
             _text = text;
             _linePrefixWidth = MeasureFormulaStringWidth(linePrefix);
             left += _linePrefixWidth;
-            if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft)
+            if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft || listTop != _listTop)
             {
+                // TODO: Is there a way to track this and not fetch every time? or fast-track single screen?
+                var ownerScreen = Screen.FromHandle(_owner.Handle); 
+                var workingArea = ownerScreen.WorkingArea;
+
                 // Update the start position and the current position
-                _currentLeft = Math.Max(left, 0);   // Don't move off the screen
-                _currentTop = Math.Max(top, -topOffset);
+                _currentLeft = Math.Max(left, workingArea.Left);   // Don't move off the screen
+                _currentTop = Math.Max(top, workingArea.Top - topOffset);
                 _showLeft = _currentLeft;
                 _showTop = _currentTop;
                 _topOffset = topOffset;
                 _listLeft = listLeft;
+                _listTop = listTop;
             }
             if (!Visible)
             {
@@ -147,7 +153,7 @@ namespace ExcelDna.IntelliSense
             }
         }
 
-        public void MoveToolTip(int left, int top, int topOffset, int? listLeft = null)
+        public void MoveToolTip(int left, int top, int topOffset, int? listLeft = null, int? listTop = null)
         {
             Debug.Print($"@@@ MoveToolTip - Old TopOffset: {_topOffset}, New TopOffset: {topOffset}");
             left += _linePrefixWidth;
@@ -158,6 +164,7 @@ namespace ExcelDna.IntelliSense
             _showTop = top;
             _topOffset = topOffset;
             _listLeft = listLeft;
+            _listTop = listTop;
             Invalidate();
         }
 
@@ -460,17 +467,41 @@ namespace ExcelDna.IntelliSense
 
         void UpdateLocation(int width, int height)
         {
-            var workingArea = Screen.GetWorkingArea(new Point(_currentLeft, _currentTop + _topOffset));
+            var ownerScreen = Screen.FromHandle(_owner.Handle);
+
+            //var thisScreen = Screen.FromControl(this);
+            //var screenChange = ownerScreen != thisScreen;
+            
+            //Debug.Print($"TOOLTIP SCREEN: {thisScreen.DeviceName}");
+            //Debug.Print($"OWNER SCREEN: {ownerScreen.DeviceName}");
+
+            //// For each screen, add the screen properties to a list box.
+            //foreach (var screen in Screen.AllScreens)
+            //{
+            //    Debug.Print("SCREEN: Device Name: " + screen.DeviceName);
+            //    Debug.Print("SCREEN: Bounds: " +
+            //        screen.Bounds.ToString());
+            //    Debug.Print("SCREEN: Type: " +
+            //        screen.GetType().ToString());
+            //    Debug.Print("SCREEN: Working Area: " +
+            //        screen.WorkingArea.ToString());
+            //    Debug.Print("SCREEN: Primary Screen: " +
+            //        screen.Primary.ToString());
+            //}
+            //Debug.WriteLine("");
+
+            var workingArea = ownerScreen.WorkingArea; // Same screen as the listbox or edit window
             bool tipFits = workingArea.Contains(new Rectangle(_currentLeft, _currentTop + _topOffset, width, height));
             if (!tipFits && (_currentLeft == _showLeft && _currentTop == _showTop))
             {
                 // It doesn't fit and it's still where we initially tried to show it 
                 // (so it probably hasn't been moved).
+                // Or the screen we are on is not the right one
+                // so we recalc position (or at least clamp)
                 if (_listLeft == null)
                 {
                     // Not in list selection mode - probably FormulaEdit
-                    _currentLeft -= Math.Max(0, (_currentLeft + width) - workingArea.Right);
-                    // CONSIDER: Move up too???
+                    _currentLeft -= Math.Max(workingArea.Left, (_currentLeft + width) - workingArea.Right);
                 }
                 else
                 {
@@ -482,8 +513,12 @@ namespace ExcelDna.IntelliSense
                     }
                 }
 
-                if (_currentLeft < 0)
-                    _currentLeft = 0;
+                if (_currentLeft < workingArea.Left)
+                    _currentLeft = workingArea.Left;
+
+                if (_currentTop < workingArea.Top)
+                    _currentTop = workingArea.Top;
+
             }
             SetBounds(_currentLeft, _currentTop + _topOffset, width, height);
         }
