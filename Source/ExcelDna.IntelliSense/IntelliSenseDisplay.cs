@@ -470,14 +470,13 @@ namespace ExcelDna.IntelliSense
 
         // TODO: Performance / efficiency - cache these somehow
         // TODO: Probably not a good place for LINQ !?
-        static readonly string[] s_newLineStringArray = new string[] { Environment.NewLine };
         IEnumerable<TextLine> GetFunctionDescriptionOrNull(FunctionInfo functionInfo)
         {
             var description = functionInfo.Description;
             if (string.IsNullOrEmpty(description))
                 return null;
 
-            return description.Split(s_newLineStringArray, StringSplitOptions.None)
+            return description.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
                               .Select(line => 
                                 new TextLine { 
                                     new TextRun
@@ -589,7 +588,7 @@ namespace ExcelDna.IntelliSense
             if (string.IsNullOrEmpty(argumentInfo.Description))
                 yield break;
 
-            var lines = argumentInfo.Description.Split(s_newLineStringArray, StringSplitOptions.None);
+            var lines = argumentInfo.Description.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
             yield return new TextLine {
                     new TextRun
                     {
