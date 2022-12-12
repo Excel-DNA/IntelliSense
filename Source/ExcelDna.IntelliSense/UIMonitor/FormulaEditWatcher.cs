@@ -208,12 +208,7 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
-                    if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
-                    {
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
-                        _formulaEditFocus = FormulaEditFocus.None;
-                        _updateEditStateAfterTimeout.Signal();
-                    }
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
                     Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Show");
