@@ -81,6 +81,7 @@ namespace ExcelDna.IntelliSense
             EVENT_OBJECT_INVOKED = 0x8013, // hwnd ID idChild is item invoked
             EVENT_OBJECT_TEXTSELECTIONCHANGED = 0x8014, // hwnd ID idChild is item w? test selection change
             EVENT_OBJECT_CONTENTSCROLLED = 0x8015,
+            EVENT_SYSTEM_CAPTURESTART = 0x0008, // hwnd ID idChild is item w/ mouse capture
             EVENT_SYSTEM_ARRANGMENTPREVIEW = 0x8016,
             EVENT_SYSTEM_MOVESIZESTART = 0x000A, 
             EVENT_SYSTEM_MOVESIZEEND = 0x000B,  // The movement or resizing of a window has finished. This event is sent by the system, never by servers.
@@ -215,9 +216,10 @@ namespace ExcelDna.IntelliSense
                    winEvent == WinEvent.EVENT_OBJECT_SHOW ||
                    winEvent == WinEvent.EVENT_OBJECT_HIDE ||
                    winEvent == WinEvent.EVENT_OBJECT_FOCUS ||
-                   winEvent == WinEvent.EVENT_OBJECT_LOCATIONCHANGE ||   // Only for the on-demand hook
+                   winEvent == WinEvent.EVENT_SYSTEM_MOVESIZESTART ||   // Only for the on-demand hook
+                   winEvent == WinEvent.EVENT_SYSTEM_MOVESIZEEND ||   // Only for the on-demand hook
                    winEvent == WinEvent.EVENT_OBJECT_SELECTION ||           // Only for the PopupList
-                   winEvent == WinEvent.EVENT_OBJECT_TEXTSELECTIONCHANGED;
+                   winEvent == WinEvent.EVENT_SYSTEM_CAPTURESTART;
         }
 
         // Runs on our Automation thread (via SyncContext passed into the constructor)

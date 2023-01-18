@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 
@@ -68,9 +69,16 @@ namespace ExcelDna.IntelliSense
                     case WinEventHook.WinEvent.EVENT_OBJECT_FOCUS:
                         Type = ChangeType.Focus;
                         break;
-                    case WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE:
+                    case WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND:
                         Type = ChangeType.LocationChange;
                         break;
+                    case WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART:
+                        // For this event we specifically set the ObjectId to 'Caret' even though the event is really sent to 'OBJID_SELF'.
+                        // In our interpretation this event relates to the caret position changing.
+                        // Excel seems to fire this event even when clicking or using keyboard arrow keys inside a window that already has focus.
+                        Type = ChangeType.LocationChange;
+                        ObjectId = ChangeObjectId.Caret;
+                        return;
                     default:
                         // throw new ArgumentException("Unexpected WinEvent type", nameof(winEvent));
                         break;
@@ -95,7 +103,7 @@ namespace ExcelDna.IntelliSense
 
 
         }
-        
+
         const string _mainWindowClass = "XLMAIN";
         const string _sheetWindowClass = "EXCEL7";  // This is the sheet portion (not top level) - we get some notifications from here?
         const string _formulaBarClass = "EXCEL<";
@@ -105,15 +113,15 @@ namespace ExcelDna.IntelliSense
         const string _nuiDialogClass = "NUIDialog";
         const string _selectDataSourceTitle = "Select Data Source";     // TODO: How does localization work?
 
-        WinEventHook _windowStateChangeHook;
+        List<WinEventHook> _windowStateChangeHooks = new List<WinEventHook>();
 
         // These track keyboard focus for Windows in the Excel process
         // Used to synthesize the 'Unfocus' change events
         IntPtr _focusedWindowHandle;
         string _focusedWindowClassName;
 
-//        public IntPtr SelectDataSourceWindow { get; private set; }
-//        public bool IsSelectDataSourceWindowVisible { get; private set; }
+        //        public IntPtr SelectDataSourceWindow { get; private set; }
+        //        public bool IsSelectDataSourceWindowVisible { get; private set; }
 
         // NOTE: The WindowWatcher raises all events on our Automation thread (via syncContextAuto passed into the constructor).
         // Raised for every WinEvent related to window of the relevant class
@@ -122,7 +130,7 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<WindowChangedEventArgs> PopupListWindowChanged;
         public event EventHandler<WindowChangedEventArgs> ExcelToolTipWindowChanged;
         public event EventHandler FormulaEditLocationChanged;
-//        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
+        //        public event EventHandler<WindowChangedEventArgs> SelectDataSourceWindowChanged;
 
         public WindowWatcher(SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
@@ -131,12 +139,27 @@ namespace ExcelDna.IntelliSense
 #pragma warning restore CS0618 // Type or member is obsolete
 
             // Using WinEvents instead of Automation so that we can watch top-level window changes, but only from the right (current Excel) process.
-            // TODO: We need to dramatically reduce the number of events we grab here...
-            _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, syncContextAuto, syncContextMain, IntPtr.Zero);
-            // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_END, syncContextAuto, IntPtr.Zero);
-            // _windowStateChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_MIN, WinEventHook.WinEvent.EVENT_AIA_END, syncContextAuto, IntPtr.Zero);
+            // This hook listens for these events (32768 through to 32778):
+            //  EVENT_OBJECT_CREATE (0x8000 = 32768)
+            //  EVENT_OBJECT_DESTROY
+            //  EVENT_OBJECT_SHOW
+            //  EVENT_OBJECT_HIDE
+            //  EVENT_OBJECT_REORDER
+            //  EVENT_OBJECT_FOCUS
+            //  EVENT_OBJECT_SELECTION
+            //  EVENT_OBJECT_SELECTIONADD
+            //  EVENT_OBJECT_SELECTIONREMOVE
+            //  EVENT_OBJECT_SELECTIONWITHIN
+            //  EVENT_OBJECT_STATECHANGE (0x800A = 32778)
+            // NB: Including the next event 'EVENT_OBJECT_LOCATIONCHANGE (0x800B = 32779)' will cause the Excel main window to lag when dragging.
+            // This drag issue seems to have been introduced with an Office update around November 2022.
+            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_STATECHANGE, syncContextAuto, syncContextMain, IntPtr.Zero));
+            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, syncContextAuto, syncContextMain, IntPtr.Zero));
 
-            _windowStateChangeHook.WinEventReceived += _windowStateChangeHook_WinEventReceived;
+            foreach (var windowStateChangeHook in _windowStateChangeHooks)
+            {
+                windowStateChangeHook.WinEventReceived += _windowStateChangeHook_WinEventReceived;
+            }
         }
 
         // Runs on the Automation thread (before syncContextAuto starts pumping)
@@ -154,10 +177,10 @@ namespace ExcelDna.IntelliSense
         bool UpdateFocus(IntPtr windowHandle, string windowClassName)
         {
             if (windowHandle == _focusedWindowHandle && _focusedWindowClassName == windowClassName)
-                    return false;
+                return false;
 
             // We see a change in the WindowClassName often - handle that as a focus change too
- 
+
             Debug.Assert(_focusedWindowClassName != _excelToolTipClass); // We don't expect the ToolTip to ever get the focus
             Logger.WindowWatcher.Verbose($"Focus lost by {_focusedWindowHandle} ({_focusedWindowClassName})");
             // It has changed - raise an event for the old window
@@ -207,8 +230,17 @@ namespace ExcelDna.IntelliSense
                 }
             }
 
+            var className = e.WindowClassName;
+
+            if (e.EventType == WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART && !string.IsNullOrEmpty(_focusedWindowClassName))
+            {
+                // Excel seems to always send this event to the XLMAIN window. However, it relates to user actions that happens inside the currently focused window.
+                // Thus, we relay this event to our recollection of the currently focused window.
+                className = _focusedWindowClassName;
+            }
+
             // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
-            switch (e.WindowClassName)
+            switch (className)
             {
                 //case _sheetWindowClass:
                 //    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_SHOW)
@@ -228,7 +260,7 @@ namespace ExcelDna.IntelliSense
                     break;
                 case _excelToolTipClass:
                     ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
-                     break;
+                    break;
                 //case _nuiDialogClass:
                 //    // Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
                 //    if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_CREATE)
@@ -277,11 +309,13 @@ namespace ExcelDna.IntelliSense
         public void Dispose()
         {
             Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
-            if (_windowStateChangeHook != null)
+
+            foreach (var windowStateChangeHook in _windowStateChangeHooks)
             {
-                _windowStateChangeHook.Dispose();
-                _windowStateChangeHook = null;
+                windowStateChangeHook.Dispose();
             }
+
+            _windowStateChangeHooks = new List<WinEventHook>();
         }
     }
 

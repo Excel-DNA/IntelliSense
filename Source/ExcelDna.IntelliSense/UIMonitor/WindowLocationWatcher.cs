@@ -22,7 +22,7 @@ namespace ExcelDna.IntelliSense
             _hWnd = hWnd;
             _syncContextAuto = syncContextAuto;
             _syncContextMain = syncContextMain;
-            _windowLocationChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, syncContextMain, _hWnd);
+            _windowLocationChangeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZESTART, WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND, _syncContextAuto, syncContextMain, _hWnd);
             _windowLocationChangeHook.WinEventReceived += _windowLocationChangeHook_WinEventReceived;
         }
 
