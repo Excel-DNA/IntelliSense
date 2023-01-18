@@ -208,18 +208,25 @@ namespace ExcelDna.IntelliSense
                     }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Unfocus:
-                    if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
-                    {
-                        Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
-                        _formulaEditFocus = FormulaEditFocus.None;
-                        _updateEditStateAfterTimeout.Signal();
-                    }
+                    Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Unfocus");
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Show:
                     Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Show");
+                    if (_formulaEditFocus == FormulaEditFocus.None)
+                    {
+                        // Edit window lost focus earlier, but this event (Show) means it has the input focus.
+                        _formulaEditFocus = FormulaEditFocus.InCellEdit;
+                        _updateEditStateAfterTimeout.Signal();
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.Hide:
                     Logger.WindowWatcher.Verbose($"FormulaEdit - InCellEdit Hide");
+                    if (_formulaEditFocus == FormulaEditFocus.InCellEdit)
+                    {
+                        // Edit window lost focus earlier but was retaining input focus, make sure we "unfocus" completely.
+                        _formulaEditFocus = FormulaEditFocus.None;
+                        _updateEditStateAfterTimeout.Signal();
+                    }
                     break;
                 case WindowWatcher.WindowChangedEventArgs.ChangeType.LocationChange:
                     if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
