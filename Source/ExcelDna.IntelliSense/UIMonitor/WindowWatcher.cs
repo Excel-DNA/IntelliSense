@@ -231,12 +231,14 @@ namespace ExcelDna.IntelliSense
             }
 
             var className = e.WindowClassName;
+            var windowHandle = e.WindowHandle;
 
-            if (e.EventType == WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART && !string.IsNullOrEmpty(_focusedWindowClassName))
+            if (e.EventType == WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART && !string.IsNullOrEmpty(_focusedWindowClassName) && _focusedWindowHandle != IntPtr.Zero)
             {
                 // Excel seems to always send this event to the XLMAIN window. However, it relates to user actions that happens inside the currently focused window.
                 // Thus, we relay this event to our recollection of the currently focused window.
                 className = _focusedWindowClassName;
+                windowHandle = _focusedWindowHandle;
             }
 
             // Debug.Print("### Thread receiving WindowStateChange: " + Thread.CurrentThread.ManagedThreadId);
@@ -250,16 +252,16 @@ namespace ExcelDna.IntelliSense
                 //    }
                 //    break;
                 case _popupListClass:
-                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
+                    PopupListWindowChanged?.Invoke(this, new WindowChangedEventArgs(windowHandle, e.EventType, e.ObjectId));
                     break;
                 case _inCellEditClass:
-                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
+                    InCellEditWindowChanged?.Invoke(this, new WindowChangedEventArgs(windowHandle, e.EventType, e.ObjectId));
                     break;
                 case _formulaBarClass:
-                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
+                    FormulaBarWindowChanged?.Invoke(this, new WindowChangedEventArgs(windowHandle, e.EventType, e.ObjectId));
                     break;
                 case _excelToolTipClass:
-                    ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(e.WindowHandle, e.EventType, e.ObjectId));
+                    ExcelToolTipWindowChanged?.Invoke(this, new WindowChangedEventArgs(windowHandle, e.EventType, e.ObjectId));
                     break;
                 //case _nuiDialogClass:
                 //    // Debug.Print($"SelectDataSource {_selectDataSourceClass} Window update: {e.WindowHandle:X}, EventType: {e.EventType}, idChild: {e.ChildId}");
