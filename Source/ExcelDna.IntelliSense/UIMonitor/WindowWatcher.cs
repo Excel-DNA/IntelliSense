@@ -69,6 +69,7 @@ namespace ExcelDna.IntelliSense
                     case WinEventHook.WinEvent.EVENT_OBJECT_FOCUS:
                         Type = ChangeType.Focus;
                         break;
+                    case WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE:
                     case WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND:
                         Type = ChangeType.LocationChange;
                         break;
@@ -151,9 +152,7 @@ namespace ExcelDna.IntelliSense
             //  EVENT_OBJECT_SELECTIONREMOVE
             //  EVENT_OBJECT_SELECTIONWITHIN
             //  EVENT_OBJECT_STATECHANGE (0x800A = 32778)
-            // NB: Including the next event 'EVENT_OBJECT_LOCATIONCHANGE (0x800B = 32779)' will cause the Excel main window to lag when dragging.
-            // This drag issue seems to have been introduced with an Office update around November 2022.
-            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_STATECHANGE, syncContextAuto, syncContextMain, IntPtr.Zero));
+            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, syncContextAuto, syncContextMain, IntPtr.Zero));
             _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, syncContextAuto, syncContextMain, IntPtr.Zero));
 
             foreach (var windowStateChangeHook in _windowStateChangeHooks)

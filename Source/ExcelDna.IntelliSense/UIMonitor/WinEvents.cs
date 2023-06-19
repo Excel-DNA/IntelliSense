@@ -190,7 +190,9 @@ namespace ExcelDna.IntelliSense
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 
-                if (!IsSupportedWinEvent(eventType) || idObject == WinEventObjectId.OBJID_CURSOR || hWnd == IntPtr.Zero)
+                if (!IsSupportedWinEvent(eventType, idObject)
+                    || idObject == WinEventObjectId.OBJID_CURSOR
+                    || hWnd == IntPtr.Zero)
                     return;
 
                 // Moving the GetClassName call here where the main thread is running.
@@ -209,7 +211,7 @@ namespace ExcelDna.IntelliSense
         }
 
         // A quick filter that runs on the Excel main thread (or other thread handling the WinEvent)
-        bool IsSupportedWinEvent(WinEvent winEvent)
+        bool IsSupportedWinEvent(WinEvent winEvent, WinEventObjectId idObject)
         {
             return winEvent == WinEvent.EVENT_OBJECT_CREATE ||
                    // winEvent == WinEvent.EVENT_OBJECT_DESTROY ||  // Stopped watching for this, because we can't route using the ClassName and don't really need anymore
@@ -219,6 +221,10 @@ namespace ExcelDna.IntelliSense
                    winEvent == WinEvent.EVENT_SYSTEM_MOVESIZESTART ||   // Only for the on-demand hook
                    winEvent == WinEvent.EVENT_SYSTEM_MOVESIZEEND ||   // Only for the on-demand hook
                    winEvent == WinEvent.EVENT_OBJECT_SELECTION ||           // Only for the PopupList
+                   // NB: Including the next event 'EVENT_OBJECT_LOCATIONCHANGE (0x800B = 32779)' without the check for 'OBJID_CARET'
+                   // will cause the Excel main window to lag when dragging.
+                   // This drag issue seems to have been introduced with an Office update around November 2022.
+                   (winEvent == WinEvent.EVENT_OBJECT_LOCATIONCHANGE && idObject == WinEventObjectId.OBJID_CARET) ||
                    winEvent == WinEvent.EVENT_SYSTEM_CAPTURESTART;
         }
 
