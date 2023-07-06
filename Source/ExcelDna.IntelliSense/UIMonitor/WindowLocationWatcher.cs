@@ -15,9 +15,16 @@ namespace ExcelDna.IntelliSense
         public event EventHandler LocationChanged;
 
         // NOTE: An earlier attempt was to monitor LOCATIONCHANGE only between EVENT_SYSTEM_MOVESIZESTART and EVENT_SYSTEM_MOVESIZEEND
+        //       (for the purpose of moving the tooltip to the correct position when the user moves the Excel main window)
         //       This nearly worked, and meant we were watching many fewer events ...
         //       ...but we missed some of the resizing events for the window, leaving our tooltip stranded.
-        //       So until we can find a workaround for that (perhaps a timer would work fine for this), we watch all the LOCATIONCHANGE events.
+        //       We then started to watch all the LOCATIONCHANGE events, but it caused the Excel main window to lag when dragging.
+        //       (This drag issue seems to have been introduced with an Office update around November 2022)
+        //       So until we can find a workaround for that (perhaps a timer would work fine for this), we decided not to bother
+        //       with tracking the tooltip position (we still update it as soon as the Excel main window moving ends).
+        //       We still need to watch the LOCATIONCHANGE events, otherwise the tooltip is not shown at all in some cases.
+        //       To workaround the Excel main window lagging, we unhook from LOCATIONCHANGE upon encountering EVENT_SYSTEM_MOVESIZESTART
+        //       and then hook again upon encountering EVENT_SYSTEM_MOVESIZEEND (see UnhookFromLocationChangeUponDraggingExcelMainWindow).
         public WindowLocationWatcher(IntPtr hWnd, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
             _hWnd = hWnd;
@@ -31,10 +38,7 @@ namespace ExcelDna.IntelliSense
 
         void SetUpLocationChangeEventListener()
         {
-            // NB: Including the next event 'EVENT_OBJECT_LOCATIONCHANGE (0x800B = 32779)' will cause the Excel main window to lag when dragging.
-            // This drag issue seems to have been introduced with an Office update around November 2022.
-            // To workaround this, we unhook from this event upon encountering EVENT_SYSTEM_MOVESIZESTART and then hook again upon encountering
-            // EVENT_SYSTEM_MOVESIZEEND (see UnhookFromLocationChangeUponDraggingExcelMainWindow).
+            
             _locationChangeEventHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, _syncContextMain, IntPtr.Zero);
             _locationChangeEventHook.WinEventReceived += _windowMoveSizeHook_WinEventReceived;
         }
