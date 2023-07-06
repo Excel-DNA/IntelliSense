@@ -69,6 +69,10 @@ namespace ExcelDna.IntelliSense
                     case WinEventHook.WinEvent.EVENT_OBJECT_FOCUS:
                         Type = ChangeType.Focus;
                         break;
+                    case WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE:
+                        Type = ChangeType.LocationChange;
+                        ObjectId = ChangeObjectId.Caret;
+                        break;
                     case WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND:
                         Type = ChangeType.LocationChange;
                         break;

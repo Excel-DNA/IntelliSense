@@ -219,6 +219,7 @@ namespace ExcelDna.IntelliSense
                    winEvent == WinEvent.EVENT_SYSTEM_MOVESIZESTART ||   // Only for the on-demand hook
                    winEvent == WinEvent.EVENT_SYSTEM_MOVESIZEEND ||   // Only for the on-demand hook
                    winEvent == WinEvent.EVENT_OBJECT_SELECTION ||           // Only for the PopupList
+                   winEvent == WinEvent.EVENT_OBJECT_LOCATIONCHANGE ||
                    winEvent == WinEvent.EVENT_SYSTEM_CAPTURESTART;
         }
 
