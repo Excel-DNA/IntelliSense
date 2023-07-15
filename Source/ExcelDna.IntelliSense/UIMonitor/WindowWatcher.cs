@@ -69,6 +69,10 @@ namespace ExcelDna.IntelliSense
                     case WinEventHook.WinEvent.EVENT_OBJECT_FOCUS:
                         Type = ChangeType.Focus;
                         break;
+                    case WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE:
+                        Type = ChangeType.LocationChange;
+                        ObjectId = ChangeObjectId.Caret;
+                        break;
                     case WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND:
                         Type = ChangeType.LocationChange;
                         break;
@@ -113,6 +117,9 @@ namespace ExcelDna.IntelliSense
         const string _nuiDialogClass = "NUIDialog";
         const string _selectDataSourceTitle = "Select Data Source";     // TODO: How does localization work?
 
+        readonly SynchronizationContext _syncContextAuto;
+        readonly SynchronizationContext _syncContextMain;
+
         List<WinEventHook> _windowStateChangeHooks = new List<WinEventHook>();
 
         // These track keyboard focus for Windows in the Excel process
@@ -134,6 +141,9 @@ namespace ExcelDna.IntelliSense
 
         public WindowWatcher(SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
+            _syncContextAuto = syncContextAuto;
+            _syncContextMain = syncContextMain;
+
 #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
             // Debug.Print($"### WindowWatcher created on thread: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -151,8 +161,6 @@ namespace ExcelDna.IntelliSense
             //  EVENT_OBJECT_SELECTIONREMOVE
             //  EVENT_OBJECT_SELECTIONWITHIN
             //  EVENT_OBJECT_STATECHANGE (0x800A = 32778)
-            // NB: Including the next event 'EVENT_OBJECT_LOCATIONCHANGE (0x800B = 32779)' will cause the Excel main window to lag when dragging.
-            // This drag issue seems to have been introduced with an Office update around November 2022.
             _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_STATECHANGE, syncContextAuto, syncContextMain, IntPtr.Zero));
             _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, syncContextAuto, syncContextMain, IntPtr.Zero));
 
@@ -220,6 +228,7 @@ namespace ExcelDna.IntelliSense
             {
                 Debug.Fail("WinEvent with window 0!?");
             }
+
             if (e.EventType == WinEventHook.WinEvent.EVENT_OBJECT_FOCUS)
             {
                 // Might raise change event for Unfocus
