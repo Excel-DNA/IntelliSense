@@ -92,7 +92,8 @@ namespace ExcelDna.IntelliSense
                 var hwndListView = Win32Helper.GetFirstChildWindow(_hwndPopupList);
                 ListBounds = Win32Helper.GetWindowBounds(_hwndPopupList);
                 Win32Helper.GetListViewSelectedItemInfo(hwndListView, out text, out itemBounds);
-                itemBounds.Offset(ListBounds.Left, ListBounds.Top);
+                if (itemBounds != Rect.Empty)
+                    itemBounds.Offset(ListBounds.Left, ListBounds.Top);
                 SelectedItemBounds = itemBounds;
                 OnSelectedItemChanged();
             }
