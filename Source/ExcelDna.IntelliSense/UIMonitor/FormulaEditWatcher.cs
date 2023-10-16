@@ -329,7 +329,7 @@ namespace ExcelDna.IntelliSense
 
         void UpdateEditStateImpl(bool moveOnly = false)
         {
-            Logger.WindowWatcher.Verbose($"> FormulaEdit UpdateEditState - Thread {Thread.CurrentThread.ManagedThreadId}");
+            // Logger.WindowWatcher.Verbose($"> FormulaEdit UpdateEditState - Thread {Thread.CurrentThread.ManagedThreadId}");
             Logger.WindowWatcher.Verbose($"FormulaEdit UpdateEditState - Focus: {_formulaEditFocus} Window: {(_formulaEditFocus == FormulaEditFocus.FormulaBar ? _hwndFormulaBar : _hwndInCellEdit)}");
 
             IntPtr hwnd = IntPtr.Zero;
@@ -365,7 +365,7 @@ namespace ExcelDna.IntelliSense
                     IsEditingFormula = true;
                 }
 
-                var newPrefix = XlCall.GetFormulaEditPrefix();  // What thread do we have to use here ...?
+                var newPrefix = XlCallHelper.GetFormulaEditPrefix();    // This call must be on the main thread
                 if (CurrentPrefix != newPrefix)
                 {
                     CurrentPrefix = newPrefix;

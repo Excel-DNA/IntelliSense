@@ -30,7 +30,7 @@ namespace ExcelDna.IntelliSense
     // REMEMBER: COM events are not necessarily safe macro contexts.
     public static class IntelliSenseServer
     {
-        const string ServerVersion = "1.7.1";  // TODO: Define and manage this somewhere else
+        const string ServerVersion = "1.7.2";  // TODO: Define and manage this somewhere else
 
         // NOTE: Do not change these constants in custom versions. 
         //       They are part of the co-operative safety mechanism allowing different add-ins providing IntelliSense to work together safely.
@@ -157,7 +157,7 @@ namespace ExcelDna.IntelliSense
             if (_isActive)
             {
                 // Parachute in asap a call to prevent further XLPenHelper calls
-                XlCall.ShutdownStarted();
+                XlCallHelper.ShutdownStarted();
 
                 // Don't try to clean up clean up on process exit - all our resources are in-process anyway
                 // Leads to an error with the main thread SynchronizationContext, which might be shut down already.

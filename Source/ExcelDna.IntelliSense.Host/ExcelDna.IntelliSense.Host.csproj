@@ -13,6 +13,8 @@
 	  <ExcelDna32BitAddInSuffix>32</ExcelDna32BitAddInSuffix>
 	  <ExcelDna64BitAddInSuffix>64</ExcelDna64BitAddInSuffix>
 	  <ExcelDnaPackXllSuffix></ExcelDnaPackXllSuffix>
+    <ExcelDnaPack32BitXllName>ExcelDna.IntelliSense</ExcelDnaPack32BitXllName>
+    <ExcelDnaPack64BitXllName>ExcelDna.IntelliSense64</ExcelDnaPack64BitXllName>
   </PropertyGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
