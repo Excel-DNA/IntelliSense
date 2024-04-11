@@ -27,20 +27,50 @@ namespace ExcelDna.IntelliSense
         //       and then hook again upon encountering EVENT_SYSTEM_MOVESIZEEND (see UnhookFromLocationChangeUponDraggingExcelMainWindow).
         public WindowLocationWatcher(IntPtr hWnd, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain)
         {
+            Debug.Print("===========>>>>>>>>  WindowsLocationWatcher      <<<<<<<<<<<<===========");
+
             _hWnd = hWnd;
             _syncContextAuto = syncContextAuto;
             _syncContextMain = syncContextMain;
-            _windowMoveSizeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZESTART, WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND, _syncContextAuto, syncContextMain, _hWnd);
-            _windowMoveSizeHook.WinEventReceived += _windowMoveSizeHook_WinEventReceived;
+
+            _syncContextMain.Post(_ => SetUpHooks(), null);
+        }
+
+        void SetUpHooks()
+        {
+            _windowMoveSizeHook = new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZESTART, WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND, _syncContextAuto, _syncContextMain, _hWnd);
+            // _windowMoveSizeHook.WinEventReceived += _windowMoveSizeHook_WinEventReceived;
+            _windowMoveSizeHook.DirectCallEvents[WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZESTART] = _ => 
+            {
+                // Runs on the main thread
+                ClearLocationChangeEventListener();
+            };
+            _windowMoveSizeHook.DirectCallEvents[WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND] = _ =>
+            {
+                // Runs on the main thread
+                SetUpLocationChangeEventListener();
+                _syncContextAuto.Post(__ => NotifyLocationChanged(), null);
+            };
 
             SetUpLocationChangeEventListener();
         }
 
         void SetUpLocationChangeEventListener()
         {
-            
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            Debug.Assert(_locationChangeEventHook == null);
             _locationChangeEventHook = new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, WinEventHook.WinEvent.EVENT_OBJECT_LOCATIONCHANGE, _syncContextAuto, _syncContextMain, IntPtr.Zero);
             _locationChangeEventHook.WinEventReceived += _windowMoveSizeHook_WinEventReceived;
+        }
+
+        void ClearLocationChangeEventListener()
+        {
+            Debug.Assert(Thread.CurrentThread.ManagedThreadId == 1);
+            if (_locationChangeEventHook != null)
+            {
+                _locationChangeEventHook.Dispose();
+                _locationChangeEventHook = null;
+            }
         }
 
         // This allows us to temporarily stop listening to EVENT_OBJECT_LOCATIONCHANGE events when the user is dragging the Excel main window.
@@ -50,15 +80,18 @@ namespace ExcelDna.IntelliSense
         {
             if (e.EventType == WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZESTART)
             {
-                _syncContextMain.Post(_ => _locationChangeEventHook?.Dispose(), null);
+                Debug.WriteLine("===========>>>>>>>>  EVENT_SYSTEM_MOVESIZESTART   <<<<<<<<<<<<===========");
+                _syncContextMain.Post(_ => ClearLocationChangeEventListener(), null);
             }
 
             if (e.EventType == WinEventHook.WinEvent.EVENT_SYSTEM_MOVESIZEEND)
             {
+                Debug.WriteLine("===========>>>>>>>>  EVENT_SYSTEM_MOVESIZEEND   <<<<<<<<<<<<===========");
                 _syncContextMain.Post(_ => SetUpLocationChangeEventListener(), null);
             }
         }
 
+        // Runs on the automation thread
         void _windowMoveSizeHook_WinEventReceived(object sender, WinEventHook.WinEventArgs winEventArgs)
         {
 #if DEBUG
@@ -67,6 +100,11 @@ namespace ExcelDna.IntelliSense
 
             UnhookFromLocationChangeUponDraggingExcelMainWindow(winEventArgs);
 
+            NotifyLocationChanged();
+        }
+
+        void NotifyLocationChanged()
+        {
             LocationChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -85,6 +123,7 @@ namespace ExcelDna.IntelliSense
                 _locationChangeEventHook.Dispose();
                 _locationChangeEventHook = null;
             }
+            Debug.Print("===========>>>>>>>>  WindowsLocationWatcher  Disposed    <<<<<<<<<<<<===========");
         }
     }
 }

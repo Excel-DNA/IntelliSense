@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -63,7 +64,7 @@ namespace ExcelDna.IntelliSense
             EVENT_OBJECT_DESTROY = 0x8001, // hwnd ID idChild is destroyed item
             EVENT_OBJECT_SHOW = 0x8002, // hwnd ID idChild is shown item
             EVENT_OBJECT_HIDE = 0x8003, // hwnd ID idChild is hidden item
-            EVENT_OBJECT_REORDER = 0x8004, // hwnd ID idChild is parent of zordering children
+            EVENT_OBJECT_REORDER = 0x8004, // hwnd ID idChild is parent of zordering children // NOTE: Gets fired constantly when an Excel function is selected in the function list
             EVENT_OBJECT_FOCUS = 0x8005, // hwnd ID idChild is focused item
             EVENT_OBJECT_SELECTION = 0x8006, // hwnd ID idChild is selected item (if only one), or idChild is OBJID_WINDOW if complex
             EVENT_OBJECT_SELECTIONADD = 0x8007, // hwnd ID idChild is item added
@@ -120,6 +121,8 @@ namespace ExcelDna.IntelliSense
         readonly WinEventDelegate _handleWinEventDelegate;  // Ensures delegate that we pass to SetWinEventHook is not GC'd
         readonly WinEvent _eventMin;
         readonly WinEvent _eventMax;
+
+        public Dictionary<WinEvent, Action<WinEvent>> DirectCallEvents = new Dictionary<WinEvent, Action<WinEvent>>();
 
         // Can be called on any thread, but installed by calling into the main thread, and will only start receiving events then
         public WinEventHook(WinEvent eventMin, WinEvent eventMax, SynchronizationContext syncContextAuto, SynchronizationContext syncContextMain, IntPtr hWndFilterOrZero)
@@ -184,9 +187,16 @@ namespace ExcelDna.IntelliSense
         void HandleWinEvent(IntPtr hWinEventHook, WinEvent eventType, IntPtr hWnd,
                             WinEventObjectId idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            // Debug.Print($"++++++++++++++ WinEvent Received: {eventType} on thread {Thread.CurrentThread.ManagedThreadId} from thread {dwEventThread} +++++++++++++++++++++++++++");
+            Debug.Print($"++++++++++++++ WinEvent Received: {eventType} on thread {Thread.CurrentThread.ManagedThreadId} from thread {dwEventThread} +++++++++++++++++++++++++++");
             try
             {
+                // Some events we want to handle immediately on the main thread, particularly for the move strat / end that we use for the on-demand hook
+                if (DirectCallEvents.TryGetValue(eventType, out var action))
+                {
+                    action(eventType);
+                    return;
+                }
+
                 if (_hWndFilterOrZero != IntPtr.Zero && hWnd != _hWndFilterOrZero)
                     return;
 

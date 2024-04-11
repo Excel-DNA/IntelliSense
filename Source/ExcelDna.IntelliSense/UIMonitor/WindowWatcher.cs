@@ -154,14 +154,15 @@ namespace ExcelDna.IntelliSense
             //  EVENT_OBJECT_DESTROY
             //  EVENT_OBJECT_SHOW
             //  EVENT_OBJECT_HIDE
-            //  EVENT_OBJECT_REORDER
+            //  >>>>>>>>>>>>>>>>>>>>>>>  EVENT_OBJECT_REORDER  <<<<<<<<<<<<<<<<< NOT THIS ONE
             //  EVENT_OBJECT_FOCUS
             //  EVENT_OBJECT_SELECTION
-            //  EVENT_OBJECT_SELECTIONADD
-            //  EVENT_OBJECT_SELECTIONREMOVE
-            //  EVENT_OBJECT_SELECTIONWITHIN
-            //  EVENT_OBJECT_STATECHANGE (0x800A = 32778)
-            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_STATECHANGE, syncContextAuto, syncContextMain, IntPtr.Zero));
+            //  >>>>>>>>>>>>>>>>>>>>>>>  EVENT_OBJECT_SELECTIONADD       <<<<<<<<<<<<<<<<< NOT THIS ONE
+            //  >>>>>>>>>>>>>>>>>>>>>>>  EVENT_OBJECT_SELECTIONREMOVE    <<<<<<<<<<<<<<<<< NOT THIS ONE
+            //  >>>>>>>>>>>>>>>>>>>>>>>  EVENT_OBJECT_SELECTIONWITHIN    <<<<<<<<<<<<<<<<< NOT THIS ONE
+            //  >>>>>>>>>>>>>>>>>>>>>>>  EVENT_OBJECT_STATECHANGE (0x800A = 32778)    <<<<<<<<<<<<<<<<< NOT THIS ONE
+            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_CREATE, WinEventHook.WinEvent.EVENT_OBJECT_HIDE, syncContextAuto, syncContextMain, IntPtr.Zero));
+            _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_OBJECT_FOCUS, WinEventHook.WinEvent.EVENT_OBJECT_SELECTION, syncContextAuto, syncContextMain, IntPtr.Zero));
             _windowStateChangeHooks.Add(new WinEventHook(WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, WinEventHook.WinEvent.EVENT_SYSTEM_CAPTURESTART, syncContextAuto, syncContextMain, IntPtr.Zero));
 
             foreach (var windowStateChangeHook in _windowStateChangeHooks)
