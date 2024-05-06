@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security;
+using ExcelDna.Logging;
 
 namespace ExcelDna.IntelliSense
 {
@@ -77,10 +78,22 @@ namespace ExcelDna.IntelliSense
         {
             if (!s_LoggingInitialized)
             {
+                LoggingSettings settings = new LoggingSettings();
+
                 bool loggingEnabled = false;
                 // DOCUMENT: By default the TraceSource is configured to source only Warning, Error and Fatal.
                 //           the configuration can override this.
-                IntelliSenseTraceSource = new TraceSource(TraceSourceName, SourceLevels.Warning);
+                IntelliSenseTraceSource = new TraceSource(TraceSourceName, settings.SourceLevel);
+
+                Debug.Print("{0} TraceSource created. Listeners:", TraceSourceName);
+                foreach (TraceListener tl in IntelliSenseTraceSource.Listeners)
+                {
+                    Debug.Print("    {0} - {1}", tl.Name, tl.TraceOutputOptions);
+                    if (tl.Name == "Default" && settings.DebuggerLevel.HasValue)
+                    {
+                        tl.Filter = new DiagnosticsFilter(settings.DebuggerLevel.Value);
+                    }
+                }
 
                 try
                 {
@@ -100,8 +113,19 @@ namespace ExcelDna.IntelliSense
                     Close();
                     loggingEnabled = false;
                 }
+
                 if (loggingEnabled)
                 {
+                    if (!string.IsNullOrWhiteSpace(settings.FileName))
+                    {
+                        Trace.AutoFlush = true;
+
+                        TextWriterTraceListener textWriterTraceListener = new TextWriterTraceListener(settings.FileName, "FileWriter");
+                        if (settings.FileLevel.HasValue)
+                            textWriterTraceListener.Filter = new DiagnosticsFilter(settings.FileLevel.Value);
+                        IntelliSenseTraceSource.Listeners.Add(textWriterTraceListener);
+                    }
+
                     AppDomain currentDomain = AppDomain.CurrentDomain;
                     //currentDomain.UnhandledException += UnhandledExceptionHandler;
                     currentDomain.DomainUnload += AppDomainUnloadEvent;
@@ -147,8 +171,14 @@ namespace ExcelDna.IntelliSense
 
         static void Close()
         {
+            AppDomain currentDomain = AppDomain.CurrentDomain;
+            currentDomain.DomainUnload -= AppDomainUnloadEvent;
+            currentDomain.ProcessExit -= ProcessExitEvent;
+
             if (IntelliSenseTraceSource != null)
                 IntelliSenseTraceSource.Close();
+
+            s_LoggingInitialized = false;
         }
 
     }
@@ -249,4 +279,5 @@ namespace ExcelDna.IntelliSense
         static internal Logger Display { get; } = new Logger(IntelliSenseTraceEventId.Display);
         static internal Logger Monitor { get; } = new Logger(IntelliSenseTraceEventId.Monitor);
     }
+
 }
