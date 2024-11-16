@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net452;net6.0-windows</TargetFrameworks>
+    <TargetFrameworks>net462;net6.0-windows</TargetFrameworks>
 
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\assets\exceldna.snk</AssemblyOriginatorKeyFile>
 	
 	<AssemblyTitle>Excel-DNA IntelliSense Host</AssemblyTitle>
     <Product>ExcelDna.IntelliSense.Tools</Product>
-    <Copyright>Copyright © Excel-DNA Contributors 2013-2022</Copyright>
+    <Copyright>Copyright © Excel-DNA Contributors 2013-2024</Copyright>
 	  
 	  <ExcelDna32BitAddInSuffix>32</ExcelDna32BitAddInSuffix>
 	  <ExcelDna64BitAddInSuffix>64</ExcelDna64BitAddInSuffix>
@@ -17,7 +17,7 @@
     <ExcelDnaPack64BitXllName>ExcelDna.IntelliSense64</ExcelDnaPack64BitXllName>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net462' ">
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 

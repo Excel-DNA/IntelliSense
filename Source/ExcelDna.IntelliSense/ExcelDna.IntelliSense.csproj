@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net452;net6.0-windows</TargetFrameworks>
+		<TargetFrameworks>net462;net6.0-windows</TargetFrameworks>
 		<UseWindowsForms>true</UseWindowsForms>
 		<UseWPF>true</UseWPF>
 
@@ -11,10 +11,10 @@
 		<AssemblyTitle>Excel-DNA IntelliSense</AssemblyTitle>
 		<Description>IntelliSense service for Microsoft Excel</Description>
 		<Product>ExcelDna.IntelliSense.Tools</Product>
-		<Copyright>Copyright © Excel-DNA Contributors 2013-2022</Copyright>
+		<Copyright>Copyright © Excel-DNA Contributors 2013-2024</Copyright>
 	</PropertyGroup>
 
-	<ItemGroup Condition=" '$(TargetFramework)' == 'net452' ">
+	<ItemGroup Condition=" '$(TargetFramework)' == 'net462' ">
 		<Reference Include="System.Windows.Forms" />
 		<Reference Include="WindowsBase" />
 		<Reference Include="Microsoft.CSharp" />

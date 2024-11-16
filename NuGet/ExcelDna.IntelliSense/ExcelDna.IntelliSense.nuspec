@@ -15,7 +15,7 @@
         <summary>Excel-DNA IntelliSense is an extension library that can be added to an Excel-DNA add-in to provide an integrated IntelliSense server, providing IntelliSense services for all loaded Excel-DNA add-ins and appropriately configured VBA functions.</summary>
         <tags>excel exceldna udf excel-dna intellisense</tags>
         <dependencies>
-          <group targetFramework=".NETFramework4.5.2" >
+          <group targetFramework=".NETFramework4.6.2" >
             <dependency id="ExcelDna.Integration" version="[$ExcelDnaVersion$]" />
           </group>
           <group targetFramework="net6.0-windows7.0" >
@@ -24,8 +24,8 @@
         </dependencies>
     </metadata>
     <files>
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net452\ExcelDna.IntelliSense.dll" target="lib\net452\" />
-      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net452\ExcelDna.IntelliSense.pdb" target="lib\net452\" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net462\ExcelDna.IntelliSense.dll" target="lib\net462\" />
+      <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net462\ExcelDna.IntelliSense.pdb" target="lib\net462\" />
       <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.dll" target="lib\net6.0-windows7.0\" />
       <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.pdb" target="lib\net6.0-windows7.0\" />
 	  <file src="..\..\..\ExcelDna\Package\images\ExcelDna-nu.png" target="images\" />
