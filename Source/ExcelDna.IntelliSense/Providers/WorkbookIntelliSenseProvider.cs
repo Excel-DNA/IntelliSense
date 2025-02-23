@@ -353,21 +353,7 @@ namespace ExcelDna.IntelliSense
             var path = wb.FullName;
             var xmlPath = GetXmlPath(path);
             _xmlProvider.RegisterXmlFunctionInfo(xmlPath);  // Will check if file exists
-
-            Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - Checking CustomXMLParts");
-
-            var customXmlParts = wb.CustomXMLParts.SelectByNamespace(XmlIntelliSense.Namespace);
-            if (customXmlParts.Count > 0)
-            {
-                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - CustomXMLPart found");
-                // We just take the first one - register against the Bworkbook name
-                _xmlProvider.RegisterXmlFunctionInfo(path, customXmlParts[1].XML);
-            }
-            else
-            {
-                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - No CustomXMLPart found");
-            }
-
+            _xmlProvider.RegisterXmlFunctionInfo(path, () => GetIntelliSenseFromCustomXMLParts(wb));
         }
 
         void UnregisterWithXmlProvider(Workbook wb)
@@ -402,6 +388,27 @@ namespace ExcelDna.IntelliSense
             {
                 Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.Dispose Error {ex}");
             }
+        }
+
+        string GetIntelliSenseFromCustomXMLParts(Workbook wb)
+        {
+            string result = null;
+
+            Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - Checking CustomXMLParts");
+
+            var customXmlParts = wb.CustomXMLParts.SelectByNamespace(XmlIntelliSense.Namespace);
+            if (customXmlParts.Count > 0)
+            {
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - CustomXMLPart found");
+                // We just take the first one - register against the workbook name
+                result = customXmlParts[1].XML;
+            }
+            else
+            {
+                Logger.Provider.Verbose($"WorkbookIntelliSenseProvider.RegisterWithXmlProvider - No CustomXMLPart found");
+            }
+
+            return result;
         }
 
         string GetXmlPath(string wbPath) => Path.ChangeExtension(wbPath, ".intellisense.xml");

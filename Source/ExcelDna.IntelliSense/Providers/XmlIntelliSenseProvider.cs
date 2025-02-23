@@ -17,28 +17,25 @@ namespace ExcelDna.IntelliSense
     {
         public class XmlRegistrationInfo
         {
-            string _fileName;              // Might be .xml file or Workbook path. Use only if _xmlIntelliSense is null.
-            string _xmlIntelliSense;       // Might be null
+            string _fileName;              // Might be .xml file or Workbook path. Use only if _xmlIntelliSenseSource is null.
+            Func<string> _xmlIntelliSenseSource; // Might be null
             XmlIntelliSense _intelliSense; // Might be null - lazy parsed
             string _path;                  // Directory of file, used to expand HelpTopic
 
-            public XmlRegistrationInfo(string fileName, string xmlIntelliSense)
+            public XmlRegistrationInfo(string fileName, Func<string> xmlIntelliSenseSource)
             {
                 _fileName = fileName;
-                _xmlIntelliSense = xmlIntelliSense;
+                _xmlIntelliSenseSource = xmlIntelliSenseSource;
                 _path = Path.GetDirectoryName(fileName);
             }
 
             // Called in a macro context
             public void Refresh()
             {
-                if (_intelliSense != null)
-                    return; // Already done
-                
                 try
                 {
                     // Parse first
-                    var xml = _xmlIntelliSense;
+                    var xml = _xmlIntelliSenseSource?.Invoke();
                     if (xml == null)
                     {
                         xml = File.ReadAllText(_fileName);
@@ -87,15 +84,15 @@ namespace ExcelDna.IntelliSense
         // May be called on the main Excel thread or on another thread (e.g. our automation thread)
         // Pass in the xmlFunctionInfo if available (from inside document), else file will be read
         // We make the parsing lazy...
-        public void RegisterXmlFunctionInfo(string fileName, string xmlIntelliSense = null)
+        public void RegisterXmlFunctionInfo(string fileName, Func<string> xmlIntelliSenseSource = null)
         {
-            if (!File.Exists(fileName) && xmlIntelliSense == null)
+            if (!File.Exists(fileName) && xmlIntelliSenseSource == null)
             {
                 Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Not IntelliSense file at {fileName}");
                 return;
             }
-            
-            var regInfo = new XmlRegistrationInfo(fileName, xmlIntelliSense);
+
+            var regInfo = new XmlRegistrationInfo(fileName, xmlIntelliSenseSource);
             Logger.Provider.Verbose($"XmlIntelliSenseProvider.RegisterXmlFunctionInfo - Created XmlRegistrationInfo info for {fileName}");
             lock (_xmlRegistrationInfos)
             {
@@ -157,7 +154,7 @@ namespace ExcelDna.IntelliSense
             Logger.Provider.Verbose("XmlIntelliSenseProvider.GetFunctionInfos - End");
             return functionInfos;
         }
-        
+
         void OnInvalidate(object _unused_)
         {
             Logger.Provider.Verbose($"XmlIntelliSenseProvider.OnInvalidate - Invoking Invalidate event");
