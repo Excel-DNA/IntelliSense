@@ -113,3 +113,4 @@ UpgradeLog*.XML
 
 /Source/ExcelDna.IntelliSense.Host/Properties/launchSettings.json
 /NuGet/nupkg
+/Source/.signtool-instructions.txt
