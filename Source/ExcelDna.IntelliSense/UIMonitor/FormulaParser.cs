@@ -34,6 +34,9 @@ namespace ExcelDna.IntelliSense
             // the regex below still applies.
             formulaPrefix = Regex.Replace(formulaPrefix, "(\"[^\"]*\")", string.Empty);
 
+            // Remove commas inside Excel table reference patterns like "Table1[[#All],[Field]]"
+            formulaPrefix = Regex.Replace(formulaPrefix, @"(\w+\[\[.*?\]\])", m => m.Value.Replace(",", string.Empty));
+            
             // Remove sub-formulae
             formulaPrefix = Regex.Replace(formulaPrefix, "(\\([^\\(\\)]*\\))| ", string.Empty);
 
