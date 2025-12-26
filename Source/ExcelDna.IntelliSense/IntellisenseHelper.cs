@@ -9,7 +9,7 @@ namespace ExcelDna.IntelliSense
     // This is really the running IntelliSenseServer
     // It brings together:
     // * the UIMonitor which monitors the state of Excel, including the current function prefix,
-    // * the IntelliSenseDisplay which presents the pop-ups, and 
+    // * the IntelliSenseDisplay which presents the pop-ups, and
     // * the IntelliSenseProviders which figure out what information is available.
     class IntelliSenseHelper : IDisposable
     {
@@ -18,6 +18,7 @@ namespace ExcelDna.IntelliSense
 
         // These need to get combined into a UIEnhancement class ....
         readonly IntelliSenseDisplay _display;
+        readonly KeyboardEventHook _keyboardEventHook;
         readonly List<IIntelliSenseProvider> _providers = new List<IIntelliSenseProvider>();
         // TODO: Others
 
@@ -25,8 +26,9 @@ namespace ExcelDna.IntelliSense
         {
             Logger.Initialization.Verbose("IntelliSenseHelper Constructor Begin");
             _syncContextMain = new WindowsFormsSynchronizationContext();
+            _keyboardEventHook = new KeyboardEventHook(_syncContextMain);
             _uiMonitor = new UIMonitor(_syncContextMain);
-            _display = new IntelliSenseDisplay(_syncContextMain, _uiMonitor);
+            _display = new IntelliSenseDisplay(_syncContextMain, _uiMonitor, _keyboardEventHook);
 
             _providers = new List<IIntelliSenseProvider>
             {

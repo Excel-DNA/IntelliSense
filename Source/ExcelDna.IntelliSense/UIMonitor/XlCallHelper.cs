@@ -12,13 +12,13 @@ namespace ExcelDna.IntelliSense
         // Maybe helps with debugging...
         static bool _shutdownStarted = false;
         public static void ShutdownStarted()
-        { 
+        {
             _shutdownStarted = true;
         }
 
         // This call must be made on the main thread
         // Returns null if not in edit mode
-        public static string GetFormulaEditPrefix()
+        public static FormulaEditWatcher.FormulaData? GetFormulaEditPrefix()
         {
             if (_shutdownStarted)
                 return null;
@@ -47,8 +47,14 @@ namespace ExcelDna.IntelliSense
                 Logger.WindowWatcher.Verbose("LPenHelper Status: PointMode: {0}, Formula: {1}, First: {2}, Last: {3}, Caret: {4}",
                     fmlaInfo.wPointMode, Marshal.PtrToStringUni(fmlaInfo.lpch, fmlaInfo.cch), fmlaInfo.ichFirst, fmlaInfo.ichLast, fmlaInfo.ichCaret);
 
-                var prefixLen = Math.Min(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch);  // I've never seen ichLast > cch !?
-                return Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);
+                var prefixLen = Math.Max(Math.Max(fmlaInfo.ichCaret, fmlaInfo.ichLast), fmlaInfo.cch); // I've never seen ichLast > cch !?
+                var formula = Marshal.PtrToStringUni(fmlaInfo.lpch, prefixLen);
+                return new FormulaEditWatcher.FormulaData()
+                {
+                    Text = formula,
+                    CaretStartPosition = fmlaInfo.ichCaret,
+                    CaretEndPosition = fmlaInfo.ichLast,
+                };
             }
             catch (Exception ex)
             {

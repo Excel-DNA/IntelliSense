@@ -78,7 +78,7 @@ namespace ExcelDna.IntelliSense
 
             if (CurrentState is UIState.FunctionList && _popupListWatcher.IsVisible)
             {
-                var newState = ((UIState.FunctionList)CurrentState).WithSelectedItem(_popupListWatcher.SelectedItemText, 
+                var newState = ((UIState.FunctionList)CurrentState).WithSelectedItem(_popupListWatcher.SelectedItemText,
                                                                                      _popupListWatcher.SelectedItemBounds,
                                                                                      _popupListWatcher.ListBounds);
                 OnStateChanged(newState);
@@ -172,7 +172,7 @@ namespace ExcelDna.IntelliSense
                     SelectedItemBounds = _popupListWatcher.SelectedItemBounds,
                     FunctionListBounds = _popupListWatcher.ListBounds,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "",
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? FormulaEditWatcher.EmptyFormula,
                     ExcelToolTipWindow = _lastExcelToolTipShown // We also keep track here, since we'll by inferring the UIState change list using this too
                 };
             }
@@ -182,7 +182,7 @@ namespace ExcelDna.IntelliSense
                 {
                     FormulaEditWindow = _formulaEditWatcher.FormulaEditWindow,
                     EditWindowBounds = _formulaEditWatcher.EditWindowBounds,
-                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? "",
+                    FormulaPrefix = _formulaEditWatcher.CurrentPrefix ?? FormulaEditWatcher.EmptyFormula,
                     ExcelToolTipWindow = _lastExcelToolTipShown
                 };
             }
@@ -248,7 +248,7 @@ namespace ExcelDna.IntelliSense
         //        updates.Add(firstUpdate);
         //    do
         //    {
-        //        var update = updateEnumerator.Current; 
+        //        var update = updateEnumerator.Current;
         //        if (StateUpdateFilter(update))
         //        updates.Add(update);
         //    } while (updateEnumerator.MoveNext());
@@ -312,4 +312,3 @@ namespace ExcelDna.IntelliSense
         }
     }
 }
-

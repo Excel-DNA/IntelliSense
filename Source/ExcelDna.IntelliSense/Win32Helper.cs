@@ -107,11 +107,11 @@ namespace ExcelDna.IntelliSense
 
         enum GetAncestorFlags
         {
-            // Retrieves the parent window. This does not include the owner, as it does with the GetParent function. 
+            // Retrieves the parent window. This does not include the owner, as it does with the GetParent function.
             GetParent = 1,
             // Retrieves the root window by walking the chain of parent windows.
             GetRoot = 2,
-            // Retrieves the owned root window by walking the chain of parent and owner windows returned by GetParent. 
+            // Retrieves the owned root window by walking the chain of parent and owner windows returned by GetParent.
             GetRootOwner = 3
         }
 
@@ -126,6 +126,39 @@ namespace ExcelDna.IntelliSense
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
 
+        [DllImport("user32.dll")]
+        static extern bool ClientToScreen(IntPtr hWnd, ref Point lpPoint);
+
+        public static bool TryGetCaretScreenPosition(IntPtr hWnd, out Point screenPoint)
+        {
+            screenPoint = Point.Empty;
+
+            // Determine thread owning the given Excel window
+            uint tid = GetWindowThreadProcessId(hWnd, out var _);
+
+            GUITHREADINFO info = new GUITHREADINFO();
+            info.cbSize = Marshal.SizeOf(typeof(GUITHREADINFO));
+
+            if (!GetGUIThreadInfo(tid, ref info))
+                return false;
+
+            // hwndCaret will be non-null only when caret exists
+            if (info.hwndCaret == IntPtr.Zero)
+                return false;
+
+            // Caret rect relative to the caret window
+            var rc = info.rcCaret;
+
+            // Top-left of caret rectangle
+            Point pt = new Point(rc.Left, rc.Bottom);
+
+            // Convert to screen coordinates
+            if (!ClientToScreen(info.hwndCaret, ref pt))
+                return false;
+
+            screenPoint = pt;
+            return true;
+        }
 
         // Returns the WindowHandle of the focused window, if that window is in our process.
         public static IntPtr GetFocusedWindowHandle()
@@ -167,7 +200,7 @@ namespace ExcelDna.IntelliSense
 
         // We use System.Windows.Rect to be consistent with the UIAutomation we used initially.
         // Returns Rect.Empty if the Win32 call fails (Window is not visible?)
-        // Returns the window bounds in 
+        // Returns the window bounds in
         public static System.Windows.Rect GetWindowBounds(IntPtr hWnd)
         {
             RECT rect; // This struct layout is like Win32 RECT (not like System.Drawing.Rectangle)

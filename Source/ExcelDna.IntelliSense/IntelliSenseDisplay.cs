@@ -20,9 +20,27 @@ namespace ExcelDna.IntelliSense
 
         SynchronizationContext _syncContextMain;
         readonly UIMonitor _uiMonitor;
+        readonly KeyboardEventHook _keyboardEventHook;
 
         readonly Dictionary<string, FunctionInfo> _functionInfoMap =
             new Dictionary<string, FunctionInfo>(StringComparer.CurrentCultureIgnoreCase);
+
+        List<Type> typesInAllAssemblies = AppDomain
+            .CurrentDomain.GetAssemblies()
+            .SelectMany(a =>
+            {
+                try
+                {
+                    return a.GetTypes();
+                }
+                catch
+                {
+                    return Array.Empty<Type>();
+                }
+            })
+            .ToList();
+
+        ParamDropDownForm _paramDropDown;
 
         // Need to make these late ...?
         ToolTipForm _descriptionToolTip;
@@ -30,24 +48,28 @@ namespace ExcelDna.IntelliSense
         IntPtr _formulaEditWindow;
         IntPtr _functionListWindow;
         string _argumentSeparator = ", ";
-        
+
         const int DescriptionLeftMargin = 3;
 
-        public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor)
+        public IntelliSenseDisplay(SynchronizationContext syncContextMain, UIMonitor uiMonitor, KeyboardEventHook keyboardEventHook)
         {
             // We expect this to be running in a macro context on the main Excel thread (ManagedThreadId = 1).
-            #pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
+#pragma warning disable CS0618 // Type or member is obsolete (GetCurrentThreadId) - But for debugging we want to monitor this anyway
             Debug.Print($"### Thread creating IntelliSenseDisplay: Managed {Thread.CurrentThread.ManagedThreadId}, Native {AppDomain.GetCurrentThreadId()}");
-            #pragma warning restore CS0618 // Type or member is obsolete
+#pragma warning restore CS0618 // Type or member is obsolete
 
             _syncContextMain = syncContextMain;
             _uiMonitor = uiMonitor;
             _uiMonitor.StateUpdatePreview += StateUpdatePreview;
             _uiMonitor.StateUpdate += StateUpdate;
 
+            _keyboardEventHook = keyboardEventHook;
+            _keyboardEventHook.KeyboardEventReceived += KeyboardEventReceived;
+            _keyboardEventHook.ShouldSwallow += ShouldSwallowKeyboardEvents;
+
             InitializeOptions();
         }
-        
+
         // Runs on the main Excel thread in a macro context.
         void InitializeOptions()
         {
@@ -81,6 +103,17 @@ namespace ExcelDna.IntelliSense
                 Logger.Initialization.Verbose($"InitializeOptions - Set StandardFontSize to {standardFontSize}");
             }
             ToolTipForm.SetStandardFont(standardFontName, standardFontSize);
+            ParamDropDownForm.SetStandardFont(standardFontName, standardFontSize);
+        }
+
+        internal void KeyboardEventReceived(object sender, KeyboardEventHook.KeyboardEventArgs args)
+        {
+            _paramDropDown?.OnKeyboardEvent(sender, args);
+        }
+
+        internal bool ShouldSwallowKeyboardEvents()
+        {
+            return _paramDropDown?.Visible ?? false;
         }
 
         // TODO: Still not sure how to delete / unregister...
@@ -129,22 +162,21 @@ namespace ExcelDna.IntelliSense
         {
             if (_descriptionToolTip?.Visible == true)
                 return true;
-            
+
             return _functionInfoMap.ContainsKey(selectedItemText);
         }
 
         // Runs on the UIMonitor's automation thread - return true if we might want to process
-        bool ShouldProcessFormulaEditTextChange(string formulaPrefix)
+        bool ShouldProcessFormulaEditTextChange(FormulaEditWatcher.FormulaData formulaPrefix)
         {
             // CAREFUL: Because of threading, this might run before FormulaEditStart!
 
-            if (_argumentsToolTip?.Visible == true)
+            if (_argumentsToolTip?.Visible == true || _paramDropDown?.Visible == true)
                 return true;
 
             // TODO: Why do this twice....?
             string functionName;
-            int currentArgIndex;
-            if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex))
+            if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out _, out _))
             {
                 if (_functionInfoMap.ContainsKey(functionName))
                     return true;
@@ -205,7 +237,7 @@ namespace ExcelDna.IntelliSense
                 case UIStateUpdate.UpdateType.FormulaEditEnd:
                     FormulaEditEnd();
                     break;
-                    
+
                 case UIStateUpdate.UpdateType.SelectDataSourceShow:
                 case UIStateUpdate.UpdateType.SelectDataSourceWindowChange:
                 case UIStateUpdate.UpdateType.SelectDataSourceHide:
@@ -222,15 +254,15 @@ namespace ExcelDna.IntelliSense
             if (_formulaEditWindow != formulaEditWindow)
             {
                 _formulaEditWindow = formulaEditWindow;
-                if (_argumentsToolTip != null)
-                {
-                    // Rather ChangeParent...?
-                    _argumentsToolTip.Dispose();
-                    _argumentsToolTip = null;
-                }
+                // Rather ChangeParent...?
+                _argumentsToolTip?.Dispose();
+                _argumentsToolTip = null;
+                _paramDropDown?.Dispose();
+                _paramDropDown = null;
                 if (_formulaEditWindow != IntPtr.Zero)
                 {
                     _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
+                    _paramDropDown = new ParamDropDownForm(_formulaEditWindow, _syncContextMain);
                     //_argumentsToolTip.OwnerHandle = _formulaEditWindow;
                 }
                 else
@@ -255,20 +287,23 @@ namespace ExcelDna.IntelliSense
         //            _descriptionToolTip = new ToolTipForm(_functionListWindow);
         //            //_descriptionToolTip.OwnerHandle = _functionListWindow;
         //        }
-                
+
         //    }
         //}
 
         // Runs on the main thread
-        void FormulaEditStart(string formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
+        void FormulaEditStart(FormulaEditWatcher.FormulaData formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditStart - FormulaEditWindow: {_formulaEditWindow}, ArgumentsToolTip: {_argumentsToolTip}");
-            if (_formulaEditWindow != IntPtr.Zero && _argumentsToolTip == null)
-                _argumentsToolTip = new ToolTipForm(_formulaEditWindow);
+            if (_formulaEditWindow != IntPtr.Zero)
+            {
+                _argumentsToolTip ??= new ToolTipForm(_formulaEditWindow);
+                _paramDropDown ??= new ParamDropDownForm(_formulaEditWindow, _syncContextMain);
+            }
 
             // Normally we would have no formula at this point.
             // One exception is after mouse-click on the formula list, we then need to process it.
-            if (!string.IsNullOrEmpty(formulaPrefix))
+            if (!string.IsNullOrEmpty(formulaPrefix.Text))
                 FormulaEditTextChange(formulaPrefix, editWindowBounds, excelToolTipWindow);
         }
 
@@ -277,26 +312,26 @@ namespace ExcelDna.IntelliSense
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditEnd");
             // TODO: When can it be null
-            if (_argumentsToolTip != null)
-            {
-                //_argumentsToolTip.Hide();
-                _argumentsToolTip.Dispose();
-                _argumentsToolTip = null;
-            }
+            //_argumentsToolTip.Hide();
+            _argumentsToolTip?.Dispose();
+            _argumentsToolTip = null;
+
+            _paramDropDown?.Dispose();
+            _paramDropDown = null;
         }
 
         // Runs on the main thread
         void FormulaEditMove(Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"IntelliSenseDisplay - FormulaEditMove");
-            if (_argumentsToolTip == null)
-            {
-                Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");
-                return;
-            }
             int topOffset = GetTopOffset(excelToolTipWindow);
             try
             {
+                if (_argumentsToolTip == null)
+                {
+                    Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ToolTip!?");
+                    return;
+                }
                 _argumentsToolTip.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
             }
             catch (Exception ex)
@@ -306,58 +341,175 @@ namespace ExcelDna.IntelliSense
                 _argumentsToolTip.Dispose();
                 _argumentsToolTip = null;
             }
+
+            try
+            {
+                if (_paramDropDown == null)
+                {
+                    Logger.Display.Warn("FormulaEditMode Unexpected null Arguments ParamDropDown!?");
+                    return;
+                }
+                _paramDropDown.MoveToolTip((int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+            }
+            catch (Exception ex)
+            {
+                Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditMove Error - {ex}");
+                // Recycle the Arguments ParamDropDown - won't show now, but should for the next function
+                _paramDropDown.Dispose();
+                _paramDropDown = null;
+            }
         }
 
         // Runs on the main thread
-        void FormulaEditTextChange(string formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
+        void FormulaEditTextChange(FormulaEditWatcher.FormulaData formulaPrefix, Rect editWindowBounds, IntPtr excelToolTipWindow)
         {
             Debug.Print($"^^^ FormulaEditStateChanged. CurrentPrefix: {formulaPrefix}, Thread {Thread.CurrentThread.ManagedThreadId}");
             string functionName;
             int currentArgIndex;
-            if (FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex))
+            string currentArgValue;
+
+            var parsed = FormulaParser.TryGetFormulaInfo(formulaPrefix, out functionName, out currentArgIndex, out currentArgValue);
+            if (!parsed)
             {
-                FunctionInfo functionInfo;
-                if (_functionInfoMap.TryGetValue(functionName, out functionInfo))
+                // All other paths, we hide the box
+                _argumentsToolTip?.Hide();
+                _paramDropDown?.Hide();
+                return;
+            }
+
+            FunctionInfo functionInfo;
+            var hasFunctionInfo = _functionInfoMap.TryGetValue(functionName, out functionInfo);
+            if (!hasFunctionInfo)
+            {
+                // All other paths, we hide the box
+                _argumentsToolTip?.Hide();
+                _paramDropDown?.Hide();
+                return;
+            }
+
+            var lineBeforeFunctionName = FormulaParser.GetLineBeforeFunctionName(formulaPrefix.Text, functionName);
+            // We have a function name and we want to show info
+            if (_argumentsToolTip != null)
+            {
+                // NOTE: Hiding or moving just once doesn't help - the tooltip pops up in its original place again
+                // TODO: Try to move it off-screen, behind or make invisible
+                //if (!_argumentsToolTip.Visible)
+                //{
+                //    // Fiddle a bit with the ExcelToolTip if it is already visible when we first show our FunctionEdit ToolTip
+                //    // At other times, the explicit UI update should catch and hide as appropriate
+                //    if (excelToolTipWindow != IntPtr.Zero)
+                //    {
+                //        Win32Helper.HideWindow(excelToolTipWindow);
+                //    }
+                //}
+                int topOffset = GetTopOffset(excelToolTipWindow);
+                FormattedText infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
+                try
                 {
-                    var lineBeforeFunctionName = FormulaParser.GetLineBeforeFunctionName(formulaPrefix, functionName);
-                    // We have a function name and we want to show info
-                    if (_argumentsToolTip != null)
-                    {
-                        // NOTE: Hiding or moving just once doesn't help - the tooltip pops up in its original place again
-                        // TODO: Try to move it off-screen, behind or make invisible
-                        //if (!_argumentsToolTip.Visible)
-                        //{
-                        //    // Fiddle a bit with the ExcelToolTip if it is already visible when we first show our FunctionEdit ToolTip
-                        //    // At other times, the explicit UI update should catch and hide as appropriate
-                        //    if (excelToolTipWindow != IntPtr.Zero)
-                        //    {
-                        //        Win32Helper.HideWindow(excelToolTipWindow);
-                        //    }
-                        //}
-                        int topOffset = GetTopOffset(excelToolTipWindow);
-                        FormattedText infoText = GetFunctionIntelliSense(functionInfo, currentArgIndex);
-                        try
-                        {
-                            _argumentsToolTip.ShowToolTip(infoText, lineBeforeFunctionName, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditTextChange Error - {ex}");
-                            _argumentsToolTip.Dispose();
-                            _argumentsToolTip = null;
-                        }
-                    }
-                    else
-                    {
-                        Logger.Display.Info("FormulaEditTextChange with no arguments tooltip !?");
-                    }
+                    _argumentsToolTip.ShowToolTip(infoText, lineBeforeFunctionName, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditTextChange Error - {ex}");
+                    _argumentsToolTip.Dispose();
+                    _argumentsToolTip = null;
+                }
+            }
+            else
+            {
+                Logger.Display.Info("FormulaEditTextChange with no arguments tooltip !?");
+            }
+
+            if (_paramDropDown != null)
+            {
+                var argumentDescription = functionInfo.ArgumentList.ElementAtOrDefault(currentArgIndex);
+                if (argumentDescription == null)
+                {
+                    _paramDropDown.Hide();
                     return;
                 }
 
-            }
+                var description = GetArgumentDescription(argumentDescription);
 
-            // All other paths, we hide the box
-           _argumentsToolTip?.Hide();
+                List<string> collectedValues = new();
+                foreach (var line in description)
+                {
+                    var splitted = line.ToString().Split(new char[] { ':', '-', ',' });
+                    if (splitted.Length < 2)
+                        continue;
+
+                    var typeStr = splitted[1].Trim(' ', '?');
+                    if (string.IsNullOrEmpty(typeStr))
+                        continue;
+
+                    var type = typesInAllAssemblies.FirstOrDefault(t => t.Name == typeStr);
+
+                    if (type is null)
+                        continue;
+
+                    if (type.IsEnum)
+                    {
+                        Array values = Enum.GetValues(type);
+
+                        foreach (var v in values)
+                        {
+                            var value = v.ToString();
+                            collectedValues.Add(value);
+                        }
+                    }
+
+                    if (type == typeof(bool))
+                    {
+                        collectedValues.AddRange(new string[] { "TRUE", "FALSE" });
+                    }
+                }
+
+                if (collectedValues.Count == 0)
+                {
+                    _paramDropDown.Hide();
+                    return;
+                }
+
+                FormattedText infoText = new FormattedText();
+                var trimmedCurrentArgValue = currentArgValue.Trim('"', ',');
+                foreach (var v in collectedValues)
+                {
+                    TextLine line;
+                    if (string.IsNullOrEmpty(trimmedCurrentArgValue))
+                    {
+                        line = new TextLine() { new TextRun() { Text = v } };
+                    }
+                    else if (v.Contains(trimmedCurrentArgValue))
+                    {
+                        line = new TextLine() { new TextRun() { Text = v } };
+                    }
+                    else
+                        continue;
+                    infoText.Add(line);
+                }
+
+                if (!infoText.Any())
+                {
+                    _paramDropDown.Hide();
+                    return;
+                }
+
+                int topOffset = GetTopOffset(excelToolTipWindow);
+                try
+                {
+                    _paramDropDown.ShowSelector(infoText, formulaPrefix.Text, currentArgValue, (int)editWindowBounds.Left, (int)editWindowBounds.Bottom + 5, topOffset);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Display.Warn($"IntelliSenseDisplay - FormulaEditTextChange Error - {ex}");
+                    _paramDropDown.Dispose();
+                    _paramDropDown = null;
+                }
+            }
+            else
+            {
+                Logger.Display.Info("FormulaEditTextChange with no parameter selector !?");
+            }
         }
 
 
@@ -447,17 +599,17 @@ namespace ExcelDna.IntelliSense
             // Not ours or no description
             _descriptionToolTip?.Hide();
         }
-        
+
         void FunctionListMove(Rect selectedItemBounds, Rect listBounds)
         {
             try
             {
                 _descriptionToolTip?.MoveToolTip(
-                   left: (int)listBounds.Right + DescriptionLeftMargin,
-                   top: (int)selectedItemBounds.Bottom - 18,
-                   topOffset: 0,
-                   listLeft: (int)selectedItemBounds.Left,
-                   listTop: (int)selectedItemBounds.Top);
+                    left: (int)listBounds.Right + DescriptionLeftMargin,
+                    top: (int)selectedItemBounds.Bottom - 18,
+                    topOffset: 0,
+                    listLeft: (int)selectedItemBounds.Left,
+                    listTop: (int)selectedItemBounds.Top);
             }
             catch (Exception ex)
             {
@@ -477,8 +629,8 @@ namespace ExcelDna.IntelliSense
                 return null;
 
             return description.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
-                              .Select(line => 
-                                new TextLine { 
+                              .Select(line =>
+                                new TextLine {
                                     new TextRun
                                     {
                                         Style = System.Drawing.FontStyle.Regular,
@@ -546,7 +698,7 @@ namespace ExcelDna.IntelliSense
         // Usually just having the prefix is OK, but in case we have the formula: F(params object[] args) and we write in the formula editor =F(1,2,3,4,5,6,7)
         // and then we move the cursor to point on the second argument, our current implementation will shorten its text and omit any argument after the 3rd argument.
         // But Excel will keep showing the vurtual argument list corresponding to the full formula.
-        // There is no technical problem in getting the full formula - PenHelper will give us the required info - but tracking this throughout the IntelliSense state 
+        // There is no technical problem in getting the full formula - PenHelper will give us the required info - but tracking this throughout the IntelliSense state
         // affects the code in a lot of places, and the benefits seem small, particularly in this case of quirky Excel behaviour.
         List<FunctionInfo.ArgumentInfo> GetExpandedArgumentList(FunctionInfo functionInfo, int currentArgIndex)
         {
@@ -617,6 +769,10 @@ namespace ExcelDna.IntelliSense
         {
             _uiMonitor.StateUpdatePreview -= StateUpdatePreview;
             _uiMonitor.StateUpdate -= StateUpdate;
+
+            _keyboardEventHook.KeyboardEventReceived -= KeyboardEventReceived;
+            _keyboardEventHook.ShouldSwallow -= ShouldSwallowKeyboardEvents;
+
             //// TODO: How to interact with the pending event callbacks?
             //_syncContextMain.Send(delegate
             //    {
