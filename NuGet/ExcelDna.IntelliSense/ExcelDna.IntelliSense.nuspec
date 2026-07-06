@@ -10,6 +10,7 @@
         <repository type="git" url="https://github.com/Excel-DNA/IntelliSense" />
         <icon>images\ExcelDna-nu.png</icon>
         <license type="expression">MIT</license>
+        <readme>README.md</readme>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <description>Excel-DNA IntelliSense is an extension library that provides on-sheet IntelliSense for Excel UDFs.</description>
         <summary>Excel-DNA IntelliSense is an extension library that can be added to an Excel-DNA add-in to provide an integrated IntelliSense server, providing IntelliSense services for all loaded Excel-DNA add-ins and appropriately configured VBA functions.</summary>
@@ -29,5 +30,6 @@
       <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.dll" target="lib\net6.0-windows7.0\" />
       <file src="..\..\Source\ExcelDna.IntelliSense\bin\Release\net6.0-windows\ExcelDna.IntelliSense.pdb" target="lib\net6.0-windows7.0\" />
 	  <file src="..\..\..\ExcelDna\Package\images\ExcelDna-nu.png" target="images\" />
+	  <file src="README.md" target="README.md" />
 	</files>
 </package>
