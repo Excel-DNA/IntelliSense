@@ -1,8 +1,8 @@
-﻿using ExcelDna.IntelliSense.Util;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
+using ExcelDna.IntelliSense.Util;
 
 namespace ExcelDna.IntelliSense
 {
@@ -15,7 +15,43 @@ namespace ExcelDna.IntelliSense
         {
             None = 0,
             FormulaBar = 1,
-            InCellEdit = 2
+            InCellEdit = 2,
+        }
+
+        public static readonly FormulaData EmptyFormula = new() { Text = string.Empty };
+
+        public struct FormulaData : IEquatable<FormulaData>
+        {
+            public string Text { get; set; }
+            public int CaretStartPosition { get; set; }
+            public int CaretEndPosition { get; set; }
+
+            public bool Equals(FormulaData other)
+            {
+                return string.Equals(Text, other.Text, StringComparison.Ordinal)
+                    && CaretStartPosition == other.CaretStartPosition
+                    && CaretEndPosition == other.CaretEndPosition;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is FormulaData other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Text, CaretStartPosition, CaretEndPosition);
+            }
+
+            public static bool operator ==(FormulaData left, FormulaData right)
+            {
+                return left.Equals(right);
+            }
+
+            public static bool operator !=(FormulaData left, FormulaData right)
+            {
+                return !left.Equals(right);
+            }
         }
 
         public enum StateChangeType
@@ -45,9 +81,9 @@ namespace ExcelDna.IntelliSense
         public event EventHandler<StateChangeEventArgs> StateChanged;
 
         public bool IsEditingFormula { get; set; }
-        public string CurrentPrefix { get; set; }    // Null if not editing
-        // We don't really care whether it is the formula bar or in-cell, 
-        // we just need to get the right window handle 
+        public FormulaData? CurrentPrefix { get; set; } // Null if not editing
+        // We don't really care whether it is the formula bar or in-cell,
+        // we just need to get the right window handle
         public Rect EditWindowBounds { get; set; }
 
         public IntPtr FormulaEditWindow
@@ -178,7 +214,7 @@ namespace ExcelDna.IntelliSense
                     }
                     else if (e.ObjectId == WindowWatcher.WindowChangedEventArgs.ChangeObjectId.Caret)
                     {
-                        // We expect this on every text change 
+                        // We expect this on every text change
                         // NOTE: Not anymore after some Excel / Windows update
                         Debug.Print($"-#-#-#- Text Changed ... ");
                         _updateEditStateAfterTimeout.Signal();
@@ -322,9 +358,9 @@ namespace ExcelDna.IntelliSense
         {
             // Switches to our Main UI thread, updates current state and raises StateChanged event
             _syncContextMain.Post(_ =>
-            {
-                UpdateEditStateImpl(moveOnly);
-            }, null);
+                {
+                    UpdateEditStateImpl(moveOnly);
+                }, null);
         }
 
         void UpdateEditStateImpl(bool moveOnly = false)

@@ -9,7 +9,7 @@ namespace ExcelDna.IntelliSense
     // These are immutable representations of the state (reflecting only our interests)
     // We make a fresh a simplified state representation, so that we can make a matching state update representation.
     //
-    // One shortcoming of our representation is that we don't track a second selection list and matching ExcelToolTip 
+    // One shortcoming of our representation is that we don't track a second selection list and matching ExcelToolTip
     // that might pop up for an argument, e.g. VLOOKUP's TRUE/FALSE.
     abstract class UIState
     {
@@ -18,7 +18,7 @@ namespace ExcelDna.IntelliSense
         public class FormulaEdit : UIState
         {
             public IntPtr FormulaEditWindow;    // Window where text entry focus is - either the in-cell edit window, or the formula bar
-            public string FormulaPrefix;        // Never null
+            public FormulaEditWatcher.FormulaData FormulaPrefix;
             public Rect EditWindowBounds;
             public IntPtr ExcelToolTipWindow;   // ExcelToolTipWindow is Zero or is _some_ visible tooltip (either for from the list or the function)
 
@@ -33,12 +33,12 @@ namespace ExcelDna.IntelliSense
                 };
             }
 
-            public virtual FormulaEdit WithFormulaPrefix(string newFormulaPrefix)
+            public virtual FormulaEdit WithFormulaPrefix(FormulaEditWatcher.FormulaData? newFormulaPrefix)
             {
                 return new FormulaEdit
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
-                    FormulaPrefix = newFormulaPrefix ?? "",
+                    FormulaPrefix = newFormulaPrefix ?? FormulaEditWatcher.EmptyFormula,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelToolTipWindow = this.ExcelToolTipWindow
                 };
@@ -107,12 +107,12 @@ namespace ExcelDna.IntelliSense
                 };
             }
 
-            public override FormulaEdit WithFormulaPrefix(string newFormulaPrefix)
+            public override FormulaEdit WithFormulaPrefix(FormulaEditWatcher.FormulaData? newFormulaPrefix)
             {
                 return new FunctionList
                 {
                     FormulaEditWindow = this.FormulaEditWindow,
-                    FormulaPrefix = newFormulaPrefix ?? "",
+                    FormulaPrefix = newFormulaPrefix ?? FormulaEditWatcher.EmptyFormula,
                     EditWindowBounds = this.EditWindowBounds,
                     ExcelToolTipWindow = this.ExcelToolTipWindow,
 
@@ -173,13 +173,13 @@ namespace ExcelDna.IntelliSense
 
             internal FormulaEdit AsFormulaEdit()
             {
-                 return new FormulaEdit
-                    {
-                        FormulaEditWindow = FormulaEditWindow,
-                        FormulaPrefix = FormulaPrefix,
-                        EditWindowBounds = EditWindowBounds,
-                        ExcelToolTipWindow = ExcelToolTipWindow,
-                    };
+                return new FormulaEdit
+                {
+                    FormulaEditWindow = FormulaEditWindow,
+                    FormulaPrefix = FormulaPrefix,
+                    EditWindowBounds = EditWindowBounds,
+                    ExcelToolTipWindow = ExcelToolTipWindow,
+                };
             }
         }
 
@@ -191,21 +191,21 @@ namespace ExcelDna.IntelliSense
 
         public override string ToString()
         {
-            #if DEBUG
-                return $"{GetType().Name}{((this is Ready) ? "" : "\r\n")}{string.Join("\r\n", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
-            #else
-                return base.ToString();
-            #endif
+#if DEBUG
+            return $"{GetType().Name}{((this is Ready) ? "" : "\r\n")}{string.Join("\r\n", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
+#else
+            return base.ToString();
+#endif
         }
 
         // TODO: Figure out what to do with this
         public string LogString()
         {
-            #if DEBUG
-                return $"{GetType().Name}{((this is Ready) ? "" : "\t")}{string.Join("\t", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
-            #else
-                return ToString();
-            #endif
+#if DEBUG
+            return $"{GetType().Name}{((this is Ready) ? "" : "\t")}{string.Join("\t", GetType().GetFields().Select(fld => $"\t{fld.Name}: {fld.GetValue(this)}"))}";
+#else
+            return ToString();
+#endif
         }
 
         // This is the universal update check
@@ -405,22 +405,22 @@ namespace ExcelDna.IntelliSense
         public enum UpdateType
         {
             FormulaEditStart,
-                // These three updates can happen while FunctionList is shown
+            // These three updates can happen while FunctionList is shown
                 FormulaEditMove,    // Includes moving between in-cell editing and the formula text box.
-                FormulaEditWindowChange, // Includes moving between in-cell editing and the formula text box.
-                FormulaEditTextChange,
-                FormulaEditExcelToolTipChange,
+            FormulaEditWindowChange, // Includes moving between in-cell editing and the formula text box.
+            FormulaEditTextChange,
+            FormulaEditExcelToolTipChange,
 
-                FunctionListShow,
-                    FunctionListMove,
-                    FunctionListSelectedItemChange,
-                    FunctionListWindowChange,
-                FunctionListHide,
+            FunctionListShow,
+            FunctionListMove,
+            FunctionListSelectedItemChange,
+            FunctionListWindowChange,
+            FunctionListHide,
 
             FormulaEditEnd,
 
             SelectDataSourceShow,
-                SelectDataSourceWindowChange,
+            SelectDataSourceWindowChange,
             SelectDataSourceHide
         }
         public UIState OldState { get; }

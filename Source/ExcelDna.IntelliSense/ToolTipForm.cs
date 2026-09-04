@@ -23,7 +23,7 @@ namespace ExcelDna.IntelliSense
         bool _linkActive;
         string _linkAddress;
         long _showTimeTicks; // Track to prevent mouse click-through into help
-        // Mouse Capture information for moving        
+        // Mouse Capture information for moving
         bool _captured = false;
         Point _mouseDownScreenLocation;
         Point _mouseDownFormLocation;
@@ -41,7 +41,7 @@ namespace ExcelDna.IntelliSense
         Pen _borderPen;
         Pen _borderLightPen;
         Dictionary<FontStyle, Font> _fonts;
-        ToolTip tipDna;
+        // ToolTip tipDna;
 
         static Font s_standardFont;
 
@@ -126,7 +126,7 @@ namespace ExcelDna.IntelliSense
             if (left != _showLeft || top != _showTop || topOffset != _topOffset || listLeft != _listLeft || listTop != _listTop)
             {
                 // TODO: Is there a way to track this and not fetch every time? or fast-track single screen?
-                var ownerScreen = Screen.FromHandle(_owner.Handle); 
+                var ownerScreen = Screen.FromHandle(_owner.Handle);
                 var workingArea = ownerScreen.WorkingArea;
 
                 // Update the start position and the current position
@@ -203,7 +203,7 @@ namespace ExcelDna.IntelliSense
         }
 
         #region Mouse Handling
-        
+
         void MouseButtonDown(Point screenLocation)
         {
             if (!_linkClientRect.Contains(PointToClient(screenLocation)))
@@ -248,7 +248,7 @@ namespace ExcelDna.IntelliSense
                 return;
             }
 
-            // This delay check of 500 ms is inserted to prevent the double-click on the formula list to also be processed 
+            // This delay check of 500 ms is inserted to prevent the double-click on the formula list to also be processed
             // as a click on the toolip, launching the help erroneously.
             var nowTicks = DateTime.UtcNow.Ticks;
             if (nowTicks - _showTimeTicks < 5000000)
@@ -300,7 +300,7 @@ namespace ExcelDna.IntelliSense
                         if (File.Exists(address))
                         {
                             dynamic app = ExcelDna.Integration.ExcelDnaUtil.Application;
-                            app.Help(address); 
+                            app.Help(address);
                             // Help.ShowHelp(null, address, HelpNavigator.TableOfContents);
                         }
                         else
@@ -316,7 +316,7 @@ namespace ExcelDna.IntelliSense
                 // NOTE: In this case, the Excel process does not quit after closing Excel...
             }
         }
-        
+
         Point GetMouseLocation(IntPtr lParam)
         {
             int x = (short)(unchecked((int)(long)lParam)  & 0xFFFF);
@@ -341,10 +341,10 @@ namespace ExcelDna.IntelliSense
             int layoutLeft = ClientRectangle.Location.X + leftPadding;
             int layoutTop = ClientRectangle.Location.Y;
 
-            var textFormatFlags = TextFormatFlags.Left | 
-                                  TextFormatFlags.Top | 
-                                  TextFormatFlags.NoPadding | 
-                                  TextFormatFlags.SingleLine | 
+            var textFormatFlags = TextFormatFlags.Left |
+                                  TextFormatFlags.Top |
+                                  TextFormatFlags.NoPadding |
+                                  TextFormatFlags.SingleLine |
                                   TextFormatFlags.ExternalLeading;
 
             List<int> lineWidths = new List<int>();
@@ -476,7 +476,7 @@ namespace ExcelDna.IntelliSense
 
             //var thisScreen = Screen.FromControl(this);
             //var screenChange = ownerScreen != thisScreen;
-            
+
             //Debug.Print($"TOOLTIP SCREEN: {thisScreen.DeviceName}");
             //Debug.Print($"OWNER SCREEN: {ownerScreen.DeviceName}");
 
@@ -499,7 +499,7 @@ namespace ExcelDna.IntelliSense
             bool tipFits = workingArea.Contains(new Rectangle(_currentLeft, _currentTop + _topOffset, width, height));
             if (!tipFits && (_currentLeft == _showLeft && _currentTop == _showTop))
             {
-                // It doesn't fit and it's still where we initially tried to show it 
+                // It doesn't fit and it's still where we initially tried to show it
                 // (so it probably hasn't been moved).
                 // Or the screen we are on is not the right one
                 // so we recalc position (or at least clamp)
@@ -552,15 +552,15 @@ namespace ExcelDna.IntelliSense
         void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.tipDna = new System.Windows.Forms.ToolTip(this.components);
+            // this.tipDna = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
-            // 
+            //
             // tipDna
-            // 
-            this.tipDna.ShowAlways = true;
-            // 
+            //
+            // this.tipDna.ShowAlways = true;
+            //
             // ToolTipForm
-            // 
+            //
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(114, 20);
@@ -570,7 +570,7 @@ namespace ExcelDna.IntelliSense
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Name = "ToolTipForm";
             this.ShowInTaskbar = false;
-            this.tipDna.SetToolTip(this, "IntelliSense by Excel-DNA");
+            // this.tipDna.SetToolTip(this, "IntelliSense by Excel-DNA");
             this.ResumeLayout(false);
 
         }
@@ -578,20 +578,6 @@ namespace ExcelDna.IntelliSense
         internal static void SetStandardFont(string standardFontName, double standardFontSize)
         {
             s_standardFont = new Font(standardFontName, (float)standardFontSize);
-        }
-
-        class Win32Window : IWin32Window
-        {
-            public IntPtr Handle
-            {
-                get;
-                private set;
-            }
-
-            public Win32Window(IntPtr handle)
-            {
-                Handle = handle;
-            }
         }
     }
 }
